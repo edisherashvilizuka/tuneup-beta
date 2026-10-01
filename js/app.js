@@ -39,7 +39,7 @@ async function afterSignIn() {
 async function home() {
   try {
     if (S.me.role === 'trainee') { await loadTrainee(); setTabs(TRAINEE_TABS); root('home'); }
-    else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('clients'); }
+    else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('ctoday'); }
     else if (S.me.role === 'admin') { await loadAdmin(); setTabs(ADMIN_TABS); root('aover'); }
   } catch (e) { console.error(e); toast('Could not load your data — pull to refresh or sign in again', 'err'); setTabs([]); root('noinvite'); }
 }
