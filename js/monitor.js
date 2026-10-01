@@ -17,12 +17,12 @@ function sum(L, kind, key) { return L.filter(l => l.kind === kind).reduce((a, l)
 function one(L, kind) { return L.find(l => l.kind === kind) || null; }
 function n0(v) { return Math.round(Number(v) || 0); }
 
-// stats for one pair over the last 7 days (today included)
+// stats for one pair over the last 7 days (today included); a plan item counts as planned only from the day it was created
 export function statsFor(c) {
   const M = S.mon || { logs: [], items: [] }; const today = M.today || isoDate();
   const logs = M.logs.filter(l => l.trainee_id === c.trainee.id); const items = M.items.filter(i => i.pair_id === c.id);
   const days = [6, 5, 4, 3, 2, 1, 0].map(n => addDays(today, -n));
-  const byDay = days.map(d => { const L = logs.filter(l => l.day === d); const planned = items.filter(i => i.day === weekdayOf(new Date(d + 'T00:00:00'))).length; const done = L.filter(l => l.kind === 'exercise').length;
+  const byDay = days.map(d => { const L = logs.filter(l => l.day === d); const planned = items.filter(i => i.day === weekdayOf(new Date(d + 'T00:00:00')) && (!i.created_at || i.created_at.slice(0, 10) <= d)).length; const done = L.filter(l => l.kind === 'exercise').length;
     return { day: d, L, planned, done, kcal: sum(L, 'food'), prot: sum(L, 'food', 'protein_g'), water: sum(L, 'water'), steps: one(L, 'steps'), weight: one(L, 'weight'), ci: one(L, 'checkin'), any: L.length > 0 }; });
   const plannedDays = byDay.filter(x => x.planned), doneDays = plannedDays.filter(x => x.done >= x.planned);
   const foodDays = byDay.filter(x => x.kcal || x.prot), waterDays = byDay.filter(x => x.water), stepDays = byDay.filter(x => x.steps);

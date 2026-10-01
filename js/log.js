@@ -88,7 +88,7 @@ SCREENS.week = () => ({ title: t('This week'), sub: t('Mon–Sun'), body: '<div 
     try {
       const logs = await db.logsBetween(S.me.id, days[0], days[6]);
       const rows = days.filter(d => d <= S.today.day).map((d, i) => {
-        const L = logs.filter(l => l.day === d); const planned = items.filter(x => x.day === i + 1).length, done = L.filter(l => l.kind === 'exercise').length;
+        const L = logs.filter(l => l.day === d); const planned = items.filter(x => x.day === i + 1 && (!x.created_at || x.created_at.slice(0, 10) <= d)).length, done = L.filter(l => l.kind === 'exercise').length;
         const kcal = sumDay(L, 'food'), prot = sumDay(L, 'food', 'protein_g'), water = sumDay(L, 'water'), st = oneOf(L, 'steps'), w = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
         const bits = [planned ? t('workout') + ' ' + done + '/' + planned : t('rest'), kcal ? n0(kcal) + ' ' + unit('kcal') : '', prot ? n0(prot) + ' ' + unit('g') : '', water ? (water / 1000) + ' L' : '', st ? n0(st.value) + ' ' + t('steps') : '', w ? Number(w.value) + ' ' + unit('kg') : ''].filter(Boolean).join(' · ');
         return '<div class="lrow"><div class="grow"><div class="t">' + esc(dayName(i + 1)) + (d === S.today.day ? ' · ' + t('today') : '') + '</div><div class="s">' + esc(bits || t('Nothing logged')) + (ci ? ' · ' + esc(mood(ci.value)) : '') + '</div>' + (ci && ci.note ? '<div class="s">' + esc(ci.note) + '</div>' : '') + '</div></div>';
