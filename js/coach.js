@@ -1,15 +1,17 @@
-// Tune Up beta — coach screens (week 1: clients, client view, invite links, More).
+// Tune Up beta — coach screens: clients, client view (monitoring + plan), invite links, More. Today tab lives in monitor.js.
 import { t, esc, opt, fmtDate, firstName, OPTS, unit } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { planCard, loadPlan } from './plan.js';
+import { loadMonitor, monitorCards, loadClientExtras } from './monitor.js';
 
-export const COACH_TABS = [{ id: 'clients', label: 'Clients', ico: 'users' }, { id: 'invites', label: 'Invites', ico: 'link' }, { id: 'cmore', label: 'More', ico: 'gear' }];
+export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home' }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'invites', label: 'Invites', ico: 'link' }, { id: 'cmore', label: 'More', ico: 'gear' }];
 
 export async function loadCoach() {
   S.clients = await db.myClients(S.me.id);
   S.coachProfile = await db.myCoachProfile(S.me.id);
+  await loadMonitor();
 }
 function tp(c) { const p = c.trainee && c.trainee.trainee_profiles; return (Array.isArray(p) ? p[0] : p) || {}; }
 
@@ -28,9 +30,11 @@ SCREENS.client = ({ id }) => {
   return { title: u.name, sub: c.status === 'active' ? t('Together since {date}', { date: fmtDate(c.started_at, 'dm') }) : t('Ended {date}', { date: fmtDate(c.ended_at, 'dm') }), body:
     '<div class="row">' + avatar(u.name, u.id, 'lg') + '<div class="grow"><div class="h2">' + esc(u.name) + '</div><div class="mute">' + esc([opt('goal', p.goal), p.weight_kg ? p.weight_kg + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div></div>' +
     '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'clientAnswers\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Their answers') + '</div><div class="s">' + esc([opt('experience', p.experience), p.injuries ? t('Injuries') + ': ' + p.injuries : ''].filter(Boolean).join(' · ') || t('Weight, goal, injuries, diet')) + '</div></div>' + I.chev + '</div></div>' +
-    (c.status === 'active' ? (S.plan && S.plan.pairId === c.id ? planCard(c.id) : '<div class="card flat mute">' + t('Loading the plan…') + '</div>') +
+    (c.status === 'active' ? monitorCards(c) + (S.plan && S.plan.pairId === c.id ? planCard(c.id) : '<div class="card flat mute">' + t('Loading the plan…') + '</div>') +
       '<div style="height:8px"></div><button class="btn sec" onclick="A.endPairAsk(\'' + c.id + '\')">' + t('End coaching') + '</button>' : (c.end_note ? '<div class="card flat mute">' + t('Note') + ': ' + esc(c.end_note) + '</div>' : '')),
-    after: async () => { if (c.status === 'active' && !(S.plan && S.plan.pairId === c.id)) { try { await loadPlan(c.id); rerender(); } catch (e) { toast(t('Could not load the plan'), 'err'); } } } };
+    after: async () => { if (c.status !== 'active') return; let changed = false;
+      try { if (S.mon && S.mon.notes[c.id] == null) { await loadClientExtras(c); changed = true; } if (!(S.plan && S.plan.pairId === c.id)) { await loadPlan(c.id); changed = true; } } catch (e) { toast(t('Could not load the plan'), 'err'); }
+      if (changed) rerender(); } };
 };
 SCREENS.clientAnswers = ({ id }) => {
   const c = S.clients.find(x => x.id === id); if (!c) return { title: '', body: empty('users', t('Not found')) };

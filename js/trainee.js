@@ -1,8 +1,9 @@
-// Tune Up beta — trainee screens (week 1: coach card, profile, More).
+// Tune Up beta — trainee screens: Today (workout + log), Plan, Coach, More. Logging itself lives in log.js.
 import { t, esc, opt, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle } from './i18n.js';
 import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { logCards } from './log.js';
 
 export const TRAINEE_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'coach', label: 'Coach', ico: 'users' }, { id: 'more', label: 'More', ico: 'gear' }];
 
@@ -27,12 +28,6 @@ function workoutCard() {
     '<div class="col" style="gap:8px">' + items.map(i => '<div class="task ' + (done.has(i.id) ? 'done' : '') + '" onclick="A.tick(\'' + i.id + '\')"><span class="check ' + (done.has(i.id) ? 'on' : '') + '">' + (done.has(i.id) ? I.check : '') + '</span><div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div><div class="s">' + esc(itemLine(i)) + (i.note ? ' · ' + esc(i.note) : '') + '</div></div>' + videoBtn(i.exercise) + '</div>').join('') + '</div>' +
     (n === items.length ? '<div class="card soft"><div class="h3">' + t('Workout done — nice work!') + '</div></div>' : '');
 }
-function targetsCard() {
-  const tg = S.plan && S.plan.targets; if (!tg || !(tg.kcal || tg.protein_g || tg.water_ml || tg.steps)) return '';
-  const tile = (v, k) => '<div class="tile"><div class="stat"><div class="v">' + v + '</div><div class="k">' + esc(k) + '</div></div></div>';
-  return '<div class="section-title"><span class="eyebrow">' + t('Daily targets') + '</span></div><div class="grid2">' + [tg.kcal ? tile(tg.kcal, unit('kcal')) : '', tg.protein_g ? tile(tg.protein_g + ' ' + unit('g'), t('protein')) : '', tg.water_ml ? tile((tg.water_ml / 1000) + ' L', t('water')) : '', tg.steps ? tile(tg.steps, t('steps')) : ''].join('') + '</div>' +
-    '<div class="mute small">' + t('Logging food, water and steps arrives next week.') + '</div>';
-}
 function goalsCard() {
   const gs = (S.plan && S.plan.goals) || []; if (!gs.length) return '';
   return '<div class="section-title"><span class="eyebrow">' + t('Goals') + '</span></div><div class="card">' + gs.map(g => '<div class="row" style="gap:8px"><span class="check ' + (g.done ? 'on' : '') + '" style="width:20px;height:20px">' + (g.done ? I.check : '') + '</span><span class="grow ' + (g.done ? 'mute' : '') + '">' + esc(g.text) + '</span></div>').join('') + '</div>';
@@ -52,7 +47,7 @@ function coachCard() {
 SCREENS.home = () => {
   const p = S.pair; const active = p && p.status === 'active';
   const body = '<div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' +
-    (active ? (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan, targets and check-ins will appear here as soon as your coach sets them up.') + '</div></div>') + targetsCard() + goalsCard()
+    (active ? (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>') + logCards() + goalsCard()
       : '<div class="card amber"><div class="h3">' + (p ? t('Your coaching with {name} has ended', { name: firstName((p.coach || {}).name) }) : t('No coach yet')) + '</div><div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
   return { title: '', header: false, body };
 };

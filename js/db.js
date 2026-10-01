@@ -97,6 +97,22 @@ export async function setExerciseDone(traineeId, day, itemId, done) {
   await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', 'exercise').eq('ref', itemId));
   if (done) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind: 'exercise', ref: itemId, value: 1 }));
 }
+const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,note,created_at';
+export async function addLog(traineeId, day, kind, value, extra) {
+  return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, protein_g: (extra && extra.protein_g) || null, note: (extra && extra.note) || '' }).select(LOG_COLS).single());
+}
+export async function setDayLog(traineeId, day, kind, value, note) {    // steps / weight / checkin: one row per day
+  await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', kind));
+  if (value != null) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, note: note || '' }).select(LOG_COLS).single());
+}
+export async function deleteLog(id) { return q(sb.from('logs').delete().eq('id', id)); }
+export async function logsForTrainees(ids, from, to) { return q(sb.from('logs').select(LOG_COLS).in('trainee_id', ids).gte('day', from).lte('day', to)); }
+export async function targetsForPairs(ids) { return q(sb.from('targets').select('*').in('pair_id', ids)); }
+export async function planItemsForPairs(ids) { return q(sb.from('plan_items').select('id,pair_id,day').in('pair_id', ids)); }
+
+// ---- coach private notes (one per pair)
+export async function getCoachNote(pairId) { return q(sb.from('coach_notes').select('pair_id,text,updated_at').eq('pair_id', pairId).maybeSingle()); }
+export async function saveCoachNote(pairId, text) { return q(sb.from('coach_notes').upsert({ pair_id: pairId, text, updated_at: new Date().toISOString() })); }
 
 export function inviteLink(kind, code) {
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');

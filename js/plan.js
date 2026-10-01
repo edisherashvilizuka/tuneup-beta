@@ -116,7 +116,7 @@ A.saveTargets = async () => {
   const n = id => { const v = parseInt(val(id), 10); return isNaN(v) ? null : v; };
   const patch = { kcal: n('tg_kcal'), protein_g: n('tg_protein'), water_ml: n('tg_water'), steps: n('tg_steps') };
   busy(true);
-  try { await db.saveTargets(S.plan.pairId, patch); S.plan.targets = { pair_id: S.plan.pairId, ...patch }; closeSheet(); toast(t('Saved')); rerender(); }
+  try { await db.saveTargets(S.plan.pairId, patch); S.plan.targets = { pair_id: S.plan.pairId, ...patch }; const c = (S.clients || []).find(x => x.id === S.plan.pairId); if (c) c.targets = S.plan.targets; closeSheet(); toast(t('Saved')); rerender(); }
   catch (e) { busy(false); toast(t('Could not save — check the numbers'), 'err'); }
 };
 

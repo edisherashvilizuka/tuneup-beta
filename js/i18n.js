@@ -1,5 +1,7 @@
 // Tune Up beta — language + text helpers. English strings are the keys; Georgian lives in ka.js.
-import { KA } from './ka.js';
+import { KA as KA1 } from './ka.js';
+import { KA2 } from './ka2.js';
+const KA = Object.assign({}, KA1, KA2);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}
@@ -43,6 +45,11 @@ const DAYS_SHORT2 = { en: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], ka: ['ო
 export function dayName(d, short) { return (short ? DAYS_SHORT2 : DAYS_FULL)[LANG.cur][(d - 1) % 7]; }
 export function weekdayOf(date) { const g = (date || new Date()).getDay(); return g === 0 ? 7 : g; }
 export function isoDate(date) { const d = date || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+export function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return isoDate(d); }
+export function weekOf(iso) { const w = weekdayOf(new Date(iso + 'T00:00:00')); const mon = addDays(iso, 1 - w); return [0, 1, 2, 3, 4, 5, 6].map(i => addDays(mon, i)); }
+export function fmtDay(iso, opt) { return fmtDate(new Date(iso + 'T00:00:00'), opt); }
+export const MOODS = { 1: 'Rough', 2: 'Low', 3: 'OK', 4: 'Good', 5: 'Great' };
+export function mood(v) { return MOODS[v] ? t(MOODS[v]) : ''; }
 export function exName(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.name_ka) ? x.name_ka : x.name; }
 export function exMuscle(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.muscle_ka) ? x.muscle_ka : x.muscle; }
 export function unit(u) { return LANG.cur === 'ka' ? ({ kg: 'კგ', cm: 'სმ', kcal: 'კკალ', g: 'გ', ml: 'მლ', min: 'წთ' }[u] || u) : u; }
