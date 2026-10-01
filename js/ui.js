@@ -1,5 +1,6 @@
 // Tune Up beta — screens, router, overlays. Screens are functions returning {title, sub, body, footer, header, tabs, center, actions, after}.
 import { t, esc, LANG } from './i18n.js';
+import { S } from './state.js';
 
 export const I = {
   back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
@@ -53,7 +54,7 @@ export function render(anim) {
   let hdr = '';
   if (v.header !== false) {
     hdr = '<div class="hdr">' + (v.back !== false && NAV.stack.length > 1 ? '<button class="back" onclick="A.back()" aria-label="Back">' + I.back + '</button>' : '') +
-      '<div class="grow"><div class="title">' + esc(v.title || '') + '</div>' + (v.sub ? '<div class="sub">' + esc(v.sub) + '</div>' : '') + '</div>' + (v.actions || '') + '</div>';
+      '<div class="grow"><div class="title">' + esc(v.title || '') + '</div>' + (v.sub ? '<div class="sub">' + esc(v.sub) + '</div>' : '') + '</div>' + (v.actions || '') + (v.bell !== false && NAV.tabs.length && NAV.stack.length === 1 ? bell() : '') + '</div>';
   }
   const tabs = v.tabs !== false && NAV.tabs.length ? '<div class="tabbar">' + NAV.tabs.map(tb =>
     '<button class="' + (NAV.tab === tb.id ? 'on' : '') + '" onclick="A.setTab(\'' + tb.id + '\')"><span class="ico">' + I[tb.ico] + '</span>' + esc(t(tb.label)) +
@@ -64,6 +65,7 @@ export function render(anim) {
   if (v.after) v.after();
 }
 
+export function bell() { return '<button class="act" onclick="A.go(\'notifs\')" aria-label="Notifications">' + I.bell + (S.unread ? '<span class="dot"></span>' : '') + '</button>'; }
 export function sheet(html) { const o = document.getElementById('overlay'); if (o) o.innerHTML = '<div class="sheet-bg" onclick="if(event.target===this)A.closeSheet()"><div class="sheet">' + html + '</div></div>'; }
 export function closeSheet() { const o = document.getElementById('overlay'); if (o) o.innerHTML = ''; }
 A.closeSheet = closeSheet;

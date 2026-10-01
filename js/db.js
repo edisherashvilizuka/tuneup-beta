@@ -44,7 +44,7 @@ export async function endPair(id, note) { return q(sb.rpc('end_pair', { p_pair: 
 
 // ---- trainee
 export async function myCoachPair(uid) {
-  return q(sb.from('pairs').select('id,status,format,started_at,ended_at,end_note,coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles(specialties,pitch,gym,district,online,inperson))')
+  return q(sb.from('pairs').select('id,status,format,started_at,ended_at,end_note,coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles(specialties,pitch,gym,district,online,inperson,availability_text))')
     .eq('trainee_id', uid).order('started_at', { ascending: false }).limit(1).maybeSingle());
 }
 export async function myTraineeProfile(uid) { return q(sb.from('trainee_profiles').select('*').eq('id', uid).maybeSingle()); }
@@ -113,6 +113,31 @@ export async function planItemsForPairs(ids) { return q(sb.from('plan_items').se
 // ---- coach private notes (one per pair)
 export async function getCoachNote(pairId) { return q(sb.from('coach_notes').select('pair_id,text,updated_at').eq('pair_id', pairId).maybeSingle()); }
 export async function saveCoachNote(pairId, text) { return q(sb.from('coach_notes').upsert({ pair_id: pairId, text, updated_at: new Date().toISOString() })); }
+
+// ---- chat (per pair)
+const MSG_COLS = 'id,pair_id,sender_id,text,created_at';
+export async function messages(pairId, limit) { return q(sb.from('messages').select(MSG_COLS).eq('pair_id', pairId).order('created_at', { ascending: false }).limit(limit || 100)); }
+export async function messagesSince(pairId, since) { return q(sb.from('messages').select(MSG_COLS).eq('pair_id', pairId).gt('created_at', since).order('created_at')); }
+export async function recentMessages(pairIds) { return q(sb.from('messages').select(MSG_COLS).in('pair_id', pairIds).order('created_at', { ascending: false }).limit(300)); }
+export async function sendMessage(pairId, uid, text) { return q(sb.from('messages').insert({ pair_id: pairId, sender_id: uid, text }).select(MSG_COLS).single()); }
+export async function chatReads(pairIds) { return q(sb.from('chat_reads').select('pair_id,user_id,read_at').in('pair_id', pairIds)); }
+export async function markChatRead(pairId, uid) { return q(sb.from('chat_reads').upsert({ pair_id: pairId, user_id: uid, read_at: new Date().toISOString() })); }
+
+// ---- sessions (calendar)
+const SES_COLS = 'id,pair_id,starts_at,minutes,where_kind,place,note,repeat,repeat_until,status,cancel_note,created_at';
+export async function sessionsFor(pairIds) { return q(sb.from('sessions').select(SES_COLS).in('pair_id', pairIds).order('starts_at')); }
+export async function sessionExceptions(sessionIds) { return sessionIds.length ? q(sb.from('session_exceptions').select('id,session_id,on_date,moved_to,note').in('session_id', sessionIds)) : []; }
+export async function addSession(row) { return q(sb.from('sessions').insert(row).select(SES_COLS).single()); }
+export async function updateSession(id, patch) { return q(sb.from('sessions').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)); }
+export async function addSessionException(row) { return q(sb.from('session_exceptions').upsert(row, { onConflict: 'session_id,on_date' })); }
+
+// ---- notifications (bell) + feedback
+export async function notifications(uid) { return q(sb.from('notifications').select('id,kind,title,body,pair_id,created_at,read_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)); }
+export async function unreadCount(uid) { const { count, error } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).is('read_at', null); if (error) fail(error); return count || 0; }
+export async function markNotificationsRead(uid) { return q(sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null)); }
+export async function sendFeedback(uid, role, screen, text) { return q(sb.from('feedback').insert({ user_id: uid, role, screen, text })); }
+export async function adminLogsToday(day) { const { count, error } = await sb.from('logs').select('id', { count: 'exact', head: true }).eq('day', day); if (error) fail(error); return count || 0; }
+export async function adminFeedback() { return q(sb.from('feedback').select('id,user_id,role,screen,text,created_at').order('created_at', { ascending: false }).limit(100)); }
 
 export function inviteLink(kind, code) {
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');
