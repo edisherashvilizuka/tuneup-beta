@@ -1,0 +1,16 @@
+/* Tune Up beta — additions on top of app.css (loaded after it). */
+.hdr .title{font-size:18px}
+.code-in{letter-spacing:.35em;text-align:center;font-family:var(--font-mono);font-size:22px;padding:14px}
+.link{color:var(--a-accent);font-weight:600;cursor:pointer}
+.spin{width:22px;height:22px;border:2.5px solid var(--a-line);border-top-color:var(--a-accent);border-radius:50%;animation:spin .9s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.note{font-size:13px;color:var(--a-ink2);line-height:1.45}
+.note p{margin:0 0 8px}
+.note ul{margin:0;padding-left:18px}
+.codebox{font-family:var(--font-mono);font-size:15px;letter-spacing:.12em;padding:10px 12px;background:var(--a-bg);border-radius:10px;border:1px dashed var(--a-line);word-break:break-all}
+.err{color:var(--a-red);font-size:13px;font-weight:600}
+.act{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--a-card);border:1px solid var(--a-line);position:relative;flex:none}
+.act .dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--a-accent);border:2px solid var(--a-card)}
+.hdr .act .dot{background:var(--a-accent)}
+.sess .time .small{font-size:10px;font-weight:500}
+.notif .t{font-size:14px}

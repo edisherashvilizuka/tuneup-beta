@@ -1,6 +1,6 @@
 // Tune Up beta — boot: decide which screen the person lands on.
 import { setLang, LANG } from './i18n.js';
-import { root, setTabs, toast, A } from './ui.js';
+import { root, setTabs, toast, A, rerender } from './ui.js';
 import * as db from './db.js';
 import { S, readInviteFromUrl, clearInvite, forgetInvite } from './state.js';
 import { onSignedIn } from './auth.js';
@@ -8,6 +8,8 @@ import { onOnboarded, prefillTrainee } from './onboard.js';
 import { TRAINEE_TABS, loadTrainee } from './trainee.js';
 import { COACH_TABS, loadCoach } from './coach.js';
 import { ADMIN_TABS, loadAdmin } from './admin.js';
+import { loadUnread, track } from './chat.js';
+import './calendar.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -41,9 +43,11 @@ async function home() {
     if (S.me.role === 'trainee') { await loadTrainee(); setTabs(TRAINEE_TABS); root('home'); }
     else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('ctoday'); }
     else if (S.me.role === 'admin') { await loadAdmin(); setTabs(ADMIN_TABS); root('aover'); }
+    track('open');
   } catch (e) { console.error(e); toast('Could not load your data — pull to refresh or sign in again', 'err'); setTabs([]); root('noinvite'); }
 }
 onSignedIn(afterSignIn);
+setInterval(async () => { if (!S.me || !S.me.role || S.me.role === 'admin') return; const before = S.unread; await loadUnread(); if (S.unread !== before) rerender(); }, 60000);
 onOnboarded(async () => { S.me = await db.loadProfile(S.session.user.id); await home(); });
 
 async function boot() {

@@ -5,7 +5,8 @@ export const S = {
   invite: null,      // pending invite from the URL: {kind:'client'|'coach', code, info}
   pair: null,        // trainee: current/last pair with coach; coach: unused
   clients: [],       // coach: pairs with trainees
-  draft: {}          // current form draft
+  draft: {},         // current form draft
+  unread: 0          // unread notifications (bell)
 };
 
 const INV_KEY = 'tuneup-invite';
