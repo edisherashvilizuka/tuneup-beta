@@ -139,6 +139,12 @@ export async function sendFeedback(uid, role, screen, text) { return q(sb.from('
 export async function adminLogsToday(day) { const { count, error } = await sb.from('logs').select('id', { count: 'exact', head: true }).eq('day', day); if (error) fail(error); return count || 0; }
 export async function adminFeedback() { return q(sb.from('feedback').select('id,user_id,role,screen,text,created_at').order('created_at', { ascending: false }).limit(100)); }
 
+// ---- Tune (assistant) — the Edge Function adds the Anthropic key; the browser never sees it
+export async function askTune(payload) {
+  const { data, error } = await sb.functions.invoke('tune', { body: payload });
+  if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }
+  return data || {};
+}
 export function inviteLink(kind, code) {
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');
   return base + '?' + (kind === 'coach' ? 'coach' : 'invite') + '=' + code;

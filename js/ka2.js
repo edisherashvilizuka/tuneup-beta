@@ -43,5 +43,10 @@ export const KA2 = {
   'Move': 'გადატანა', 'Cancel session': 'სესიის გაუქმება', 'Stop repeating after this one': 'ამის შემდეგ აღარ გამეორდეს',
   'Moved — the client is notified': 'გადაიწია — კლიენტს ეცნობა', 'Cancelled — the client is notified': 'გაუქმდა — კლიენტს ეცნობა',
   'Messages with {name}': 'მიმოწერა {name}-თან', 'When you are usually available': 'როდის ხარ ჩვეულებრივ თავისუფალი', 'e.g. Mon–Fri 8–20, Sat mornings': 'მაგ. ორშ–პარ 8–20, შაბათი დილით',
+  // Tune (assistant)
+  'Ask Tune': 'ჰკითხე Tune-ს', 'Your assistant': 'შენი ასისტენტი', 'about {name}': '{name}-ზე', 'Ask Tune about {name}': 'ჰკითხე Tune-ს {name}-ზე', 'How is the week going, what to watch': 'როგორ მიდის კვირა, რას მივაქციო ყურადღება',
+  'Write to Tune': 'მისწერე Tune-ს', 'Tune is thinking…': 'Tune ფიქრობს…', 'Tune could not answer — try again': 'Tune-მა ვერ უპასუხა — სცადე თავიდან', 'Logged': 'ჩაიწერა',
+  "Ask about today's workout, what is left to eat, or tell me what you ate — I will log it.": 'მკითხე დღევანდელ ვარჯიშზე, რა დაგრჩა საჭმელად, ან მითხარი, რა ჭამე — ჩავწერ.',
+  'Ask who missed, what is on today, or how a client is doing.': 'მკითხე, ვინ გამოტოვა, რა არის დღეს, ან როგორ არის კლიენტი.',
   'Logs today': 'დღევანდელი ჩანაწერები', 'Feedback notes': 'უკუკავშირი', 'Feedback': 'უკუკავშირი', 'Nothing yet': 'ჯერ არაფერია'
 };

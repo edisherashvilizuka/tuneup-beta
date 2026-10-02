@@ -5,6 +5,7 @@ import * as db from './db.js';
 import { S } from './state.js';
 import { logCards } from './log.js';
 import { loadUnread, loadChatIndex } from './chat.js';
+import { tuneButton } from './tune.js';
 
 export const TRAINEE_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
 
@@ -48,7 +49,7 @@ function coachCard() {
 
 SCREENS.home = () => {
   const p = S.pair; const active = p && p.status === 'active';
-  const body = '<div class="row between"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div>' + bell() + '</div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' +
+  const body = '<div class="row between"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="row" style="gap:8px">' + (S.pair && S.pair.status === 'active' ? tuneButton() : '') + bell() + '</div></div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' +
     (active ? (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>') + logCards() + goalsCard()
       : '<div class="card amber"><div class="h3">' + (p ? t('Your coaching with {name} has ended', { name: firstName((p.coach || {}).name) }) : t('No coach yet')) + '</div><div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
   return { title: '', header: false, body };
@@ -80,6 +81,7 @@ SCREENS.more = () => ({ title: t('More'), body:
   '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myProfile\')"><div class="grow"><div class="t">' + t('My answers') + '</div><div class="s">' + t('Weight, goal, injuries, diet') + '</div></div>' + I.chev + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.go(\'coach\')"><div class="grow"><div class="t">' + t('Your coach') + '</div><div class="s">' + esc(((S.pair || {}).coach || {}).name || t('No coach yet')) + '</div></div>' + I.chev + '</div>' +
+  '<div class="lrow" style="cursor:pointer" onclick="A.go(\'tune\')"><div class="grow"><div class="t">' + t('Ask Tune') + '</div><div class="s">' + t('Your assistant') + '</div></div>' + I.chev + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.feedbackSheet()"><div class="grow"><div class="t">' + t('Send feedback') + '</div><div class="s">' + t('What is confusing, missing or great?') + '</div></div>' + I.chev + '</div></div>' +
   '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
