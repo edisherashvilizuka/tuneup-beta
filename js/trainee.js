@@ -16,7 +16,7 @@ export async function loadTrainee() {
     const [items, targets, goals, logs] = await Promise.all([db.planItems(S.pair.id), db.getTargets(S.pair.id), db.listGoals(S.pair.id), db.logsForDay(S.me.id, S.today.day)]);
     S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs;
   } else S.plan = null;
-  S.cal = null; S.chat = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
+  S.cal = null; S.chat = null; S.notifs = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
 }
 function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day === day); }
 function doneSet() { return new Set((S.today.logs || []).filter(l => l.kind === 'exercise').map(l => l.ref)); }

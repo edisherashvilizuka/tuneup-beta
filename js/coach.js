@@ -13,7 +13,7 @@ export async function loadCoach() {
   S.clients = await db.myClients(S.me.id);
   S.coachProfile = await db.myCoachProfile(S.me.id);
   await loadMonitor();
-  S.cal = null; S.chat = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
+  S.cal = null; S.chat = null; S.notifs = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
 }
 function tp(c) { const p = c.trainee && c.trainee.trainee_profiles; return (Array.isArray(p) ? p[0] : p) || {}; }
 
