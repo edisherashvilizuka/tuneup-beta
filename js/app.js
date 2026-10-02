@@ -10,6 +10,7 @@ import { COACH_TABS, loadCoach } from './coach.js';
 import { ADMIN_TABS, loadAdmin } from './admin.js';
 import { loadUnread, track } from './chat.js';
 import './calendar.js';
+import './tune.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 

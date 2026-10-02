@@ -4,6 +4,7 @@ import { t, esc, unit, isoDate, addDays, weekdayOf, fmtDay, firstName, mood, fmt
 import { SCREENS, A, I, rerender, toast, val, busy, avatar } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { tuneButton } from './tune.js';
 
 const DAYS_BACK = 13;                       // two weeks of logs for every active client, loaded once with the coach
 export async function loadMonitor() {
@@ -56,7 +57,7 @@ SCREENS.ctoday = () => {
   const eye = rows.filter(r => r.flags.length);
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '" title="' + esc(f.sub) + '">' + esc(f.label) + '</span>';
   const todayLine = r => { const d = r.st.today; const bits = [d.planned ? t('workout') + ' ' + d.done + '/' + d.planned : t('rest day'), d.kcal ? n0(d.kcal) + ' ' + unit('kcal') : '', d.water ? (d.water / 1000) + ' L' : '', d.steps ? n0(d.steps.value) + ' ' + t('steps') : '', d.ci ? mood(d.ci.value) : ''].filter(Boolean); return bits.join(' · '); };
-  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), body:
+  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body:
     '<div class="section-title"><span class="eyebrow">' + t('Needs your eye') + '</span></div>' +
     (eye.length ? eye.map(r => '<div class="card tap" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})"><div class="row">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="chips" style="margin-top:4px">' + r.flags.map(chip).join('') + '</div>' + (r.flags.find(f => f.k === 'note') ? '<div class="mute small" style="margin-top:4px">“' + esc(r.flags.find(f => f.k === 'note').sub) + '”</div>' : '') + '</div>' + I.chev + '</div></div>').join('') : '<div class="card flat mute">' + t('All quiet — nobody needs attention right now.') + '</div>') +
     '<div class="section-title"><span class="eyebrow">' + t('Everyone today') + '</span></div><div class="card">' +
