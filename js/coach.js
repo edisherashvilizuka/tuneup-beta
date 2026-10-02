@@ -5,13 +5,15 @@ import * as db from './db.js';
 import { S } from './state.js';
 import { planCard, loadPlan } from './plan.js';
 import { loadMonitor, monitorCards, loadClientExtras } from './monitor.js';
+import { loadUnread, loadChatIndex } from './chat.js';
 
-export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home' }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'invites', label: 'Invites', ico: 'link' }, { id: 'cmore', label: 'More', ico: 'gear' }];
+export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home' }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'ccal', label: 'Calendar', ico: 'cal' }, { id: 'cmore', label: 'More', ico: 'gear' }];
 
 export async function loadCoach() {
   S.clients = await db.myClients(S.me.id);
   S.coachProfile = await db.myCoachProfile(S.me.id);
   await loadMonitor();
+  S.cal = null; S.chat = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
 }
 function tp(c) { const p = c.trainee && c.trainee.trainee_profiles; return (Array.isArray(p) ? p[0] : p) || {}; }
 
@@ -29,7 +31,8 @@ SCREENS.client = ({ id }) => {
   const p = tp(c); const u = c.trainee;
   return { title: u.name, sub: c.status === 'active' ? t('Together since {date}', { date: fmtDate(c.started_at, 'dm') }) : t('Ended {date}', { date: fmtDate(c.ended_at, 'dm') }), body:
     '<div class="row">' + avatar(u.name, u.id, 'lg') + '<div class="grow"><div class="h2">' + esc(u.name) + '</div><div class="mute">' + esc([opt('goal', p.goal), p.weight_kg ? p.weight_kg + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div></div>' +
-    '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'clientAnswers\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Their answers') + '</div><div class="s">' + esc([opt('experience', p.experience), p.injuries ? t('Injuries') + ': ' + p.injuries : ''].filter(Boolean).join(' · ') || t('Weight, goal, injuries, diet')) + '</div></div>' + I.chev + '</div></div>' +
+    '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'clientAnswers\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Their answers') + '</div><div class="s">' + esc([opt('experience', p.experience), p.injuries ? t('Injuries') + ': ' + p.injuries : ''].filter(Boolean).join(' · ') || t('Weight, goal, injuries, diet')) + '</div></div>' + I.chev + '</div>' +
+    (c.status === 'active' ? '<div class="lrow" style="cursor:pointer" onclick="A.go(\'thread\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Chat') + '</div><div class="s">' + t('Messages with {name}', { name: firstName(u.name) }) + '</div></div>' + I.chev + '</div>' : '') + '</div>' +
     (c.status === 'active' ? monitorCards(c) + (S.plan && S.plan.pairId === c.id ? planCard(c.id) : '<div class="card flat mute">' + t('Loading the plan…') + '</div>') +
       '<div style="height:8px"></div><button class="btn sec" onclick="A.endPairAsk(\'' + c.id + '\')">' + t('End coaching') + '</button>' : (c.end_note ? '<div class="card flat mute">' + t('Note') + ': ' + esc(c.end_note) + '</div>' : '')),
     after: async () => { if (c.status !== 'active') return; let changed = false;
@@ -69,7 +72,7 @@ A.showInvite = (code, note) => {
   sheet('<div class="h2">' + t('Invite link') + '</div><div class="codebox">' + esc(link) + '</div><p class="mute small">' + t('Works once, for 30 days. Send it to the client only.') + '</p>' +
     '<div class="btn-row"><button class="btn sec" onclick="A.copyText(' + JSON.stringify(link).replace(/"/g, '&quot;') + ')">' + I.copy + ' ' + t('Copy') + '</button>' +
     (navigator.share ? '<button class="btn" onclick="A.shareText(' + JSON.stringify(msg).replace(/"/g, '&quot;') + ')">' + I.send + ' ' + t('Send') + '</button>' : '') + '</div>' +
-    '<button class="btn sec" onclick="A.closeSheet();A.setTab(\'invites\')">' + t('Done') + '</button>');
+    '<button class="btn sec" onclick="A.closeSheet();A.go(\'invites\')">' + t('Done') + '</button>');
 };
 A.copyText = async (s) => { try { await navigator.clipboard.writeText(s); toast(t('Copied')); } catch (e) { toast(t('Select and copy the link'), 'err'); } };
 A.shareText = async (s) => { try { await navigator.share({ text: s }); } catch (e) {} };
@@ -81,6 +84,8 @@ SCREENS.cmore = () => {
     '<div class="card"><div class="lrow">' + avatar(S.me.name, S.me.id) + '<div class="grow"><div class="t">' + esc(S.me.name) + '</div><div class="s">' + esc((S.session.user && S.session.user.email) || '') + '</div></div></div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.go(\'coachEdit\')"><div class="grow"><div class="t">' + t('Coach profile') + '</div><div class="s">' + esc([cp.gym, cp.district].filter(Boolean).join(' · ') || t('Gym, district, what you coach')) + '</div></div>' + I.chev + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myExercises\')"><div class="grow"><div class="t">' + t('My exercises') + '</div><div class="s">' + t('Your own moves and video links') + '</div></div>' + I.chev + '</div>' +
+    '<div class="lrow" style="cursor:pointer" onclick="A.go(\'invites\')"><div class="grow"><div class="t">' + t('Invite links') + '</div><div class="s">' + t('One link per client') + '</div></div>' + I.chev + '</div>' +
+    '<div class="lrow" style="cursor:pointer" onclick="A.feedbackSheet()"><div class="grow"><div class="t">' + t('Send feedback') + '</div><div class="s">' + t('What is confusing, missing or great?') + '</div></div>' + I.chev + '</div>' +
     '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div></div>' +
     '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
@@ -88,17 +93,18 @@ SCREENS.cmore = () => {
 };
 
 SCREENS.coachEdit = () => {
-  const cp = S.draft.cp || (S.draft.cp = Object.assign({ specialties: [], pitch: '', gym: '', district: '', inperson: true, online: false }, S.coachProfile || {}));
+  const cp = S.draft.cp || (S.draft.cp = Object.assign({ specialties: [], pitch: '', gym: '', district: '', inperson: true, online: false, availability_text: '' }, S.coachProfile || {}));
   const fmt = cp.inperson && cp.online ? 'either' : cp.online ? 'online' : 'inperson';
   const spec = Object.keys(OPTS.specialty);
   return { title: t('Coach profile'), body:
     field(t('Your name'), 'name', S.draft.name != null ? S.draft.name : S.me.name) +
     '<div class="field"><label>' + t('What you coach') + '</label><div class="chips">' + spec.map(k => '<button class="chip ' + (cp.specialties.includes(k) ? 'on' : '') + '" onclick="A.cpSpec(\'' + k + '\')">' + esc(opt('specialty', k)) + '</button>').join('') + '</div></div>' +
     field(t('One line about you'), 'pitch', cp.pitch, { textarea: true }) + field(t('Gym'), 'gym', cp.gym) + field(t('District'), 'district', cp.district) +
+    field(t('When you are usually available'), 'availability_text', cp.availability_text, { ph: t('e.g. Mon–Fri 8–20, Sat mornings') }) +
     '<div class="field"><label>' + t('How you train clients') + '</label><div class="chips">' + ['inperson', 'online', 'either'].map(k => '<button class="chip ' + (fmt === k ? 'on' : '') + '" onclick="A.cpFormat(\'' + k + '\')">' + esc(opt('format', k)) + '</button>').join('') + '</div></div>' +
     '<button class="btn" onclick="A.cpSave()">' + t('Save') + '</button>' };
 };
-function cpKeep() { const cp = S.draft.cp; ['pitch', 'gym', 'district'].forEach(id => { cp[id] = val(id); }); S.draft.name = val('name'); }
+function cpKeep() { const cp = S.draft.cp; ['pitch', 'gym', 'district', 'availability_text'].forEach(id => { cp[id] = val(id); }); S.draft.name = val('name'); }
 A.cpSpec = (k) => { cpKeep(); const a = S.draft.cp.specialties; const i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); rerender(); };
 A.cpFormat = (k) => { cpKeep(); S.draft.cp.inperson = k !== 'online'; S.draft.cp.online = k !== 'inperson'; rerender(); };
 A.cpSave = async () => {
@@ -106,7 +112,7 @@ A.cpSave = async () => {
   if (name.length < 2) { toast(t('Please enter your name.'), 'err'); return; }
   busy(true);
   try {
-    await db.saveCoachProfile(S.me.id, { specialties: cp.specialties, pitch: cp.pitch, gym: cp.gym, district: cp.district, inperson: cp.inperson, online: cp.online });
+    await db.saveCoachProfile(S.me.id, { specialties: cp.specialties, pitch: cp.pitch, gym: cp.gym, district: cp.district, inperson: cp.inperson, online: cp.online, availability_text: cp.availability_text || '' });
     if (name !== S.me.name) { await db.updateProfile(S.me.id, { name }); S.me.name = name; }
     S.coachProfile = Object.assign({}, S.coachProfile, cp); S.draft = {}; toast(t('Saved')); back();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }

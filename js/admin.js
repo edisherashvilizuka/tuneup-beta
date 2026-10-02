@@ -1,5 +1,5 @@
 // Tune Up beta — admin screens (week 1: coach invites, users, pairs).
-import { t, esc, fmtDate, firstName } from './i18n.js';
+import { t, esc, fmtDate, firstName, fmtTime, isoDate } from './i18n.js';
 import { SCREENS, A, I, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
@@ -7,8 +7,8 @@ import { S } from './state.js';
 export const ADMIN_TABS = [{ id: 'aover', label: 'Overview', ico: 'home' }, { id: 'acoaches', label: 'Coaches', ico: 'shield' }, { id: 'ausers', label: 'Users', ico: 'users' }];
 
 export async function loadAdmin() {
-  const [users, pairs, invites] = await Promise.all([db.adminUsers(), db.adminPairs(), db.coachInvites()]);
-  S.admin = { users, pairs, invites };
+  const [users, pairs, invites, feedback, logsToday] = await Promise.all([db.adminUsers(), db.adminPairs(), db.coachInvites(), db.adminFeedback().catch(() => []), db.adminLogsToday(isoDate()).catch(() => 0)]);
+  S.admin = { users, pairs, invites, feedback, logsToday };
 }
 const ROLE = { trainee: 'Trainee', coach: 'Coach', admin: 'Admin' };
 
@@ -18,7 +18,8 @@ SCREENS.aover = () => {
   const active = a.pairs.filter(p => p.status === 'active').length;
   const stat = (v, k) => '<div class="tile"><div class="stat"><div class="v">' + v + '</div><div class="k">' + esc(k) + '</div></div></div>';
   return { title: t('Overview'), sub: 'Tune Up · ' + t('closed beta'), body:
-    '<div class="grid2">' + stat(active, t('Active pairs')) + stat(coaches, t('Coaches')) + stat(trainees, t('Trainees')) + stat(pending, t('Signed in, no role')) + '</div>' +
+    '<div class="grid2">' + stat(active, t('Active pairs')) + stat(coaches, t('Coaches')) + stat(trainees, t('Trainees')) + stat(pending, t('Signed in, no role')) + stat(a.logsToday || 0, t('Logs today')) + stat((a.feedback || []).length, t('Feedback notes')) + '</div>' +
+    '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'afeedback\')"><div class="grow"><div class="t">' + t('Feedback') + '</div><div class="s">' + ((a.feedback || [])[0] ? esc(a.feedback[0].text).slice(0, 60) : t('Nothing yet')) + '</div></div>' + I.chev + '</div></div>' +
     '<div class="card soft"><div class="h3">' + t('Next step') + '</div><div class="mute">' + t('Create a coach invite, send the link to a vetted coach, then let them invite their clients.') + '</div><button class="btn sm" onclick="A.newCoachInvite()">' + I.plus + ' ' + t('New coach invite') + '</button></div>' +
     '<div class="card"><div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div><div class="lrow" style="cursor:pointer" onclick="A.reloadAdmin()"><div class="grow"><div class="t">' + t('Refresh') + '</div></div></div><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div></div>' };
 };
@@ -64,3 +65,7 @@ A.userSheet = (id) => {
     '<button class="btn sec" onclick="A.closeSheet()">' + t('Close') + '</button>');
 };
 A.toggleActive = async (id, active) => { try { await db.setActive(id, active); closeSheet(); await loadAdmin(); rerender(); toast(active ? t('Account un-paused') : t('Account paused')); } catch (e) { toast(t('Could not change — try again'), 'err'); } };
+SCREENS.afeedback = () => {
+  const list = (S.admin && S.admin.feedback) || []; const who = id => { const u = (S.admin.users || []).find(x => x.id === id); return u ? (u.name || u.email) : '?'; };
+  return { title: t('Feedback'), sub: t('{n} total', { n: list.length }), body: list.length ? '<div class="card">' + list.map(f => '<div class="lrow"><div class="grow"><div class="t" style="white-space:pre-wrap">' + esc(f.text) + '</div><div class="s">' + esc(who(f.user_id)) + ' · ' + esc(f.role) + ' · ' + esc(f.screen) + ' · ' + fmtDate(f.created_at) + ' ' + fmtTime(f.created_at) + '</div></div></div>').join('') + '</div>' : empty('chat', t('Nothing yet')) };
+};

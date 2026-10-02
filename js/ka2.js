@@ -23,5 +23,25 @@ export const KA2 = {
   'Weight moved': 'წონა შეიცვალა', 'this week': 'ამ კვირაში',
   'Last 7 days': 'ბოლო 7 დღე', 'workouts done': 'შესრულებული ვარჯიში', 'avg': 'საშ.', 'protein avg': 'ცილა საშ.', 'steps avg': 'ნაბიჯი საშ.',
   'Check-ins': 'შეფასებები', 'Private notes': 'პირადი ჩანაწერები', 'only you see these': 'ამას მხოლოდ შენ ხედავ',
-  'e.g. knee — avoid deep squats; check weight weekly': 'მაგ. მუხლი — ღრმა ჩაჯდომა არა; წონა ყოველკვირეულად', 'Save note': 'ჩანაწერის შენახვა'
+  'e.g. knee — avoid deep squats; check weight weekly': 'მაგ. მუხლი — ღრმა ჩაჯდომა არა; წონა ყოველკვირეულად', 'Save note': 'ჩანაწერის შენახვა',
+  // week 4: chat, bell, sessions, feedback
+  'Chat': 'ჩატი', 'You': 'შენ', 'No messages yet': 'შეტყობინებები ჯერ არ არის', 'Say hi': 'მიესალმე',
+  'Questions, how a session went, a link to a form-check clip — it all goes here.': 'კითხვები, როგორ ჩაიარა ვარჯიშმა, ტექნიკის ვიდეოს ბმული — ყველაფერი აქ.',
+  'Client': 'კლიენტი', 'Write a message': 'დაწერე შეტყობინება', 'Could not send — try again': 'ვერ გაიგზავნა — სცადე თავიდან',
+  'Notifications': 'შეტყობინებები', 'Nothing yet — messages, sessions and check-ins will show up here.': 'ჯერ არაფერია — შეტყობინებები, სესიები და შეფასებები აქ გამოჩნდება.',
+  'New session': 'ახალი სესია', 'Session cancelled': 'სესია გაუქმდა', 'Session moved': 'სესია გადაიწია',
+  'Tell us what you think': 'გვითხარი შენი აზრი', 'What is confusing, missing or great? We read every note.': 'რა არის გაუგებარი, რა აკლია, რა მოგწონს? ყველა შენიშვნას ვკითხულობთ.',
+  'Your note…': 'შენი შენიშვნა…', 'Send feedback': 'უკუკავშირის გაგზავნა', 'Thank you!': 'მადლობა!', 'What is confusing, missing or great?': 'რა არის გაუგებარი, რა აკლია, რა მოგწონს?',
+  'Sessions': 'სესიები', 'Calendar': 'კალენდარი', 'Video call': 'ვიდეოზარი', 'Join': 'შეერთება', 'min': 'წთ', 'Cancelled': 'გაუქმებული', 'Moved': 'გადაწეული',
+  'every {day}': 'ყოველ {day}', 'No sessions planned yet — your coach adds them here.': 'სესიები ჯერ არ არის დაგეგმილი — მწვრთნელი აქ დაამატებს.',
+  'next 4 weeks': 'მომდევნო 4 კვირა', '{name} is usually available: {when}': '{name} ჩვეულებრივ თავისუფალია: {when}', 'Nothing planned': 'არაფერია დაგეგმილი',
+  'Date': 'თარიღი', 'Time': 'დრო', 'Length': 'ხანგრძლივობა', 'Where': 'სად', 'Gym / in person': 'დარბაზი / პირისპირ', 'Place or video link': 'ადგილი ან ვიდეოს ბმული',
+  'e.g. Fitness One, or https://meet.google.com/…': 'მაგ. Fitness One, ან https://meet.google.com/…', 'Repeat': 'გამეორება', 'One time': 'ერთხელ', 'Every week': 'ყოველ კვირას',
+  'Note (optional)': 'შენიშვნა (არასავალდებულო)', 'e.g. bring your running shoes': 'მაგ. წამოიღე სარბენი ფეხსაცმელი', 'Add session': 'სესიის დამატება',
+  'Pick a date and time.': 'აირჩიე თარიღი და დრო.', 'Paste the video link (starts with https://).': 'ჩასვი ვიდეოს ბმული (იწყება https://-ით).', 'Session added': 'სესია დაემატა',
+  'Move to': 'გადატანა', 'Note to the client (optional)': 'შენიშვნა კლიენტს (არასავალდებულო)', 'e.g. gym closed that day': 'მაგ. დარბაზი იმ დღეს დაკეტილია',
+  'Move': 'გადატანა', 'Cancel session': 'სესიის გაუქმება', 'Stop repeating after this one': 'ამის შემდეგ აღარ გამეორდეს',
+  'Moved — the client is notified': 'გადაიწია — კლიენტს ეცნობა', 'Cancelled — the client is notified': 'გაუქმდა — კლიენტს ეცნობა',
+  'Messages with {name}': 'მიმოწერა {name}-თან', 'When you are usually available': 'როდის ხარ ჩვეულებრივ თავისუფალი', 'e.g. Mon–Fri 8–20, Sat mornings': 'მაგ. ორშ–პარ 8–20, შაბათი დილით',
+  'Logs today': 'დღევანდელი ჩანაწერები', 'Feedback notes': 'უკუკავშირი', 'Feedback': 'უკუკავშირი', 'Nothing yet': 'ჯერ არაფერია'
 };

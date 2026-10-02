@@ -1,11 +1,12 @@
 // Tune Up beta — trainee screens: Today (workout + log), Plan, Coach, More. Logging itself lives in log.js.
 import { t, esc, opt, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle } from './i18n.js';
-import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs } from './ui.js';
+import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs, bell } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { logCards } from './log.js';
+import { loadUnread, loadChatIndex } from './chat.js';
 
-export const TRAINEE_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'coach', label: 'Coach', ico: 'users' }, { id: 'more', label: 'More', ico: 'gear' }];
+export const TRAINEE_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
 
 export async function loadTrainee() {
   S.pair = await db.myCoachPair(S.me.id);
@@ -15,6 +16,7 @@ export async function loadTrainee() {
     const [items, targets, goals, logs] = await Promise.all([db.planItems(S.pair.id), db.getTargets(S.pair.id), db.listGoals(S.pair.id), db.logsForDay(S.me.id, S.today.day)]);
     S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs;
   } else S.plan = null;
+  S.cal = null; S.chat = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
 }
 function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day === day); }
 function doneSet() { return new Set((S.today.logs || []).filter(l => l.kind === 'exercise').map(l => l.ref)); }
@@ -41,12 +43,12 @@ A.tick = async (id) => {
 function coachCard() {
   const p = S.pair; if (!p || p.status !== 'active') return '';
   const c = p.coach || {}; const cp = (c.coach_profiles && (Array.isArray(c.coach_profiles) ? c.coach_profiles[0] : c.coach_profiles)) || {};
-  return '<div class="card tap" onclick="A.setTab(\'coach\')"><div class="row">' + avatar(c.name, c.id) + '<div class="grow"><div class="eyebrow">' + t('Your coach') + '</div><div class="h3">' + esc(c.name) + '</div><div class="mute">' + esc([cp.gym, cp.district].filter(Boolean).join(' · ') || (cp.online ? t('Online') : '')) + '</div></div>' + I.chev + '</div></div>';
+  return '<div class="card tap" onclick="A.go(\'coach\')"><div class="row">' + avatar(c.name, c.id) + '<div class="grow"><div class="eyebrow">' + t('Your coach') + '</div><div class="h3">' + esc(c.name) + '</div><div class="mute">' + esc([cp.gym, cp.district].filter(Boolean).join(' · ') || (cp.online ? t('Online') : '')) + '</div></div>' + I.chev + '</div></div>';
 }
 
 SCREENS.home = () => {
   const p = S.pair; const active = p && p.status === 'active';
-  const body = '<div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' +
+  const body = '<div class="row between"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div>' + bell() + '</div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' +
     (active ? (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>') + logCards() + goalsCard()
       : '<div class="card amber"><div class="h3">' + (p ? t('Your coaching with {name} has ended', { name: firstName((p.coach || {}).name) }) : t('No coach yet')) + '</div><div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
   return { title: '', header: false, body };
@@ -68,6 +70,7 @@ SCREENS.coach = () => {
     (cp.pitch ? '<p class="lead">' + esc(cp.pitch) + '</p>' : '') +
     (cp.specialties && cp.specialties.length ? '<div class="chips">' + cp.specialties.map(s => '<span class="chip sm soft">' + esc(opt('specialty', s)) + '</span>').join('') + '</div>' : '') +
     (cp.gym || cp.district ? '<div class="mute">' + I.pin + ' ' + esc([cp.gym, cp.district].filter(Boolean).join(', ')) + '</div>' : '') +
+    (cp.availability_text ? '<div class="mute">' + I.cal + ' ' + esc(cp.availability_text) + '</div>' : '') +
     '</div>' +
     '<div class="card flat mute small">' + t('Together since {date}', { date: fmtDate(p.started_at, 'dm') }) + ' · ' + esc(opt('format', p.format)) + '</div>' };
 };
@@ -75,7 +78,9 @@ SCREENS.coach = () => {
 SCREENS.more = () => ({ title: t('More'), body:
   '<div class="card"><div class="lrow"><div class="grow"><div class="t">' + esc(S.me.name) + '</div><div class="s">' + esc((S.session.user && S.session.user.email) || '') + '</div></div></div>' +
   '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' +
-  '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myProfile\')"><div class="grow"><div class="t">' + t('My answers') + '</div><div class="s">' + t('Weight, goal, injuries, diet') + '</div></div>' + I.chev + '</div></div>' +
+  '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myProfile\')"><div class="grow"><div class="t">' + t('My answers') + '</div><div class="s">' + t('Weight, goal, injuries, diet') + '</div></div>' + I.chev + '</div>' +
+  '<div class="lrow" style="cursor:pointer" onclick="A.go(\'coach\')"><div class="grow"><div class="t">' + t('Your coach') + '</div><div class="s">' + esc(((S.pair || {}).coach || {}).name || t('No coach yet')) + '</div></div>' + I.chev + '</div>' +
+  '<div class="lrow" style="cursor:pointer" onclick="A.feedbackSheet()"><div class="grow"><div class="t">' + t('Send feedback') + '</div><div class="s">' + t('What is confusing, missing or great?') + '</div></div>' + I.chev + '</div></div>' +
   '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
   '<div class="mute small" style="text-align:center">Tune Up · ' + t('closed beta') + '</div>' });
