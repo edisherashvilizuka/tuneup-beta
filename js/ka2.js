@@ -48,5 +48,6 @@ export const KA2 = {
   'Write to Tune': 'მისწერე Tune-ს', 'Tune is thinking…': 'Tune ფიქრობს…', 'Tune could not answer — try again': 'Tune-მა ვერ უპასუხა — სცადე თავიდან', 'Logged': 'ჩაიწერა',
   "Ask about today's workout, what is left to eat, or tell me what you ate — I will log it.": 'მკითხე დღევანდელ ვარჯიშზე, რა დაგრჩა საჭმელად, ან მითხარი, რა ჭამე — ჩავწერ.',
   'Ask who missed, what is on today, or how a client is doing.': 'მკითხე, ვინ გამოტოვა, რა არის დღეს, ან როგორ არის კლიენტი.',
+  'Profile not ready — try again': 'პროფილი ჯერ მზად არ არის — სცადე თავიდან', 'You already have a coach': 'მწვრთნელი უკვე გყავს', 'Could not load your data — pull to refresh or sign in again': 'მონაცემები ვერ ჩაიტვირთა — განაახლე გვერდი ან შედი თავიდან',
   'Logs today': 'დღევანდელი ჩანაწერები', 'Feedback notes': 'უკუკავშირი', 'Feedback': 'უკუკავშირი', 'Nothing yet': 'ჯერ არაფერია'
 };

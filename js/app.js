@@ -1,5 +1,5 @@
 // Tune Up beta — boot: decide which screen the person lands on.
-import { setLang, LANG } from './i18n.js';
+import { setLang, LANG, t } from './i18n.js';
 import { root, setTabs, toast, A, rerender } from './ui.js';
 import * as db from './db.js';
 import { S, readInviteFromUrl, clearInvite, forgetInvite } from './state.js';
@@ -19,7 +19,7 @@ async function afterSignIn() {
   const uid = S.session.user.id;
   S.me = await db.loadProfile(uid);
   if (!S.me) { await sleep(900); S.me = await db.loadProfile(uid); }        // the profile row is created by a database trigger a moment after sign-up
-  if (!S.me) { toast('Profile not ready — try again', 'err'); setTabs([]); root('welcome'); return; }
+  if (!S.me) { toast(t('Profile not ready — try again'), 'err'); setTabs([]); root('welcome'); return; }
   if (S.me.lang && S.me.lang !== LANG.cur && !S.me.consent_at) setLang(S.me.lang);
   setTabs([]);
   if (S.me.deactivated_at) { root('paused'); return; }
@@ -31,7 +31,7 @@ async function afterSignIn() {
       let paired = false;
       if (S.me.role === 'trainee') { try { const p = await db.myCoachPair(uid); paired = !!(p && p.status === 'active'); } catch (e) {} }
       if (!paired) { S.draft = { name: S.me.name || '' }; await prefillTrainee(); root('traineeJoin'); return; }
-      toast('You already have a coach', 'err');
+      toast(t('You already have a coach'), 'err');
     }
     clearInvite();
   }
@@ -45,7 +45,7 @@ async function home() {
     else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('ctoday'); }
     else if (S.me.role === 'admin') { await loadAdmin(); setTabs(ADMIN_TABS); root('aover'); }
     track('open');
-  } catch (e) { console.error(e); toast('Could not load your data — pull to refresh or sign in again', 'err'); setTabs([]); root('noinvite'); }
+  } catch (e) { console.error(e); toast(t('Could not load your data — pull to refresh or sign in again'), 'err'); setTabs([]); root('noinvite'); }
 }
 onSignedIn(afterSignIn);
 setInterval(async () => { if (!S.me || !S.me.role || S.me.role === 'admin') return; const before = S.unread; await loadUnread(); if (S.unread !== before) rerender(); }, 60000);
