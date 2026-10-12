@@ -1,6 +1,6 @@
 // Tune Up beta — chat per pair (text; clips as links), the bell (notifications) and the feedback sheet.
 import { t, esc, fmtDate, fmtTime, firstName, isoDate } from './i18n.js';
-import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur } from './ui.js';
+import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 
@@ -88,7 +88,4 @@ A.sendFeedback = async () => {
   catch (e) { busy(false); toast(t('Could not send — try again'), 'err'); }
 };
 // usage stats (no personal data): screen names + role only, and only when a PostHog key is set in config.js
-export function track(event, props) {
-  const C = window.TUNE_CFG || {}; if (!C.posthog) return;
-  try { fetch((C.posthogHost || 'https://eu.i.posthog.com') + '/capture/', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ api_key: C.posthog, event, distinct_id: S.me ? S.me.id : 'anon', properties: Object.assign({ role: S.me ? S.me.role : null, lang: document.documentElement.lang }, props || {}) }) }).catch(() => {}); } catch (e) {}
-}
+export { track } from './ui.js';

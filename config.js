@@ -6,7 +6,7 @@ window.TUNE_CFG = {
   supabaseUrl: 'https://tlpquinatxrpxgcqphpv.supabase.co',
   supabaseKey: 'sb_publishable_oObQxyEOBgQc88SnDh2xDQ_yQ1RfMs0',
   proxy: '/.netlify/functions/tune',
-  posthog: '',
+  posthog: 'phc_CCypmPS8SXGwYMCTqQUiAc6gRmNYegCkTwP98cCceeeD',
   posthogHost: 'https://eu.i.posthog.com',
   beta: true
 };

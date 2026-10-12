@@ -1,6 +1,6 @@
 // Tune Up beta — trainee daily logging (food, water, steps, weight, evening check-in) + the week view.
 import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS, exName } from './i18n.js';
-import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy } from './ui.js';
+import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 
@@ -41,13 +41,13 @@ A.saveFood = async () => {
   const kcal = parseInt(val('fd_kcal'), 10), prot = parseFloat(val('fd_prot'));
   if (isNaN(kcal) && isNaN(prot)) { toast(t('Enter calories or protein.'), 'err'); return; }
   busy(true);
-  try { await db.addLog(S.me.id, S.today.day, 'food', isNaN(kcal) ? 0 : kcal, { protein_g: isNaN(prot) ? null : prot, note: val('fd_note') }); closeSheet(); await reloadToday(); }
+  try { await db.addLog(S.me.id, S.today.day, 'food', isNaN(kcal) ? 0 : kcal, { protein_g: isNaN(prot) ? null : prot, note: val('fd_note') }); track('log', { kind: 'food' }); closeSheet(); await reloadToday(); }
   catch (e) { busy(false); fail(e); }
 };
 A.delLog = async (id) => { try { await db.deleteLog(id); await reloadToday(); } catch (e) { fail(e); } };
 
 // ---- water
-A.addWater = async (ml) => { try { await db.addLog(S.me.id, S.today.day, 'water', ml); await reloadToday(); } catch (e) { fail(e); } };
+A.addWater = async (ml) => { try { await db.addLog(S.me.id, S.today.day, 'water', ml); track('log', { kind: 'water' }); await reloadToday(); } catch (e) { fail(e); } };
 A.undoWater = async () => { const w = (S.today.logs || []).filter(l => l.kind === 'water').pop(); if (!w) return; try { await db.deleteLog(w.id); await reloadToday(); } catch (e) { fail(e); } };
 
 // ---- steps / weight (one value per day)
@@ -61,7 +61,7 @@ A.saveNum = async (kind, clear) => {
   const v = clear ? null : parseFloat(val('num_v'));
   if (!clear && (isNaN(v) || v < 0)) { toast(t('Enter a number.'), 'err'); return; }
   busy(true);
-  try { await db.setDayLog(S.me.id, S.today.day, kind, v); closeSheet(); await reloadToday(); }
+  try { await db.setDayLog(S.me.id, S.today.day, kind, v); track('log', { kind }); closeSheet(); await reloadToday(); }
   catch (e) { busy(false); toast(t('Could not save — check the number'), 'err'); }
 };
 
@@ -77,7 +77,7 @@ A.pickMood = (k) => { S.draft.mood = k; const el = document.getElementById('mood
 A.saveCheckin = async () => {
   if (!S.draft.mood) { toast(t('Pick how your day was.'), 'err'); return; }
   busy(true);
-  try { await db.setDayLog(S.me.id, S.today.day, 'checkin', S.draft.mood, val('ci_note')); closeSheet(); toast(t('Saved — see you tomorrow')); await reloadToday(); }
+  try { await db.setDayLog(S.me.id, S.today.day, 'checkin', S.draft.mood, val('ci_note')); track('log', { kind: 'checkin' }); closeSheet(); toast(t('Saved — see you tomorrow')); await reloadToday(); }
   catch (e) { busy(false); fail(e); }
 };
 

@@ -34,7 +34,13 @@ export const NAV = { stack: [], tab: null, tabs: [] };
 export const A = {};                      // actions reachable from inline onclick="A.name()"
 window.A = A;
 
-export function go(name, params, opts) { NAV.stack.push({ name, params: params || {} }); render((opts && opts.anim) || 'enter'); }
+export function go(name, params, opts) { NAV.stack.push({ name, params: params || {} }); render((opts && opts.anim) || 'enter'); track('screen', { name }); }
+
+// usage events (no personal data): screen names, log kinds, feedback, tune
+export function track(event, props) {
+  const C = window.TUNE_CFG || {}; if (!C.posthog) return;
+  try { fetch((C.posthogHost || 'https://eu.i.posthog.com') + '/capture/', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ api_key: C.posthog, event, distinct_id: S.me ? S.me.id : 'anon', properties: Object.assign({ role: S.me ? S.me.role : null, lang: document.documentElement.lang }, props || {}) }) }).catch(() => {}); } catch (e) {}
+}
 export function back() { if (NAV.stack.length > 1) { NAV.stack.pop(); render('enter-back'); } }
 export function replace(name, params) { NAV.stack[NAV.stack.length - 1] = { name, params: params || {} }; render('fade'); }
 export function root(name, params) { NAV.tab = name; NAV.stack = [{ name, params: params || {} }]; render('fade'); }
