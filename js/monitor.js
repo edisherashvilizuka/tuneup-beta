@@ -6,6 +6,7 @@ import * as db from './db.js';
 import { S } from './state.js';
 import { tuneButton } from './tune.js';
 import { pushCard } from './push.js';
+import { guideCard } from './guide.js';
 
 const DAYS_BACK = 13;                       // two weeks of logs for every active client, loaded once with the coach
 export async function loadMonitor() {
@@ -53,12 +54,12 @@ export function flagsFor(c, st) {
 // ---- coach Today tab
 SCREENS.ctoday = () => {
   const active = (S.clients || []).filter(c => c.status === 'active');
-  if (!active.length) return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), body: '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Create an invite link and send it to a client. They sign up through it and land here.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>' };
+  if (!active.length) return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), body: guideCard() + '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Create an invite link and send it to a client. They sign up through it and land here.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>' };
   const rows = active.map(c => { const st = statsFor(c); return { c, st, flags: flagsFor(c, st) }; });
   const eye = rows.filter(r => r.flags.length);
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '" title="' + esc(f.sub) + '">' + esc(f.label) + '</span>';
   const todayLine = r => { const d = r.st.today; const bits = [d.planned ? t('workout') + ' ' + d.done + '/' + d.planned : t('rest day'), d.kcal ? n0(d.kcal) + ' ' + unit('kcal') : '', d.water ? (d.water / 1000) + ' L' : '', d.steps ? n0(d.steps.value) + ' ' + t('steps') : '', d.ci ? mood(d.ci.value) : ''].filter(Boolean); return bits.join(' · '); };
-  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: pushCard() +
+  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: guideCard() + pushCard() +
     '<div class="section-title"><span class="eyebrow">' + t('Needs your eye') + '</span></div>' +
     (eye.length ? eye.map(r => '<div class="card tap" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})"><div class="row">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="chips" style="margin-top:4px">' + r.flags.map(chip).join('') + '</div>' + (r.flags.find(f => f.k === 'note') ? '<div class="mute small" style="margin-top:4px">“' + esc(r.flags.find(f => f.k === 'note').sub) + '”</div>' : '') + '</div>' + I.chev + '</div></div>').join('') : '<div class="card flat mute">' + t('All quiet — nobody needs attention right now.') + '</div>') +
     '<div class="section-title"><span class="eyebrow">' + t('Everyone today') + '</span></div><div class="card">' +

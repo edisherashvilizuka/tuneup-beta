@@ -12,6 +12,7 @@ import { loadUnread, track } from './chat.js';
 import './calendar.js';
 import './tune.js';
 import { initPush, routePending } from './push.js';
+import './guide.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
