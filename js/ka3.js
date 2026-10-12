@@ -12,5 +12,7 @@ export const KA3 = {
   'Notifications are blocked in your phone settings': 'შეტყობინებები დაბლოკილია ტელეფონის პარამეტრებში',
   'Notifications on': 'შეტყობინებები ჩართულია', 'Notifications off': 'შეტყობინებები გამორთულია',
   'Could not turn on notifications — try again': 'შეტყობინებების ჩართვა ვერ მოხერხდა — სცადე თავიდან',
-  'Could not change — try again': 'ვერ შეიცვალა — სცადე თავიდან'
+  'Could not change — try again': 'ვერ შეიცვალა — სცადე თავიდან',
+  // sign-in
+  'It can take a few minutes to arrive. Check the spam folder too.': 'მოსვლას შეიძლება რამდენიმე წუთი დასჭირდეს. სპამის საქაღალდეც შეამოწმე.'
 };

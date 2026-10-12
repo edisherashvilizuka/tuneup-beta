@@ -49,6 +49,7 @@ A.sendCode = async () => {
 
 SCREENS.code = () => ({ title: t('Check your e-mail'), sub: S.draft.email, tabs: false, body:
   '<p class="lead">' + t('We sent a code to {email}. Type all its digits here.', { email: S.draft.email }) + '</p>' +
+  '<div class="mute small" style="margin-bottom:10px">' + t('It can take a few minutes to arrive. Check the spam folder too.') + '</div>' +
   '<input class="input code-in" id="code" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="one-time-code" placeholder="••••••••">' +
   '<div class="err" id="err"></div>' +
   '<button class="btn" onclick="A.verify()">' + t('Sign in') + '</button>' +
