@@ -95,7 +95,7 @@ SCREENS.paused = () => ({ title: t('Account paused'), tabs: false, back: false, 
   '<div class="card amber"><div class="h3">' + t('This account has been paused by the Tune Up team.') + '</div><div class="mute">' + t('Contact us if you think this is a mistake.') + '</div></div>' +
   '<button class="btn sec" onclick="A.signOut()">' + I.logout + ' ' + t('Sign out') + '</button>' });
 
-A.signOut = async () => { try { await db.signOut(); } catch (e) {} S.session = null; S.me = null; S.pair = null; S.clients = []; root('welcome'); };
+A.signOut = async () => { try { const { pushSignOut } = await import('./push.js'); await pushSignOut(); } catch (e) {} try { await db.signOut(); } catch (e) {} S.session = null; S.me = null; S.pair = null; S.clients = []; root('welcome'); };
 
 A.deleteAccountAsk = () => sheet('<div class="h2">' + t('Delete your account?') + '</div><p class="lead">' + t('This removes your profile, logs, messages and pairing for good. It cannot be undone.') + '</p>' +
   '<button class="btn danger" onclick="A.deleteAccount()">' + t('Delete everything') + '</button><button class="btn sec" onclick="A.closeSheet()">' + t('Keep my account') + '</button>');

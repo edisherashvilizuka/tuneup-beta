@@ -131,6 +131,10 @@ export async function addSession(row) { return q(sb.from('sessions').insert(row)
 export async function updateSession(id, patch) { return q(sb.from('sessions').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)); }
 export async function addSessionException(row) { return q(sb.from('session_exceptions').upsert(row, { onConflict: 'session_id,on_date' })); }
 
+// ---- push subscriptions (this phone)
+export async function savePushSub(row) { return q(sb.from('push_subscriptions').upsert(row, { onConflict: 'endpoint' })); }
+export async function deletePushSub(endpoint) { return q(sb.from('push_subscriptions').delete().eq('endpoint', endpoint)); }
+
 // ---- notifications (bell) + feedback
 export async function notifications(uid) { return q(sb.from('notifications').select('id,kind,title,body,pair_id,created_at,read_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)); }
 export async function unreadCount(uid) { const { count, error } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).is('read_at', null); if (error) fail(error); return count || 0; }

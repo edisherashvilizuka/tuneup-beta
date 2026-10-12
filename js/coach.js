@@ -6,6 +6,7 @@ import { S } from './state.js';
 import { planCard, loadPlan } from './plan.js';
 import { loadMonitor, monitorCards, loadClientExtras } from './monitor.js';
 import { loadUnread, loadChatIndex } from './chat.js';
+import { pushRow } from './push.js';
 
 export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home' }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'ccal', label: 'Calendar', ico: 'cal' }, { id: 'cmore', label: 'More', ico: 'gear' }];
 
@@ -86,7 +87,7 @@ SCREENS.cmore = () => {
     '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myExercises\')"><div class="grow"><div class="t">' + t('My exercises') + '</div><div class="s">' + t('Your own moves and video links') + '</div></div>' + I.chev + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.go(\'invites\')"><div class="grow"><div class="t">' + t('Invite links') + '</div><div class="s">' + t('One link per client') + '</div></div>' + I.chev + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.feedbackSheet()"><div class="grow"><div class="t">' + t('Send feedback') + '</div><div class="s">' + t('What is confusing, missing or great?') + '</div></div>' + I.chev + '</div>' +
-    '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div></div>' +
+    '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + pushRow() + '</div>' +
     '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
     '<div class="mute small" style="text-align:center">Tune Up · ' + t('closed beta') + '</div>' };

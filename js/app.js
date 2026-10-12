@@ -11,6 +11,7 @@ import { ADMIN_TABS, loadAdmin } from './admin.js';
 import { loadUnread, track } from './chat.js';
 import './calendar.js';
 import './tune.js';
+import { initPush, routePending } from './push.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -45,6 +46,7 @@ async function home() {
     else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('ctoday'); }
     else if (S.me.role === 'admin') { await loadAdmin(); setTabs(ADMIN_TABS); root('aover'); }
     track('open');
+    await initPush(); rerender(); routePending();   // the push card/row depend on what the phone says
   } catch (e) { console.error(e); toast(t('Could not load your data — pull to refresh or sign in again'), 'err'); setTabs([]); root('noinvite'); }
 }
 onSignedIn(afterSignIn);
