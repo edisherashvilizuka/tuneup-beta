@@ -3,7 +3,8 @@ import { KA as KA1 } from './ka.js';
 import { KA2 } from './ka2.js';
 import { KA3 } from './ka3.js';
 import { KA4 } from './ka4.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4);
+import { KA5 } from './ka5.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}
@@ -54,7 +55,7 @@ export const MOODS = { 1: 'Rough', 2: 'Low', 3: 'OK', 4: 'Good', 5: 'Great' };
 export function mood(v) { return MOODS[v] ? t(MOODS[v]) : ''; }
 export function exName(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.name_ka) ? x.name_ka : x.name; }
 export function exMuscle(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.muscle_ka) ? x.muscle_ka : x.muscle; }
-export function unit(u) { return LANG.cur === 'ka' ? ({ kg: 'კგ', cm: 'სმ', kcal: 'კკალ', g: 'გ', ml: 'მლ', min: 'წთ' }[u] || u) : u; }
+export function unit(u) { return LANG.cur === 'ka' ? ({ kg: 'კგ', cm: 'სმ', kcal: 'კკალ', g: 'გ', ml: 'მლ', min: 'წთ', L: 'ლ' }[u] || u) : u; }
 
 // option labels shared by forms (stored as English keys)
 export const OPTS = {

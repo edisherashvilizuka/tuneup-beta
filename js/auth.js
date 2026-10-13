@@ -43,8 +43,8 @@ A.sendCode = async () => {
   const err = document.getElementById('err');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = t('Please enter a valid e-mail.'); return; }
   S.draft.email = email; err.textContent = ''; busy(true);
-  try { await db.sendCode(email, LANG.cur); go('code'); }
-  catch (e) { busy(false); err.textContent = e.message && /rate|limit|seconds/i.test(e.message) ? t('Too many attempts — wait a minute and try again.') : t('Could not send the code. Check the e-mail and try again.'); }
+  try { await db.sendCode(email, LANG.cur, canCreate()); go('code'); }
+  catch (e) { busy(false); const m = (e && (e.message || e.code)) || ''; err.textContent = /signup|not allowed|otp_disabled|not found/i.test(m) ? t('There is no Tune Up account with this e-mail. Check it for typos — or open the invite link from your coach to join.') : /rate|limit|seconds/i.test(m) ? t('Too many attempts — wait a minute and try again.') : t('Could not send the code. Check the e-mail and try again.'); }
 };
 
 SCREENS.code = () => ({ title: t('Check your e-mail'), sub: S.draft.email, tabs: false, body:
@@ -66,14 +66,18 @@ A.verify = async () => {
   catch (e) { busy(false); err.textContent = t('That code did not work. Check it or request a new one.'); }
   verifying = false;
 };
-A.resend = async () => { try { await db.sendCode(S.draft.email, LANG.cur); toast(t('Code sent again')); } catch (e) { toast(t('Could not send — wait a minute'), 'err'); } };
+// new accounts are made only through a valid invite link (client or coach); plain sign-in is for existing accounts
+function canCreate() { return !!(S.invite && S.invite.info && S.invite.info.valid); }
+A.resend = async () => { try { await db.sendCode(S.draft.email, LANG.cur, canCreate()); toast(t('Code sent again')); } catch (e) { toast(t('Could not send — wait a minute'), 'err'); } };
 
 // ---- consent (health data) — shown once per account
 SCREENS.consent = () => ({ title: t('Before we start'), tabs: false, back: false, body:
   '<div class="row between"><div class="eyebrow">' + t('Your data') + '</div>' + langToggle('lang') + '</div>' +
   '<div class="card note">' +
   '<p>' + t('Tune Up stores what you and your coach enter: name, e-mail, weight, goals, injuries, food and training logs, check-ins and messages. Some of this is health-related data.') + '</p>' +
-  '<p>' + t('It is kept on servers in the EU (Frankfurt), shown only to you, your coach and the Tune Up team, and never sold or shared with anyone else.') + '</p>' +
+  '<p>' + t('It is kept on servers in the EU (Frankfurt) and shown only to you, your coach and the Tune Up team. It is never sold.') + '</p>' +
+  '<p>' + t('When you use Tune, the in-app assistant, your question and the data it needs to answer (plan, logs, answers) are sent to Anthropic in the USA, the AI company that powers it.') + '</p>' +
+  '<p>' + t('We also count which screens are used, under an account number without your name or health data, to see what to improve.') + '</p>' +
   '<p>' + t('You can delete your account and all of its data at any time from More → Delete account.') + '</p>' +
   '<p>' + t('This is a free closed beta: things may change or break, and we may ask you for feedback.') + '</p>' +
   '</div>' +

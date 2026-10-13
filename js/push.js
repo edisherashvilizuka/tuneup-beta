@@ -44,6 +44,7 @@ function routeTap(kind, pair) {
   const coach = S.me.role === 'coach';
   if (kind === 'message') { if (pair && A.openPairChat) A.openPairChat(pair); else root('chat'); }
   else if (kind === 'checkin' && coach && pair) { root('clients'); go('client', { id: pair }); }
+  else if (kind === 'joined' || kind === 'left') { if (coach && A.openClients) A.openClients(kind === 'joined' ? pair : ''); else root('home'); }
   else root(coach ? 'ccal' : 'sessions');
 }
 

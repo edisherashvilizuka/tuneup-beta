@@ -28,11 +28,12 @@ SCREENS.clients = () => {
     actions: '<button class="act" onclick="A.newInvite()" aria-label="Invite">' + I.plus + '</button>' };
 };
 
+function lastKg(c, p) { const w = S.mon ? S.mon.logs.filter(l => l.trainee_id === c.trainee.id && l.kind === 'weight').sort((a, b) => a.day < b.day ? -1 : 1).pop() : null; return w ? Number(w.value) : p.weight_kg; }
 SCREENS.client = ({ id }) => {
   const c = S.clients.find(x => x.id === id); if (!c) return { title: '', body: empty('users', t('Not found')) };
   const p = tp(c); const u = c.trainee;
   return { title: u.name, sub: c.status === 'active' ? t('Together since {date}', { date: fmtDate(c.started_at, 'dm') }) : t('Ended {date}', { date: fmtDate(c.ended_at, 'dm') }), body:
-    '<div class="row">' + avatar(u.name, u.id, 'lg') + '<div class="grow"><div class="h2">' + esc(u.name) + '</div><div class="mute">' + esc([opt('goal', p.goal), p.weight_kg ? p.weight_kg + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div></div>' +
+    '<div class="row">' + avatar(u.name, u.id, 'lg') + '<div class="grow"><div class="h2">' + esc(u.name) + '</div><div class="mute">' + esc([opt('goal', p.goal), lastKg(c, p) ? lastKg(c, p) + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div></div>' +
     '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'clientAnswers\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Their answers') + '</div><div class="s">' + esc([opt('experience', p.experience), p.injuries ? t('Injuries') + ': ' + p.injuries : ''].filter(Boolean).join(' · ') || t('Weight, goal, injuries, diet')) + '</div></div>' + I.chev + '</div>' +
     (c.status === 'active' ? '<div class="lrow" style="cursor:pointer" onclick="A.go(\'thread\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Chat') + '</div><div class="s">' + t('Messages with {name}', { name: firstName(u.name) }) + '</div></div>' + I.chev + '</div>' + '<div class="lrow" style="cursor:pointer" onclick="A.go(\'tune\',{client:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Ask Tune about {name}', { name: firstName(u.name) }) + '</div><div class="s">' + t('How is the week going, what to watch') + '</div></div>' + I.chev + '</div>' : '') + '</div>' +
     (c.status === 'active' ? monitorCards(c) + (S.plan && S.plan.pairId === c.id ? planCard(c.id) : '<div class="card flat mute">' + t('Loading the plan…') + '</div>') +
@@ -119,3 +120,5 @@ A.cpSave = async () => {
     S.coachProfile = Object.assign({}, S.coachProfile, cp); S.draft = {}; toast(t('Saved')); back();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };
+// a client joined or left: reload the list first (the bell and the phone notification land here)
+A.openClients = async (pairId) => { try { await loadCoach(); } catch (e) {} S.notifs = null; root('clients'); if (pairId && (S.clients || []).find(c => c.id === pairId)) go('client', { id: pairId }); };

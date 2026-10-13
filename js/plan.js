@@ -22,7 +22,7 @@ export function planCard(pairId) {
   if (!p) return '';
   const days = [1, 2, 3, 4, 5, 6, 7].map(d => { const n = itemsFor(d).length; return '<div class="lrow" style="cursor:pointer" onclick="A.go(\'planDay\',{day:' + d + '})"><div class="grow"><div class="t">' + esc(dayName(d)) + '</div><div class="s">' + (n ? nEx(n) : t('Rest day')) + '</div></div>' + I.chev + '</div>'; }).join('');
   const tg = p.targets;
-  const tgLine = tg ? [tg.kcal ? tg.kcal + ' ' + unit('kcal') : '', tg.protein_g ? tg.protein_g + ' ' + unit('g') + ' ' + t('protein') : '', tg.water_ml ? (tg.water_ml / 1000) + ' L' : '', tg.steps ? tg.steps + ' ' + t('steps') : ''].filter(Boolean).join(' · ') : t('Not set yet');
+  const tgLine = tg ? [tg.kcal ? tg.kcal + ' ' + unit('kcal') : '', tg.protein_g ? tg.protein_g + ' ' + unit('g') + ' ' + t('protein') : '', tg.water_ml ? (tg.water_ml / 1000) + ' ' + unit('L') : '', tg.steps ? tg.steps + ' ' + t('steps') : ''].filter(Boolean).join(' · ') : t('Not set yet');
   const goals = p.goals.length ? p.goals.map(g => '<div class="row" style="gap:8px"><span class="check ' + (g.done ? 'on' : '') + '" style="width:20px;height:20px">' + (g.done ? I.check : '') + '</span><span class="grow ' + (g.done ? 'mute' : '') + '">' + esc(g.text) + '</span></div>').join('') : '<div class="mute">' + t('No goals yet') + '</div>';
   return '<div class="section-title"><span class="eyebrow">' + t('Weekly plan') + '</span></div><div class="card">' + days + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + t('Daily targets') + '</span><span class="link" onclick="A.targetsSheet()">' + t('Edit') + '</span></div><div class="card"><div class="lead">' + esc(tgLine) + '</div></div>' +
@@ -53,7 +53,7 @@ A.saveItem = async (id) => {
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };
 A.removeItem = async (id) => {
-  try { await db.deletePlanItem(id); S.plan.items = S.plan.items.filter(x => x.id !== id); closeSheet(); rerender(); }
+  try { await db.deletePlanItem(id); S.plan.items = S.plan.items.filter(x => x.id !== id); if (S.mon) S.mon.items = S.mon.items.filter(x => x.id !== id); closeSheet(); rerender(); }
   catch (e) { toast(t('Could not remove — try again'), 'err'); }
 };
 
@@ -80,7 +80,7 @@ A.confirmAdd = async (day, exId) => {
   try {
     const position = itemsFor(day).length;
     const it = await db.addPlanItem({ pair_id: S.plan.pairId, day, exercise_id: exId, position, ...f });
-    S.plan.items.push(it); S.draft.exq = ''; closeSheet(); toast(t('Added')); back();
+    S.plan.items.push(it); if (S.mon) S.mon.items.push({ id: it.id, pair_id: it.pair_id, day: it.day, created_at: it.created_at }); S.draft.exq = ''; closeSheet(); toast(t('Added')); back();
   } catch (e) { busy(false); toast(t('Could not add — try again'), 'err'); }
 };
 
@@ -89,7 +89,8 @@ A.newExercise = (day) => sheet('<div class="h2">' + t('New exercise') + '</div>'
   '<button class="btn" onclick="A.saveExercise(' + (day || 0) + ')">' + t('Save exercise') + '</button>');
 A.saveExercise = async (day) => {
   const name = val('x_name'); if (name.length < 2) { toast(t('Please enter a name.'), 'err'); return; }
-  const video = val('x_video'); if (video && !/^https?:\/\//.test(video)) { toast(t('The video link must start with https://'), 'err'); return; }
+  let video = val('x_video'); if (video && !/^https?:\/\//i.test(video) && /^[\w-]+(\.[\w-]+)+(\/|$)/.test(video)) video = 'https://' + video;   // youtube.com/… → https://youtube.com/…
+  if (video && !/^https?:\/\//i.test(video)) { toast(t('The video link must start with https://'), 'err'); return; }
   busy(true);
   try { const x = await db.addExercise(S.me.id, { name, muscle: val('x_muscle'), video_url: video, note: val('x_note') }); S.exercises.push(x); S.exercises.sort((a, b) => a.name.localeCompare(b.name)); closeSheet(); toast(t('Saved')); if (day) A.addItemFor(day, x.id); else rerender(); }
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }

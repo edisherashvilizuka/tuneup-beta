@@ -1,5 +1,5 @@
 // Tune Up beta — chat per pair (text; clips as links), the bell (notifications) and the feedback sheet.
-import { t, esc, fmtDate, fmtTime, firstName, isoDate } from './i18n.js';
+import { t, esc, fmtDate, fmtTime, fmtDay, firstName, isoDate } from './i18n.js';
 import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
@@ -70,12 +70,20 @@ A.sendMsg = async (id) => {
 };
 
 // ---- bell
+// session times are stored as data and shown in the reader's language (older rows only have the English body)
+function at(ts) { return fmtDate(ts) + ' ' + fmtTime(ts); }
+export function notifBody(n) {
+  const d = n.data || {};
+  if (d.at) return at(d.at) + (d.note ? ' — ' + d.note : '');
+  if (d.on) return fmtDay(d.on) + (d.to ? ' → ' + at(d.to) : '') + (d.note ? ' — ' + d.note : '');
+  return n.body || '';
+}
 export async function loadUnread() { try { S.unread = await db.unreadCount(S.me.id); } catch (e) {} }
 SCREENS.notifs = () => {
   const list = S.notifs || null;
-  const icon = k => k === 'message' ? I.chat : k === 'checkin' ? I.edit : I.cal;
-  const target = n => n.kind === 'message' ? "A.openPairChat('" + n.pair_id + "')" : n.kind === 'checkin' ? "A.go('client',{id:'" + n.pair_id + "'})" : "A.setTab('" + (S.me.role === 'coach' ? 'ccal' : 'sessions') + "')";
-  return { title: t('Notifications'), tabs: false, body: !list ? '<div class="mute">' + t('Loading…') + '</div>' : (list.length ? list.map(n => '<div class="notif ' + (n.read_at ? '' : 'unread') + '" style="cursor:pointer" onclick="' + target(n) + '"><div class="ic ' + (n.kind === 'message' ? '' : n.kind === 'checkin' ? 'blue' : 'amb') + '">' + icon(n.kind) + '</div><div class="grow"><div class="t" style="font-weight:600">' + esc(t(n.title)) + '</div><div class="s mute">' + esc(n.body) + '</div><div class="mute small">' + fmtDate(n.created_at) + ' ' + fmtTime(n.created_at) + '</div></div></div>').join('') : empty('bell', t('Nothing yet — messages, sessions and check-ins will show up here.'))),
+  const icon = k => k === 'message' ? I.chat : k === 'checkin' ? I.edit : (k === 'joined' || k === 'left') ? I.users : I.cal;
+  const target = n => n.kind === 'message' ? "A.openPairChat('" + n.pair_id + "')" : n.kind === 'checkin' ? "A.go('client',{id:'" + n.pair_id + "'})" : (n.kind === 'joined' || n.kind === 'left') ? (S.me.role === 'coach' ? "A.openClients('" + (n.kind === 'joined' ? (n.pair_id || '') : '') + "')" : "A.setTab('home')") : "A.setTab('" + (S.me.role === 'coach' ? 'ccal' : 'sessions') + "')";
+  return { title: t('Notifications'), tabs: false, body: !list ? '<div class="mute">' + t('Loading…') + '</div>' : (list.length ? list.map(n => '<div class="notif ' + (n.read_at ? '' : 'unread') + '" style="cursor:pointer" onclick="' + target(n) + '"><div class="ic ' + (n.kind === 'message' ? '' : n.kind === 'checkin' ? 'blue' : 'amb') + '">' + icon(n.kind) + '</div><div class="grow"><div class="t" style="font-weight:600">' + esc(t(n.title)) + '</div><div class="s mute">' + esc(notifBody(n)) + '</div><div class="mute small">' + fmtDate(n.created_at) + ' ' + fmtTime(n.created_at) + '</div></div></div>').join('') : empty('bell', t('Nothing yet — messages, sessions and check-ins will show up here.'))),
     after: async () => { if (!list) { try { S.notifs = await db.notifications(S.me.id); await db.markNotificationsRead(S.me.id); S.unread = 0; } catch (e) { S.notifs = []; } if (cur().name === 'notifs') rerender(); } } };
 };
 A.openPairChat = (pairId) => { S.notifs = null; root('chat'); if (S.me.role === 'coach') go('thread', { id: pairId }); };
@@ -83,7 +91,7 @@ A.openPairChat = (pairId) => { S.notifs = null; root('chat'); if (S.me.role === 
 // ---- feedback (any screen → More)
 A.feedbackSheet = () => sheet('<div class="h2">' + t('Tell us what you think') + '</div><div class="mute">' + t('What is confusing, missing or great? We read every note.') + '</div>' + field('', 'fb_text', '', { textarea: true, ph: t('Your note…') }) + '<button class="btn" onclick="A.sendFeedback()">' + t('Send feedback') + '</button>');
 A.sendFeedback = async () => {
-  const text = val('fb_text'); if (!text) return; busy(true);
+  const text = val('fb_text'); if (!text) { toast(t('Write a few words first.'), 'err'); return; } busy(true);
   try { await db.sendFeedback(S.me.id, S.me.role || '', cur().name, text); closeSheet(); toast(t('Thank you!')); track('feedback'); }
   catch (e) { busy(false); toast(t('Could not send — try again'), 'err'); }
 };

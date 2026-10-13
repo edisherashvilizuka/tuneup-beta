@@ -4,6 +4,7 @@ import { SCREENS, A, I, rerender } from './ui.js';
 import { S } from './state.js';
 
 const SEEN = 'tuneup-guide-seen';
+function seenKey() { return SEEN + ':' + ((S.me && S.me.id) || ''); }   // per person, so a second account on the same phone still gets the card
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const COACH = [
@@ -32,12 +33,12 @@ SCREENS.guide = () => ({ title: t('How Tune Up works'), sub: S.me && S.me.role =
   '<div class="col" style="gap:10px">' + guideSteps().map((s, i) => '<div class="card"><div class="row" style="gap:12px;align-items:flex-start"><div class="avatar" style="background:var(--a-accent);flex:none">' + (i + 1) + '</div><div class="grow"><div class="h3">' + esc(t(s[0])) + '</div><div class="mute">' + esc(t(s[1])) + '</div></div></div></div>').join('') + '</div>' +
   '<div class="mute small" style="text-align:center;margin-top:12px">' + t('Questions? Write to us from More → Send feedback.') + '</div>' });
 
-A.guideSeen = () => { try { localStorage.setItem(SEEN, '1'); } catch (e) {} rerender(); };
+A.guideSeen = () => { try { localStorage.setItem(seenKey(), '1'); } catch (e) {} rerender(); };
 A.openGuide = () => { A.guideSeen(); A.go('guide'); };
 
 // one-time card on Today until the guide is opened or dismissed
 export function guideCard() {
-  let seen = false; try { seen = !!localStorage.getItem(SEEN); } catch (e) {}
+  let seen = false; try { seen = !!localStorage.getItem(seenKey()); } catch (e) {}
   if (seen) return '';
   return '<div class="card soft"><div class="h3">' + t('New here? Two minutes to get going') + '</div><div class="mute">' + (S.me && S.me.role === 'coach' ? t('Invite clients, build a plan, set targets, plan sessions — the short version.') : t('What to log every day and how to talk to your coach — the short version.')) + '</div><div class="btn-row"><button class="btn sm" onclick="A.openGuide()">' + t('Read the guide') + '</button><button class="btn sec sm" onclick="A.guideSeen()">' + t('Got it') + '</button></div></div>';
 }

@@ -13,8 +13,8 @@ async function q(p) { const { data, error } = await p; if (error) fail(error); r
 // ---- auth
 export async function getSession() { const { data } = await sb.auth.getSession(); return data.session || null; }
 export function onAuthChange(cb) { sb.auth.onAuthStateChange((ev, session) => cb(ev, session)); }
-export async function sendCode(email, lang) {
-  return q(sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, data: { lang } } }));
+export async function sendCode(email, lang, create) {   // create = false: only existing accounts get a code (a typo never makes a new account)
+  return q(sb.auth.signInWithOtp({ email, options: { shouldCreateUser: !!create, data: { lang } } }));
 }
 export async function verifyCode(email, token) {
   // a first-time sign-up carries a 'signup' code, a returning user a magic-link code; try each
@@ -48,6 +48,7 @@ export async function myCoachPair(uid) {
     .eq('trainee_id', uid).order('started_at', { ascending: false }).limit(1).maybeSingle());
 }
 export async function myTraineeProfile(uid) { return q(sb.from('trainee_profiles').select('*').eq('id', uid).maybeSingle()); }
+export async function updateTraineeProfile(uid, patch) { return q(sb.from('trainee_profiles').update(Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq('id', uid).select('*').single()); }
 export async function saveTraineeProfile(uid, patch) { return q(sb.from('trainee_profiles').upsert({ id: uid, ...patch, updated_at: new Date().toISOString() })); }
 
 // ---- coach
@@ -136,7 +137,7 @@ export async function savePushSub(row) { return q(sb.from('push_subscriptions').
 export async function deletePushSub(endpoint) { return q(sb.from('push_subscriptions').delete().eq('endpoint', endpoint)); }
 
 // ---- notifications (bell) + feedback
-export async function notifications(uid) { return q(sb.from('notifications').select('id,kind,title,body,pair_id,created_at,read_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)); }
+export async function notifications(uid) { return q(sb.from('notifications').select('id,kind,title,body,data,pair_id,created_at,read_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)); }
 export async function unreadCount(uid) { const { count, error } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).is('read_at', null); if (error) fail(error); return count || 0; }
 export async function markNotificationsRead(uid) { return q(sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null)); }
 export async function sendFeedback(uid, role, screen, text) { return q(sb.from('feedback').insert({ user_id: uid, role, screen, text })); }

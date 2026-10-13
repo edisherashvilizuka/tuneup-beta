@@ -33,7 +33,7 @@ export function occurrences(from, to) {
   return out.sort((a, b) => a.at - b.at);
 }
 function whereLine(s) { return s.where_kind === 'video' ? t('Video call') : (s.place || t('In person')); }
-function joinBtn(o) { return o.s.where_kind === 'video' && /^https?:\/\//.test(o.s.place) && !o.cancelled ? '<a class="btn xs" href="' + esc(o.s.place) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + t('Join') + '</a>' : ''; }
+function joinBtn(o) { return o.s.where_kind === 'video' && /^https?:\/\//.test(o.s.place) && !o.cancelled && o.at.getTime() + o.s.minutes * 60000 > Date.now() ? '<a class="btn xs" href="' + esc(o.s.place) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + t('Join') + '</a>' : ''; }
 function occRow(o, withName, tap) {
   return '<div class="sess" ' + (tap ? 'style="cursor:pointer" onclick="' + tap + '"' : '') + '><div class="time">' + fmtTime(o.at) + '<span class="mute small">' + o.s.minutes + ' ' + t('min') + '</span></div><div class="grow"><div class="t" style="font-weight:500' + (o.cancelled ? ';text-decoration:line-through' : '') + '">' + (withName ? esc(pairName(o.s.pair_id)) + ' · ' : '') + esc(whereLine(o.s)) + '</div><div class="s mute small">' + (o.cancelled ? '<span class="tag bad">' + t('Cancelled') + '</span> ' : o.moved ? '<span class="tag warn">' + t('Moved') + '</span> ' : '') + [o.s.repeat === 'weekly' ? t('every {day}', { day: dayName(weekdayOf(new Date(o.s.starts_at))) }) : '', esc(o.note || o.s.note || '')].filter(Boolean).join(' · ') + '</div></div>' + joinBtn(o) + '</div>';
 }
@@ -87,10 +87,16 @@ A.newSession = (date) => {
     field(t('Note (optional)'), 's_note', '', { ph: t('e.g. bring your running shoes') }) +
     '<button class="btn" onclick="A.saveSession()">' + t('Add session') + '</button>');
 };
-A.sesPick = (k, v, el) => { S.draft.ses[k === 'len' ? 'minutes' : k] = v; [...el.parentNode.children].forEach(c => c.classList.toggle('on', c === el)); };
+A.sesPick = (k, v, el) => {
+  S.draft.ses[k === 'len' ? 'minutes' : k] = v; [...el.parentNode.children].forEach(c => c.classList.toggle('on', c === el));
+  if (k === 'where') { const p = document.getElementById('s_place'), gym = (S.coachProfile && S.coachProfile.gym) || ''; if (p) { if (v === 'video' && !/^https?:/i.test(p.value)) { p.value = ''; p.placeholder = 'https://meet.google.com/…'; p.focus(); } else if (v === 'gym' && !p.value) p.value = gym; } }
+};
+// a session can't start in the past (a few minutes of grace for "right now")
+function inPast(date, time) { return new Date(date + 'T' + time).getTime() < Date.now() - 10 * 60000; }
 A.saveSession = async () => {
   const d = S.draft.ses; const date = val('s_date'), time = val('s_time'); const pairSel = document.getElementById('s_pair');
   if (!date || !time) { toast(t('Pick a date and time.'), 'err'); return; }
+  if (inPast(date, time)) { toast(t('That time has already passed — pick a later one.'), 'err'); return; }
   const place = val('s_place'); if (d.where === 'video' && !/^https?:\/\//.test(place)) { toast(t('Paste the video link (starts with https://).'), 'err'); return; }
   busy(true);
   try {
@@ -106,11 +112,13 @@ A.sessionSheet = (id, date) => {
     (o.cancelled ? '<div class="tag bad" style="align-self:flex-start">' + t('Cancelled') + '</div>' : '') +
     '<div class="input-row">' + field(t('Move to'), 'm_date', o.date || date, { type: 'date' }) + field(t('Time'), 'm_time', fmtTime(o.at), { type: 'time' }) + '</div>' +
     field(t('Note to the client (optional)'), 'm_note', '', { ph: t('e.g. gym closed that day') }) +
-    '<div class="btn-row"><button class="btn" onclick="A.moveSession(\'' + id + '\',\'' + date + '\')">' + t('Move') + '</button><button class="btn danger" onclick="A.cancelSession(\'' + id + '\',\'' + date + '\')">' + t('Cancel session') + '</button></div>' +
+    '<div class="btn-row"><button class="btn" onclick="A.moveSession(\'' + id + '\',\'' + date + '\')">' + t('Move') + '</button><button class="btn danger" onclick="A.cancelSession(\'' + id + '\',\'' + date + '\',this)">' + t('Cancel session') + '</button></div>' +
     (s.repeat === 'weekly' ? '<button class="btn sec" onclick="A.stopRepeat(\'' + id + '\',\'' + date + '\')">' + t('Stop repeating after this one') + '</button>' : ''));
 };
 A.moveSession = async (id, date) => {
-  const s = S.cal.sessions.find(x => x.id === id); const nd = val('m_date'), nt = val('m_time'); if (!nd || !nt) return; busy(true);
+  const s = S.cal.sessions.find(x => x.id === id); const nd = val('m_date'), nt = val('m_time'); if (!nd || !nt) return;
+  if (inPast(nd, nt)) { toast(t('That time has already passed — pick a later one.'), 'err'); return; }
+  busy(true);
   const at = new Date(nd + 'T' + nt).toISOString();
   try {
     if (s.repeat === 'weekly') await db.addSessionException({ session_id: id, on_date: date, moved_to: at, note: val('m_note') });
@@ -118,7 +126,8 @@ A.moveSession = async (id, date) => {
     closeSheet(); toast(t('Moved — the client is notified')); await loadSessions(); rerender();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };
-A.cancelSession = async (id, date) => {
+A.cancelSession = async (id, date, el) => {
+  if (el && !el.dataset.armed) { el.dataset.armed = '1'; el.textContent = t('Tap again to cancel — the client is told'); setTimeout(() => { if (el.isConnected) { delete el.dataset.armed; el.textContent = t('Cancel session'); } }, 4000); return; }
   const s = S.cal.sessions.find(x => x.id === id); busy(true);
   try {
     if (s.repeat === 'weekly') await db.addSessionException({ session_id: id, on_date: date, moved_to: null, note: val('m_note') });
