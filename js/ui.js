@@ -73,7 +73,14 @@ export function render(anim) {
 }
 
 export function bell() { return '<button class="act" onclick="A.go(\'notifs\')" aria-label="Notifications">' + I.bell + (S.unread ? '<span class="dot"></span>' : '') + '</button>'; }
-export function sheet(html) { const o = document.getElementById('overlay'); if (o) o.innerHTML = '<div class="sheet-bg" onclick="if(event.target===this)A.closeSheet()"><div class="sheet">' + html + '</div></div>'; }
+export function sheet(html) {
+  const o = document.getElementById('overlay'); if (!o) return;
+  o.innerHTML = '<div class="sheet-bg" onclick="if(event.target===this)A.closeSheet()"><div class="sheet">' + html + '</div></div>';
+  // the trailing buttons go into a footer that stays at the bottom while the form above it scrolls
+  const sh = o.querySelector('.sheet'); const tail = [];
+  for (let c = sh.lastElementChild; c && (c.matches('button.btn, .btn-row')); c = c.previousElementSibling) tail.unshift(c);
+  if (tail.length) { const f = document.createElement('div'); f.className = 'sheet-foot'; tail.forEach(c => f.appendChild(c)); sh.appendChild(f); if (sh.scrollHeight <= sh.clientHeight + 1) f.classList.add('flat'); }
+}
 export function closeSheet() { const o = document.getElementById('overlay'); if (o) o.innerHTML = ''; }
 A.closeSheet = closeSheet;
 

@@ -14,3 +14,17 @@
 .hdr .act .dot{background:var(--a-accent)}
 .sess .time .small{font-size:10px;font-weight:500}
 .notif .t{font-size:14px}
+
+/* visual QA 2026-10-13 (phone sizes 360–430 px) */
+a.btn{text-decoration:none}                                   /* Join / Video buttons were underlined */
+.input-row .field{min-width:0}                                 /* date + time no longer push past the edge on 360 px phones */
+.input-row .input{min-width:0;width:100%;box-sizing:border-box}
+.grid2 .stat .v{white-space:nowrap;font-size:clamp(16px,5vw,21px)}   /* "1200 / 1800" stays on one line */
+.link{display:inline-block;padding:10px 8px;margin:-10px -8px}     /* text links (Edit, Add, This week ›) get a finger-sized tap area */
+.btn.xs{padding:8px 12px;min-height:34px}
+.cal .dn{font-size:11px}
+/* the main buttons of a sheet stay visible while its form scrolls (short phones) */
+.sheet:has(.sheet-foot){padding-bottom:0!important}
+.sheet-foot{position:sticky;bottom:0;margin:0 -18px;padding:10px 18px calc(20px + env(safe-area-inset-bottom,0px));background:var(--a-card);display:flex;flex-direction:column;gap:10px;box-shadow:0 -1px 0 var(--a-line)}
+.sheet-foot.flat{box-shadow:none}
+button.check{position:relative}button.check::after{content:"";position:absolute;inset:-10px}   /* goal tick: bigger tap area */
