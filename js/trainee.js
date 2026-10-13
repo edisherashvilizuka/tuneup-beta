@@ -51,7 +51,7 @@ function coachCard() {
 
 SCREENS.home = () => {
   const p = S.pair; const active = p && p.status === 'active';
-  const body = '<div class="row between"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="row" style="gap:8px">' + (S.pair && S.pair.status === 'active' ? tuneButton() : '') + bell() + '</div></div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' + (active ? guideCard() + pushCard() : '') +
+  const body = '<div class="row between"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="row" style="gap:8px">' + (S.pair && S.pair.status === 'active' ? tuneButton() : '') + bell() + '</div></div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' + (active ? (guideCard() || pushCard()) : '') +
     (active ? (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>') + logCards() + goalsCard()
       : '<div class="card amber"><div class="h3">' + (p ? t('Your coaching with {name} has ended', { name: firstName((p.coach || {}).name) }) : t('No coach yet')) + '</div><div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
   return { title: '', header: false, body };
@@ -60,7 +60,10 @@ SCREENS.home = () => {
 SCREENS.plan = () => {
   if (!S.plan) return { title: t('Plan'), body: empty('plan', t('No plan yet')) };
   const td = weekdayOf();
-  const body = [1, 2, 3, 4, 5, 6, 7].map(d => { const items = itemsFor(d); return '<div class="section-title"><span class="eyebrow">' + esc(dayName(d)) + (d === td ? ' · ' + t('today') : '') + '</span></div>' + (items.length ? '<div class="card">' + items.map(i => '<div class="lrow"><div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div><div class="s">' + esc(itemLine(i)) + (i.note ? ' · ' + esc(i.note) : '') + '</div></div>' + videoBtn(i.exercise) + '</div>').join('') + '</div>' : '<div class="card flat mute">' + t('Rest day') + '</div>'); }).join('');
+  // training days as cards; rest days as one thin line; today marked
+  const body = [1, 2, 3, 4, 5, 6, 7].map(d => { const items = itemsFor(d); const today = d === td;
+    if (!items.length) return '<div class="rest-line' + (today ? ' today' : '') + '"><span>' + esc(dayName(d)) + (today ? ' · ' + t('today') : '') + '</span><span class="mute">' + t('Rest day') + '</span></div>';
+    return '<div class="section-title"><span class="eyebrow"' + (today ? ' style="color:var(--a-accent)"' : '') + '>' + esc(dayName(d)) + (today ? ' · ' + t('today') : '') + '</span></div><div class="card' + (today ? ' today-card' : '') + '">' + items.map(i => '<div class="lrow"><div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div><div class="s">' + esc(itemLine(i)) + (i.note ? ' · ' + esc(i.note) : '') + '</div></div>' + videoBtn(i.exercise) + '</div>').join('') + '</div>'; }).join('');
   return { title: t('Weekly plan'), sub: t('from {name}', { name: firstName((S.pair.coach || {}).name) }), body };
 };
 

@@ -47,14 +47,24 @@ function coachContext(focusId) {
 }
 
 // ---- the screen
+// example questions on an empty Tune screen (tap one to ask it)
+let EXAMPLES = [];
+function examples(name) {
+  if (S.me.role !== 'coach') return [t('What is left to eat today?'), t('What is my workout today?'), t('I ate two eggs and a toast')];
+  if (name) return [t('How is {name}’s week going?', { name: firstName(name) }), t('What should I watch with {name}?', { name: firstName(name) })];
+  return [t('Who needs attention today?'), t('Who missed a workout this week?')];
+}
+A.tuneExample = (i, client) => { const inp = document.getElementById('tq'); if (!inp || !EXAMPLES[i]) return; inp.value = EXAMPLES[i]; A.askTune(client); };
 SCREENS.tune = (params) => {
   const st = tuneState(); const client = params && params.client; const name = client ? clientName(client) : '';
   const intro = S.me.role === 'coach' ? t('Ask who missed, what is on today, or how a client is doing.') : t("Ask about today's workout, what is left to eat, or tell me what you ate — I will log it.");
-  const body = '<div class="chat">' + '<div class="msg them">' + esc(intro) + '</div>' + st.msgs.map(m => '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + esc(m.content).replace(/\n/g, '<br>') + '</div>').join('') + (st.busy ? '<div class="msg them mute">' + t('Tune is thinking…') + '</div>' : '') + '</div>';
+  const ex = st.msgs.length ? [] : examples(name); EXAMPLES = ex;
+  const exHtml = ex.length ? '<div class="chips tune-ex">' + ex.map((q, i) => '<button class="chip" onclick="A.tuneExample(' + i + (client ? ",'" + client + "'" : '') + ')">' + esc(q) + '</button>').join('') + '</div>' : '';
+  const body = '<div class="chat">' + '<div class="msg them">' + esc(intro) + '</div>' + exHtml + st.msgs.map(m => '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + esc(m.content).replace(/\n/g, '<br>') + '</div>').join('') + (st.busy ? '<div class="msg them mute">' + t('Tune is thinking…') + '</div>' : '') + '</div>';
   return { title: 'Tune', sub: name ? t('about {name}', { name: firstName(name) }) : t('Your assistant'), tabs: false, body,
     footer: '<div class="composer"><input id="tq" placeholder="' + esc(t('Write to Tune')) + '" autocomplete="off" maxlength="1000"><button onclick="A.askTune(' + (client ? "'" + client + "'" : '') + ')" aria-label="Send">' + I.send + '</button></div>',
     after: async () => {
-      const inp = document.getElementById('tq'); if (inp) { inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.askTune(client); }); if (!st.busy) inp.focus(); }
+      const inp = document.getElementById('tq'); if (inp) { inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.askTune(client); }); if (!st.busy && st.msgs.length) inp.focus(); }   // with no conversation yet, keep the keyboard down so the examples show
       const b = document.getElementById('body'); if (b) b.scrollTop = b.scrollHeight;
       if (S.me.role === 'trainee' && !st.hist) { try { st.hist = await db.logsBetween(S.me.id, addDays(isoDate(), -6), addDays(isoDate(), -1)); } catch (e) { st.hist = []; } }
       if (!S.cal) { try { await loadSessions(); } catch (e) {} }

@@ -26,5 +26,21 @@ export const KA5 = {
   '1 exercise planned': 'დაგეგმილია 1 ვარჯიში',
   // my answers
   'Edit my answers': 'პასუხების რედაქტირება',
-  'Your coach sees the changes. Your weigh-ins update the weight here.': 'ცვლილებებს მწვრთნელიც ხედავს. აწონვის შემდეგ წონა აქაც განახლდება.'
+  'Your coach sees the changes. Your weigh-ins update the weight here.': 'ცვლილებებს მწვრთნელიც ხედავს. აწონვის შემდეგ წონა აქაც განახლდება.',
+  // UX round (one-tap check-in, Tune examples, add to calendar)
+  'How was your day? Tap one.': 'როგორი იყო დღე? აირჩიე ერთი.',
+  'Add a line for your coach': 'დაუწერე მწვრთნელს',
+  'What is left to eat today?': 'რა დამრჩა დღეს საჭმელად?',
+  'What is my workout today?': 'რა ვარჯიში მაქვს დღეს?',
+  'I ate two eggs and a toast': 'ვჭამე ორი კვერცხი და ტოსტი',
+  'How is {name}’s week going?': 'როგორ მიდის {name}-ის კვირა?',
+  'What should I watch with {name}?': 'რას მივაქციო ყურადღება {name}-თან?',
+  'Who needs attention today?': 'ვის სჭირდება დღეს ყურადღება?',
+  'Who missed a workout this week?': 'ვინ გამოტოვა ვარჯიში ამ კვირაში?',
+  'Add to my calendar': 'ჩემს კალენდარში დამატება',
+  'Session': 'სესია',
+  'If your coach moves or cancels it, the app tells you — your calendar does not change by itself.': 'თუ მწვრთნელი გადაიტანს ან გააუქმებს, აპი შეგატყობინებს — კალენდარი თავისით არ შეიცვლება.',
+  'Apple Calendar (iPhone)': 'Apple-ის კალენდარი (iPhone)',
+  'Google Calendar': 'Google-ის კალენდარი',
+  'Notes': 'ჩანაწერები'
 };

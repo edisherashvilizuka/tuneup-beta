@@ -41,9 +41,10 @@ export function logCards() {
     '<div class="btn-row"><button class="btn sec sm" onclick="A.addWater(250)">+ 250 ' + unit('ml') + '</button><button class="btn sec sm" onclick="A.addWater(500)">+ 500 ' + unit('ml') + '</button>' + (water ? '<button class="btn sec sm" onclick="A.undoWater()" aria-label="Undo">' + I.x + '</button>' : '') + '</div></div>';
   const tiles = '<div class="grid2"><div class="tile" role="button" tabindex="0" style="cursor:pointer" onclick="A.numSheet(\'steps\')" onkeydown="if(event.key===\'Enter\')this.click()"><div class="stat"><div class="v">' + (steps ? n0(steps.value) : '—') + '</div><div class="k">' + t('steps') + (tg('steps') ? ' · ' + t('goal') + ' ' + tg('steps') : '') + '</div></div>' + (tg('steps') && steps ? bar(steps.value, tg('steps'), 'amb') : '') + '</div>' +
     '<div class="tile" role="button" tabindex="0" style="cursor:pointer" onclick="A.numSheet(\'weight\')" onkeydown="if(event.key===\'Enter\')this.click()"><div class="stat"><div class="v">' + (weight ? Number(weight.value) : '—') + '</div><div class="k">' + unit('kg') + ' · ' + t('weigh-in') + '</div></div></div></div>';
-  const chk = ci
-    ? '<div class="card soft"><div class="row between"><div class="h3">' + t('Evening check-in') + '</div><span class="link" onclick="A.checkinSheet()">' + t('Edit') + '</span></div><div><span class="chip sm">' + esc(mood(ci.value)) + '</span>' + (ci.note ? ' <span class="mute">' + esc(ci.note) + '</span>' : '') + '</div></div>'
-    : '<div class="card soft tap" role="button" tabindex="0" onclick="A.checkinSheet()" onkeydown="if(event.key===\'Enter\')this.click()"><div class="h3">' + t('Evening check-in') + '</div><div class="mute">' + t('How was your day? One tap and a line for your coach.') + '</div></div>';
+  // evening check-in: the moods sit on the card, one tap saves; the line for the coach is optional, after
+  const moods = '<div class="chips mood-row">' + Object.keys(MOODS).map(k => '<button class="chip ' + (ci && Number(ci.value) === Number(k) ? 'on' : '') + '" onclick="A.quickMood(' + k + ')" aria-pressed="' + (ci && Number(ci.value) === Number(k) ? 'true' : 'false') + '">' + esc(t(MOODS[k])) + '</button>').join('') + '</div>';
+  const chk = '<div class="card soft"><div class="h3">' + t('Evening check-in') + '</div>' + (ci ? '' : '<div class="mute">' + t('How was your day? Tap one.') + '</div>') + moods +
+    (ci ? (ci.note ? '<div class="row between" style="gap:10px;align-items:flex-start"><span class="mute grow">' + esc(ci.note) + '</span><span class="link" onclick="A.checkinSheet()">' + t('Edit') + '</span></div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + t('Add a line for your coach') + '</span>') : '') + '</div>';
   return '<div class="section-title"><span class="eyebrow">' + t('Today\'s log') + '</span><span class="link" onclick="A.go(\'week\')">' + t('This week') + ' ›</span></div>' + food + wat + tiles + chk;
 }
 
@@ -101,6 +102,11 @@ A.checkinSheet = () => {
     '<button class="btn" onclick="A.saveCheckin()">' + t('Save') + '</button>');
 };
 function moodChips() { return Object.keys(MOODS).map(k => '<button class="chip ' + (S.draft.mood === Number(k) ? 'on' : '') + '" onclick="A.pickMood(' + k + ')">' + esc(t(MOODS[k])) + '</button>').join(''); }
+A.quickMood = async (k) => {
+  const cur = oneOf(S.today.logs || [], 'checkin'); const first = !cur;
+  try { await db.setDayLog(S.me.id, S.today.day, 'checkin', k, cur ? cur.note : ''); track('log', { kind: 'checkin' }); await reloadToday(); toast(t('Saved')); }
+  catch (e) { fail(e); }
+};
 A.pickMood = (k) => { S.draft.mood = k; const el = document.getElementById('moods'); if (el) el.innerHTML = moodChips(); };
 A.saveCheckin = async () => {
   if (!S.draft.mood) { toast(t('Pick how your day was.'), 'err'); return; }

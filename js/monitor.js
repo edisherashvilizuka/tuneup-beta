@@ -59,7 +59,7 @@ SCREENS.ctoday = () => {
   const eye = rows.filter(r => r.flags.length);
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '">' + esc(f.label) + (f.k !== 'note' && f.sub ? ' · ' + esc(f.sub) : '') + '</span>';   // details visible on phones too (no hover)
   const todayLine = r => { const d = r.st.today; const bits = [d.planned ? t('workout') + ' ' + d.done + '/' + d.planned : t('rest day'), d.kcal ? n0(d.kcal) + ' ' + unit('kcal') : '', d.water ? (d.water / 1000) + ' ' + unit('L') : '', d.steps ? n0(d.steps.value) + ' ' + t('steps') : '', d.ci ? mood(d.ci.value) : ''].filter(Boolean); return bits.join(' · '); };
-  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: guideCard() + pushCard() +
+  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: (guideCard() || pushCard()) +
     '<div class="section-title"><span class="eyebrow">' + t('Needs your eye') + '</span></div>' +
     (eye.length ? eye.map(r => '<div class="card tap" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})"><div class="row">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="chips" style="margin-top:4px">' + r.flags.map(chip).join('') + '</div>' + (r.flags.find(f => f.k === 'note') ? '<div class="mute small" style="margin-top:4px">“' + esc(r.flags.find(f => f.k === 'note').sub) + '”</div>' : '') + '</div>' + I.chev + '</div></div>').join('') : '<div class="card flat mute">' + t('All quiet — nobody needs attention right now.') + '</div>') +
     '<div class="section-title"><span class="eyebrow">' + t('Everyone today') + '</span></div><div class="card">' +
@@ -69,7 +69,7 @@ SCREENS.ctoday = () => {
 A.refreshMon = async () => { try { await loadMonitor(); rerender(); toast(t('Updated')); } catch (e) { toast(t('Could not refresh'), 'err'); } };
 
 // ---- cards inside the client screen (coach side)
-export function monitorCards(c) {
+export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefined (both)
   if (!S.mon) return '';
   const st = statsFor(c); const flags = flagsFor(c, st); const tg = c.targets || {};
   const d = st.today;
@@ -80,13 +80,14 @@ export function monitorCards(c) {
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '">' + esc(f.label) + ' · ' + esc(f.sub) + '</span>';
   const ciList = st.cis.slice(0, 5).map(ci => '<div class="lrow"><div class="grow"><div class="t">' + esc(mood(ci.value)) + ' <span class="mute small">' + fmtDay(ci.day, 'dm') + '</span></div>' + (ci.note ? '<div class="s">' + esc(ci.note) + '</div>' : '') + '</div></div>').join('');
   const note = S.mon.notes[c.id];
-  return (flags.length ? '<div class="chips">' + flags.map(chip).join('') + '</div>' : '') +
+  const overview = (flags.length ? '<div class="chips">' + flags.map(chip).join('') + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Today') + '</span></div><div class="card"><div class="lead">' + esc(todayBits || t('Nothing logged yet')) + '</div>' + (d.ci && d.ci.note ? '<div class="mute">“' + esc(d.ci.note) + '”</div>' : '') + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + t('Last 7 days') + '</span></div>' + week + '<div class="card">' + dots + '</div>' +
-    (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '') +
-    (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
+    (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '');
+  const notes = (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Private notes') + '</span><span class="mute small">' + t('only you see these') + '</span></div><div class="card">' +
     (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<textarea class="input" id="cnote" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(note.text || '') + '</textarea><button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
+  return part === 'overview' ? overview : part === 'notes' ? notes : overview + notes;
 }
 function spark(ws) {
   const vals = ws.map(w => Number(w.value)); const min = Math.min(...vals), max = Math.max(...vals); const span = (max - min) || 1;

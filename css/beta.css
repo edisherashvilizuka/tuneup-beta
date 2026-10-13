@@ -28,3 +28,26 @@ a.btn{text-decoration:none}                                   /* Join / Video bu
 .sheet-foot{position:sticky;bottom:0;margin:0 -18px;padding:10px 18px calc(20px + env(safe-area-inset-bottom,0px));background:var(--a-card);display:flex;flex-direction:column;gap:10px;box-shadow:0 -1px 0 var(--a-line)}
 .sheet-foot.flat{box-shadow:none}
 button.check{position:relative}button.check::after{content:"";position:absolute;inset:-10px}   /* goal tick: bigger tap area */
+
+/* UX round 2026-10-13 */
+.sheet{overscroll-behavior:contain;touch-action:pan-y}
+.chat{margin-top:auto}                                          /* short conversations sit just above the typing box */
+.tune-ex{margin:2px 0 6px}
+.tune-ex .chip{white-space:normal;text-align:left;line-height:1.3;padding:9px 13px;background:var(--a-card)}
+.mood-row .chip{min-height:38px;padding:8px 14px}
+.rest-line{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-radius:12px;border:1px dashed var(--a-line);font-size:13.5px;font-weight:600;color:var(--a-ink2)}
+.rest-line.today{border-style:solid;border-color:var(--a-accent);color:var(--a-accent)}
+.today-card{border-color:var(--a-accent);box-shadow:0 0 0 1px var(--a-accent) inset}
+
+/* dark mode: follows the phone's setting (2026-10-13) */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --a-bg:#161513; --a-card:#201E1B; --a-ink:#ECE9E3; --a-ink2:#C8C3BA; --a-mute:#9A958C; --a-line:#3A3732; --a-line2:#2A2824;
+  --a-accent:#C2591F; --a-accent-ink:#F0B48E; --a-accent-soft:#36231A; --a-accent-soft2:#55341F;
+  --a-amber:#D6A825; --a-amber-ink:#E2C36A; --a-amber-soft:#352C15;
+  --a-green:#86B57E; --a-green-soft:#1E2B1C; --a-blue:#93B3D1; --a-blue-soft:#1B252F; --a-red:#E5837A; --a-red-soft:#3A1F1C; --a-beacon:#4FBF83;
+  --a-shadow:0 8px 24px rgba(0,0,0,.4)}
+  :root:not([data-theme="light"]) .chip.amb,:root:not([data-theme="light"]) .tag.warn,:root:not([data-theme="light"]) .notif .ic.amb,:root:not([data-theme="light"]) .score.mid,:root:not([data-theme="light"]) .hdr .act.fillbtn{color:var(--a-amber-ink)}
+  :root:not([data-theme="light"]) .toast{color:var(--a-bg)}
+  :root:not([data-theme="light"]) .eyebrow{color:var(--a-amber-ink)}
+}

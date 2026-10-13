@@ -80,6 +80,15 @@ export function sheet(html) {
   const sh = o.querySelector('.sheet'); const tail = [];
   for (let c = sh.lastElementChild; c && (c.matches('button.btn, .btn-row')); c = c.previousElementSibling) tail.unshift(c);
   if (tail.length) { const f = document.createElement('div'); f.className = 'sheet-foot'; tail.forEach(c => f.appendChild(c)); sh.appendChild(f); if (sh.scrollHeight <= sh.clientHeight + 1) f.classList.add('flat'); }
+  swipeToClose(sh);
+}
+// drag a panel down (from its top, or anywhere while it is scrolled to the top) to close it
+function swipeToClose(sh) {
+  let y0 = null, dy = 0;
+  sh.addEventListener('touchstart', e => { if (e.target.closest('input, textarea, select') || sh.scrollTop > 0) { y0 = null; return; } y0 = e.touches[0].clientY; dy = 0; sh.style.transition = 'none'; }, { passive: true });
+  sh.addEventListener('touchmove', e => { if (y0 == null) return; dy = e.touches[0].clientY - y0; if (dy > 0) sh.style.transform = 'translateY(' + dy + 'px)'; }, { passive: true });
+  const end = () => { if (y0 == null) return; y0 = null; if (dy > 90) { closeSheet(); return; } sh.style.transition = 'transform .2s ease'; sh.style.transform = ''; };
+  sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end);
 }
 export function closeSheet() { const o = document.getElementById('overlay'); if (o) o.innerHTML = ''; }
 A.closeSheet = closeSheet;
