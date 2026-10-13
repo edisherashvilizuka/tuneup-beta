@@ -24,6 +24,11 @@ function forModel(m) {
 function lastAssistantId(st) { for (let i = st.msgs.length - 1; i >= 0; i--) if (st.msgs[i].role === 'assistant') return st.msgs[i].id; return null; }
 function liveCard(st, m, a) { return a.status === 'pending' && m.id === lastAssistantId(st) && st.msgs[st.msgs.length - 1] === m && Date.now() - new Date(m.created_at || Date.now()).getTime() < STALE_MS; }
 
+// Tune is asked for plain text; if it still uses Markdown or shows an internal reference, tidy that up for display
+function plain(text) {
+  return esc(String(text || '').replace(/\s?\[(?:[A-Z]{1,2}\d{1,3})(?:,\s*[A-Z]{1,2}\d{1,3})*\]/g, '').replace(/^#{1,4}\s+/gm, '').replace(/^\s*[-*]\s+/gm, '• '))
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2').replace(/\n/g, '<br>');
+}
 // ---- the screen
 let EXAMPLES = [];
 function examples(name) {
@@ -45,7 +50,7 @@ function card(st, m, a, i) {
 function bubble(st, m) {
   const acts = (m.actions || []).map((a, i) => card(st, m, a, i)).join('');
   const pend = (m.actions || []).filter((a, i) => liveCard(st, m, a)).length;
-  return (m.content && !(m.content === '…' && (m.actions || []).length) ? '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + esc(m.content).replace(/\n/g, '<br>') + '</div>' : '') + acts +
+  return (m.content && !(m.content === '…' && (m.actions || []).length) ? '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + (m.role === 'user' ? esc(m.content).replace(/\n/g, '<br>') : plain(m.content)) + '</div>' : '') + acts +
     (pend > 1 ? '<button class="btn sm tc-all" onclick="A.tuneYesAll(\'' + m.id + '\',this)">' + t('Yes to all ({n})', { n: pend }) + '</button>' : '');
 }
 SCREENS.tune = (params) => {
