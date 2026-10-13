@@ -14,7 +14,7 @@ const COACH = [
   ['Set targets and goals', 'On the client screen: calories, protein, water, steps for the day, and one short list of goals. The client sees them on Today.'],
   ['Plan the sessions', 'Calendar → + → gym or video call (paste your Meet/Zoom link). Weekly or one-time. Moving or cancelling tells the client automatically.'],
   ['Every day: who needs your eye', 'Today shows who missed a workout, ate little protein, had a low mood or wrote you a note. Tap a client for the last 7 days and your private notes.'],
-  ['Chat and Tune', 'Chat is for questions, how a session went and form-check clips (send a link). “Ask Tune about …” gives you a quick summary of a client’s week.'],
+  ['Chat and Tune', 'Chat is for questions, how a session went and form-check clips (send a link). Tune (the spark button) can do the work for you by chat: “move Nino’s Thursday session to Friday 19:00”, “build Nino a 3-day plan”. It always asks Yes / No before anything reaches a client.'],
   ['Tell us what is wrong', 'More → Send feedback. We read every note and fix things within days. This is a beta: your feedback shapes the app.']
 ];
 const TRAINEE = [
@@ -23,7 +23,7 @@ const TRAINEE = [
   ['Evening check-in', 'One tap for how the day went and a line for your coach — sore knee, slept badly, felt great. Your coach sees it the next morning.'],
   ['Plan and Sessions', 'Plan shows your week from your coach. Sessions shows what is coming up; for a video call just tap Join.'],
   ['Chat', 'Questions, how a session went, a link to a short clip of your form — it all goes to your coach here.'],
-  ['Ask Tune', 'Tune answers from your own data: “what is left to eat today?”, “what is my workout?”. Or just type “I ate two eggs and a toast” and it logs it for you.'],
+  ['Ask Tune', 'Tune answers from your own data: “what is left to eat today?”, “what is my workout?”. It also does things for you: type “I ate two eggs and a toast” and it logs it, or “tell my coach I will be late” — it asks Yes / No before sending anything.'],
   ['Tell us what is wrong', 'More → Send feedback. We read every note and fix things within days. This is a beta: your feedback shapes the app.']
 ];
 

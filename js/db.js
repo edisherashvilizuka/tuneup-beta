@@ -145,6 +145,16 @@ export async function adminLogsToday(day) { const { count, error } = await sb.fr
 export async function adminFeedback() { return q(sb.from('feedback').select('id,user_id,role,screen,text,created_at').order('created_at', { ascending: false }).limit(100)); }
 
 // ---- Tune (assistant) — the Edge Function adds the Anthropic key; the browser never sees it
+// saved conversation: own rows only (RLS); only `actions` can be changed afterwards
+const TUNE_COLS = 'id,role,content,actions,created_at';
+export async function tuneHistory(limit) { return q(sb.from('tune_messages').select(TUNE_COLS).order('created_at', { ascending: false }).limit(limit || 60)); }
+export async function saveTuneMsg(role, content, actions) { return q(sb.from('tune_messages').insert({ role, content: String(content).slice(0, 4000), actions: actions || [] }).select(TUNE_COLS).single()); }
+export async function setTuneActions(id, actions) { return q(sb.from('tune_messages').update({ actions }).eq('id', id)); }
+export async function clearTune(uid) { return q(sb.from('tune_messages').delete().eq('user_id', uid)); }
+// what Tune reads for a coach: every active client's plan, goals, private note (own pairs only, RLS)
+export async function planItemsFull(pairIds) { return pairIds.length ? q(sb.from('plan_items').select(ITEM_COLS).in('pair_id', pairIds).order('day').order('position').order('created_at')) : []; }
+export async function goalsForPairs(pairIds) { return pairIds.length ? q(sb.from('goals').select('id,pair_id,text,done,position,created_at').in('pair_id', pairIds).order('position').order('created_at')) : []; }
+export async function coachNotesFor(pairIds) { return pairIds.length ? q(sb.from('coach_notes').select('pair_id,text,updated_at').in('pair_id', pairIds)) : []; }
 export async function askTune(payload) {
   const { data, error } = await sb.functions.invoke('tune', { body: payload });
   if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }

@@ -4,7 +4,8 @@ import { KA2 } from './ka2.js';
 import { KA3 } from './ka3.js';
 import { KA4 } from './ka4.js';
 import { KA5 } from './ka5.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5);
+import { KA6 } from './ka6.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}
