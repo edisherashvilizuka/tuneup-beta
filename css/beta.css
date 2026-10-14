@@ -39,7 +39,7 @@ button.check{position:relative}button.check::after{content:"";position:absolute;
 .rest-line.today{border-style:solid;border-color:var(--a-accent);color:var(--a-accent)}
 .today-card{border-color:var(--a-accent);box-shadow:0 0 0 1px var(--a-accent) inset}
 
-/* dark mode: follows the phone's setting (2026-10-13) */
+/* dark mode (2026-10-13): SWITCHED OFF on 2026-10-14 by data-theme="light" on <html> in index.html (Zuka: the quick dark look felt off). Remove that attribute to bring it back, after a proper dark design. */
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;
   --a-bg:#161513; --a-card:#201E1B; --a-ink:#ECE9E3; --a-ink2:#C8C3BA; --a-mute:#9A958C; --a-line:#3A3732; --a-line2:#2A2824;
