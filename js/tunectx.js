@@ -4,12 +4,20 @@
 // A trainee's Tune reads: their plan, logs, targets, goals, sessions, their answers and the chat with their coach.
 // A coach's Tune reads: every active client's day/week, plan, targets, goals, check-ins, chat and the coach's own
 // private notes. Neither side ever gets the other's Tune conversation; the coach's notes never reach a trainee.
-import { isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, LANG } from './i18n.js';
+import { isoDate, addDays, weekdayOf, fmtTime, MOODS, exName, opt, LANG } from './i18n.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { sumDay, oneOf } from './log.js';
 import { statsFor, flagsFor } from './monitor.js';
 import { loadSessions, occurrences } from './calendar.js';
+
+// What Tune reads is always in English (days, dates, moods), whatever the app language: Georgian short day names
+// (ორშ, სამ, ოთხ… — also the words for 2, 3, 4) made the model put exercises on the wrong day. It still answers in the user's language.
+const EN_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const EN_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function dayName(d, short) { const n = EN_DAYS[(d - 1) % 7]; return short ? n.slice(0, 3) : n; }
+function fmtDay(iso, o) { const d = new Date(iso + 'T00:00:00'); const dm = d.getDate() + ' ' + EN_MON[d.getMonth()]; return o === 'dm' ? dm : dayName(weekdayOf(d), true) + ' ' + dm; }
+function mood(v) { return MOODS[v] ? MOODS[v].toLowerCase() : ''; }
 
 const n0 = v => Math.round(Number(v) || 0);
 const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
