@@ -42,5 +42,9 @@ export const KA5 = {
   'If your coach moves or cancels it, the app tells you — your calendar does not change by itself.': 'თუ მწვრთნელი გადაიტანს ან გააუქმებს, აპი შეგატყობინებს — კალენდარი თავისით არ შეიცვლება.',
   'Apple Calendar (iPhone)': 'Apple-ის კალენდარი (iPhone)',
   'Google Calendar': 'Google-ის კალენდარი',
-  'Notes': 'ჩანაწერები'
+  'Notes': 'ჩანაწერები',
+  // QA 2026-10-20: ended coaching
+  'Former client': 'ყოფილი კლიენტი',
+  'Your coaching has ended': 'თანამშრომლობა დასრულდა',
+  'Note from your coach': 'მწვრთნელის შენიშვნა'
 };

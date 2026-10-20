@@ -12,7 +12,8 @@ import { guideRow } from './guide.js';
 export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home' }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'ccal', label: 'Calendar', ico: 'cal' }, { id: 'cmore', label: 'More', ico: 'gear' }];
 
 export async function loadCoach() {
-  S.clients = await db.myClients(S.me.id);
+  // after coaching ends the ex-client's profile is private again (by design), so the pair comes back without it
+  S.clients = (await db.myClients(S.me.id) || []).map(c => c.trainee ? c : Object.assign(c, { gone: true, trainee: { id: null, name: t('Former client'), lang: 'en', trainee_profiles: null } }));
   S.coachProfile = await db.myCoachProfile(S.me.id);
   await loadMonitor();
   S.cal = null; S.chat = null; S.notifs = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
@@ -21,7 +22,7 @@ function tp(c) { const p = c.trainee && c.trainee.trainee_profiles; return (Arra
 
 SCREENS.clients = () => {
   const active = S.clients.filter(c => c.status === 'active'), ended = S.clients.filter(c => c.status !== 'active');
-  const row = c => '<div class="lrow" style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + c.id + '\'})">' + avatar(c.trainee.name, c.trainee.id) + '<div class="grow"><div class="t">' + esc(c.trainee.name) + '</div><div class="s">' + esc([opt('goal', tp(c).goal), opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div>' + I.chev + '</div>';
+  const row = c => c.gone ? '<div class="lrow">' + avatar(c.trainee.name, c.id) + '<div class="grow"><div class="t">' + esc(c.trainee.name) + '</div><div class="s">' + esc([c.ended_at ? t('Ended') + ' ' + fmtDate(new Date(c.ended_at)) : '', c.end_note || ''].filter(Boolean).join(' · ')) + '</div></div></div>' : '<div class="lrow" style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + c.id + '\'})">' + avatar(c.trainee.name, c.trainee.id) + '<div class="grow"><div class="t">' + esc(c.trainee.name) + '</div><div class="s">' + esc([opt('goal', tp(c).goal), opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div>' + I.chev + '</div>';
   return { title: t('Clients'), sub: t('{n} active', { n: active.length }), body:
     (active.length ? '<div class="card">' + active.map(row).join('') + '</div>' : '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Create an invite link and send it to a client. They sign up through it and land here.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>') +
     (ended.length ? '<div class="section-title"><span class="eyebrow">' + t('Ended') + '</span></div><div class="card" style="opacity:.75">' + ended.map(row).join('') + '</div>' : ''),

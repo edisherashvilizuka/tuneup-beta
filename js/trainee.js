@@ -53,7 +53,7 @@ SCREENS.home = () => {
   const p = S.pair; const active = p && p.status === 'active';
   const body = '<div class="row between"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="row" style="gap:8px">' + (S.pair && S.pair.status === 'active' ? tuneButton() : '') + bell() + '</div></div><div class="h1">' + t('Hi, {name}', { name: firstName(S.me.name) }) + '</div>' + (active ? (guideCard() || pushCard()) : '') +
     (active ? (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>') + logCards() + goalsCard()
-      : '<div class="card amber"><div class="h3">' + (p ? t('Your coaching with {name} has ended', { name: firstName((p.coach || {}).name) }) : t('No coach yet')) + '</div><div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
+      : '<div class="card amber"><div class="h3">' + (p ? (p.coach && p.coach.name ? t('Your coaching with {name} has ended', { name: firstName(p.coach.name) }) : t('Your coaching has ended')) : t('No coach yet')) + '</div>' + (p && p.end_note ? '<div style="margin:6px 0">' + t('Note from your coach') + ': ' + esc(p.end_note) + '</div>' : '') + '<div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
   return { title: '', header: false, body };
 };
 
