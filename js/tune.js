@@ -34,8 +34,11 @@ function lastAssistantId(st) { for (let i = st.msgs.length - 1; i >= 0; i--) if 
 function liveCard(st, m, a) { return a.status === 'pending' && m.id === lastAssistantId(st) && st.msgs[st.msgs.length - 1] === m && Date.now() - new Date(m.created_at || Date.now()).getTime() < STALE_MS; }
 
 // Tune is asked for plain text; if it still uses Markdown or shows an internal reference, tidy that up for display
+// Georgian capitals (Mtavruli) the model sometimes puts at the start of a sentence → normal Georgian letters
+const MTAVRULI = new RegExp('[' + String.fromCharCode(0x1C90) + '-' + String.fromCharCode(0x1CBA) + String.fromCharCode(0x1CBD) + '-' + String.fromCharCode(0x1CBF) + ']', 'g');
+function mkhedruli(s) { return s.replace(MTAVRULI, ch => String.fromCharCode(ch.charCodeAt(0) - 0x1C90 + 0x10D0)); }
 function plain(text) {
-  return esc(String(text || '').replace(/\s?\[(?:[A-Z]{1,2}\d{1,3})(?:,\s*[A-Z]{1,2}\d{1,3})*\]/g, '').replace(/^#{1,4}\s+/gm, '').replace(/^\s*[-*]\s+/gm, '• '))
+  return esc(mkhedruli(String(text || '')).replace(/\s?\[(?:[A-Z]{1,2}\d{1,3})(?:,\s*[A-Z]{1,2}\d{1,3})*\]/g, '').replace(/^#{1,4}\s+/gm, '').replace(/^\s*[-*]\s+/gm, '• '))
     .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2').replace(/\n/g, '<br>');
 }
 // ---- the screen

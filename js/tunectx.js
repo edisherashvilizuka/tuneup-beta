@@ -59,7 +59,7 @@ export function traineeContext(D) {
     return '[' + ref + '] ' + what; });
   const steps = oneOf(L, 'steps'), weight = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
   const days = [6, 5, 4, 3, 2, 1].map(n => addDays(today, -n)).map(d => { const X = (D.hist || []).filter(x => x.day === d); if (!X.length) return null; const w = oneOf(X, 'weight'), c = oneOf(X, 'checkin'), s = oneOf(X, 'steps'); return d + ': ' + [X.filter(x => x.kind === 'exercise').length ? 'exercises done ' + X.filter(x => x.kind === 'exercise').length : '', sumDay(X, 'food') ? n0(sumDay(X, 'food')) + ' kcal / ' + n0(sumDay(X, 'food', 'protein_g')) + ' g protein' : '', sumDay(X, 'water') ? sumDay(X, 'water') / 1000 + ' L water' : '', s ? n0(s.value) + ' steps' : '', w ? w.value + ' kg' : '', c ? 'mood ' + mood(c.value) + (c.note ? ' ' + q(c.note) : '') : ''].filter(Boolean).join(', '); }).filter(Boolean);
-  const sess = occurrences(today, addDays(today, 14)).filter(o => !o.cancelled).map(o => isoDate(o.at) + ' ' + fmtDay(o.date) + ' ' + fmtTime(o.at) + ', ' + o.s.minutes + ' min, ' + (o.s.where_kind === 'video' ? 'video call' : (o.s.place || 'in person')) + (o.s.repeat === 'weekly' ? ', weekly' : '') + (o.moved ? ' (moved)' : '') + (o.s.note ? ' ' + q(o.s.note) : ''));
+  const sess = occurrences(today, addDays(today, 14)).map(o => (o.cancelled ? 'CANCELLED by the coach' + (o.note ? ' (' + q(o.note) + ')' : '') + ': ' : '') + isoDate(o.at) + ' ' + fmtDay(o.date) + ' ' + fmtTime(o.at) + ', ' + o.s.minutes + ' min, ' + (o.s.where_kind === 'video' ? 'video call' : (o.s.place || 'in person')) + (o.s.repeat === 'weekly' ? ', weekly' : '') + (o.moved ? ' (moved)' : '') + (o.s.note ? ' ' + q(o.s.note) : ''));
   const text = [
     'Trainee: ' + S.me.name + '. Coach: ' + (coach.name || 'none') + (coach.lang ? ' (app language ' + (coach.lang === 'ka' ? 'Georgian' : 'English') + ')' : '') + (p.status === 'active' ? '' : ' (coaching ended — no messages possible)') + '. Today: ' + todayLine() + '.',
     'Daily targets (set by the coach): ' + targetsLine(tg) + '.',
@@ -109,6 +109,7 @@ export function coachContext(D) {
     "Coach's gym (default place for gym sessions): " + (cp.gym || 'not set') + '. Online coaching: ' + (cp.online ? 'yes' : 'no') + '.',
     'CLIENTS:\n' + (blocks.join('\n') || 'no active clients yet'),
     'SESSIONS next 3 weeks:\n' + (sess.join('\n') || 'none planned'),
+    'CANCELLED (this week only, already told the client): ' + (occurrences(today, addDays(today, 21)).filter(o => o.cancelled).map(o => { const c = active.find(x => x.id === o.s.pair_id); return isoDate(o.at) + ' ' + dayName(weekdayOf(o.at), true) + ' ' + fmtTime(o.at) + ', ' + (c ? c.trainee.name : '?') + (o.note ? ' ' + q(o.note) : ''); }).join('; ') || 'none'),
     'LIBRARY (exercises for plans):\n' + lib.join('\n')
   ].join('\n');
   return { text, refs: R };
