@@ -2,7 +2,7 @@
 // Flow per question: save the question → rebuild what Tune knows (tunectx.js) → the `tune` Edge Function → each
 // returned action is prepared (tuneact.js); INSTANT ones run at once, the rest wait on a card with Yes / No → the
 // reply and the action states are saved. The conversation is kept in `tune_messages` (only its owner can read it).
-import { t, esc, LANG, firstName } from './i18n.js';
+import { t, esc, LANG, firstName, isoDate } from './i18n.js';
 import { SCREENS, A, I, rerender, toast, cur } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
@@ -16,10 +16,19 @@ function clientName(pairId) { const c = (S.clients || []).find(x => x.id === pai
 export function resetTune() { S.tune = null; }
 
 // ---- what the model sees of earlier turns: the text plus what really happened to its actions
-const STATE_WORD = { auto: 'done', done: 'done', pending: 'waiting for Yes/No', declined: 'declined by the user', failed: 'failed', invalid: 'could not be prepared', expired: 'expired, not done' };
+// Actions are described in words from their card, never by [references]: those are renumbered with every message,
+// so an old "[L1]" would point at a different entry now. Only today's turns are sent; older numbers are out of date.
+const STATE_WORD = { auto: 'done, already counted in CONTEXT', done: 'done, already counted in CONTEXT', pending: 'waiting for Yes/No', declined: 'declined by the user', failed: 'failed', invalid: 'could not be prepared', expired: 'expired, not done' };
+const REFS = /\s?\[(?:[A-Z]{1,2}\d{1,3})(?:,\s*[A-Z]{1,2}\d{1,3})*\]/g;
+function actionWords(a) { const c = a.card || {}; const txt = [c.title, c.body].filter(Boolean).join(' — ').replace(/\s*\n+\s*/g, '; ').slice(0, 300); return (a.name || 'action') + (txt ? ': ' + txt : ''); }
 function forModel(m) {
-  const notes = (m.actions || []).map(a => '[' + (STATE_WORD[a.status] || a.status) + ': ' + a.sum + (a.err ? ' — ' + a.err : '') + ']');
-  return { role: m.role, content: ((m.content || '').trim() || '…') + (notes.length ? '\n' + notes.join('\n') : '') };
+  const notes = (m.actions || []).map(a => '[' + (STATE_WORD[a.status] || a.status) + ': ' + actionWords(a) + (a.err ? ' — ' + a.err : '') + ']');
+  return { role: m.role, content: ((m.content || '').replace(REFS, '').trim() || '…') + (notes.length ? '\n' + notes.join('\n') : '') };
+}
+const NOTE = '\n[App note: CONTEXT was just rebuilt. Use only CONTEXT for what is logged, totals and what is left — earlier replies in this chat may be out of date or wrong.]';
+function todaysTurns(st) {   // what is sent to the model: today's turns only, actions in words, a reminder on the newest question (not shown or saved)
+  const d = isoDate(); const out = st.msgs.filter(m => !m.created_at || isoDate(new Date(m.created_at)) === d).slice(-12).map(forModel);
+  const last = out[out.length - 1]; if (last && last.role === 'user') last.content += NOTE; return out;
 }
 function lastAssistantId(st) { for (let i = st.msgs.length - 1; i >= 0; i--) if (st.msgs[i].role === 'assistant') return st.msgs[i].id; return null; }
 function liveCard(st, m, a) { return a.status === 'pending' && m.id === lastAssistantId(st) && st.msgs[st.msgs.length - 1] === m && Date.now() - new Date(m.created_at || Date.now()).getTime() < STALE_MS; }
@@ -83,7 +92,7 @@ A.askTune = async (client) => {
   try {
     const D = await loadTuneData(S.me.role === 'coach' ? client : null);
     const ctx = S.me.role === 'coach' ? coachContext(D) : traineeContext(D);
-    const res = await db.askTune({ context: ctx.text, lang: LANG.cur, messages: st.msgs.slice(-12).map(forModel) });
+    const res = await db.askTune({ context: ctx.text, lang: LANG.cur, messages: todaysTurns(st) });
     const acts = (res.actions || []).map(a => prepare(a, ctx.refs));
     for (const a of acts) if (a.status === 'auto') { try { await run(a); } catch (e) { a.status = 'failed'; a.err = e.message; } }
     const done = acts.filter(a => a.status === 'auto');
