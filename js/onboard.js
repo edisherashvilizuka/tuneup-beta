@@ -61,6 +61,9 @@ A.finishTrainee = async () => {
   keep(); const x = d(); const err = document.getElementById('err');
   if (!x.name || x.name.trim().length < 2) { err.textContent = t('Please enter your name.'); return; }
   if (!x.experience || !x.goal) { err.textContent = t('Pick your experience and main goal.'); return; }
+  const w = x.weight_kg === '' || x.weight_kg == null ? null : Number(x.weight_kg), h = x.height_cm === '' || x.height_cm == null ? null : Number(x.height_cm);
+  if (w !== null && (isNaN(w) || w < 20 || w > 400)) { err.textContent = t('Check the number: weight in kg, 20–400.'); return; }
+  if (h !== null && (isNaN(h) || h < 100 || h > 250)) { err.textContent = t('Check the number: height in cm, 100–250.'); return; }
   err.textContent = ''; busy(true);
   try {
     await db.redeemClient(S.invite.code, x.name.trim(), LANG.cur, { weight_kg: x.weight_kg || '', height_cm: x.height_cm || '', experience: x.experience, goal: x.goal, goal_detail: x.goal_detail || '', injuries: x.injuries || '', diet: x.diet || '', format: x.format || 'inperson' });

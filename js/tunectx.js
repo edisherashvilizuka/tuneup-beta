@@ -55,8 +55,8 @@ export function traineeContext(D) {
   const text = [
     'Trainee: ' + S.me.name + '. Coach: ' + (coach.name || 'none') + (coach.lang ? ' (app language ' + (coach.lang === 'ka' ? 'Georgian' : 'English') + ')' : '') + (p.status === 'active' ? '' : ' (coaching ended — no messages possible)') + '. Today: ' + todayLine() + '.',
     'Daily targets (set by the coach): ' + targetsLine(tg) + '.',
-    "TODAY'S WORKOUT: " + (workout.length ? workout.join('; ') : 'rest day'),
-    'Weekly plan: ' + [1, 2, 3, 4, 5, 6, 7].map(d => dayName(d, true) + ': ' + (items.filter(i => i.day === d).map(i => exName(i.exercise) + ' ' + i.sets + '×' + i.reps).join(', ') || 'rest')).join(' | '),
+    "TODAY'S WORKOUT: " + (workout.length ? workout.join('; ') : items.length ? 'rest day' : 'none — the coach has not made a plan yet'),
+    'Weekly plan: ' + (!items.length ? 'not made yet (the coach builds it; logging food, water, steps and weight works already)' : '') + (!items.length ? '' : [1, 2, 3, 4, 5, 6, 7].map(d => dayName(d, true) + ': ' + (items.filter(i => i.day === d).map(i => exName(i.exercise) + ' ' + i.sets + '×' + i.reps).join(', ') || 'rest')).join(' | ')),
     "TODAY'S LOGS: " + (logs.length ? logs.join('; ') : 'nothing logged yet'),
     'Totals today: ' + n0(sumDay(L, 'food')) + ' kcal / ' + n0(sumDay(L, 'food', 'protein_g')) + ' g protein; water ' + sumDay(L, 'water') / 1000 + ' L; steps ' + (steps ? n0(steps.value) : 'not logged') + '; weigh-in ' + (weight ? weight.value + ' kg' : 'not logged') + '; evening check-in ' + (ci ? mood(ci.value) : 'not done') + '.',
     'Last 6 days: ' + (days.length ? days.join(' | ') : 'nothing logged'),
