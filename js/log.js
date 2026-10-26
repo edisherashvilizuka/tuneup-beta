@@ -1,5 +1,5 @@
 // Tune Up beta — trainee daily logging (food, water, steps, weight, evening check-in) + the week view.
-import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS, exName, addDays, LANG } from './i18n.js';
+import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS, exName, addDays, LANG, macroShort } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
@@ -37,7 +37,7 @@ function ring(key, uni, label, color, v, max) {
     : '<text x="32" y="36" text-anchor="middle" class="rv">' + n0(v) + '</text>';
   return '<div class="f1" role="img" aria-label="' + esc(t(label)) + ' ' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '">' +
     '<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="var(--a-line2)" stroke-width="6"/><circle cx="32" cy="32" r="26" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + (C * pct).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 32 32)"' + (max && pct >= 1 ? ' opacity=".55"' : '') + '/>' + inner + '</svg>' +
-    '<div class="k" style="color:' + color + '">' + esc(t(label)) + '</div><div class="s">' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '</div></div>';
+    '<div class="k" style="color:' + color + '">' + esc(macroShort(label)) + '</div><div class="s">' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '</div></div>';
 }
 const I_CHECK = '✓';
 export function fuelGauge(L) {
@@ -121,7 +121,7 @@ async function lookup(text) {
 function itemCard(it, i) {
   const m = itemTotals(it); const gramsToggle = it.unit_kind === 'count' && it.grams ? '<button class="chip sm" onclick="A.foodGrams(' + i + ')">' + t('in grams') + '</button>' : it.unit_kind === 'g' && it.fromCount ? '<button class="chip sm" onclick="A.foodCount(' + i + ')">' + esc(it.fromCount.unit) + '</button>' : '';
   const stepBig = it.unit_kind === 'g' ? (Number(it.qty) >= 100 ? 25 : 10) : 1;
-  const mac = (k, uni, label, color) => '<div class="mac"><div class="v" style="color:' + color + '">' + (m[k] == null || (it.per[k] == null && k !== 'kcal') ? '—' : n0(m[k])) + '<span>' + (k === 'kcal' ? '' : ' ' + esc(unit('g'))) + '</span></div><div class="k">' + esc(t(label)) + '</div></div>';
+  const mac = (k, uni, label, color) => '<div class="mac"><div class="v" style="color:' + color + '">' + (m[k] == null || (it.per[k] == null && k !== 'kcal') ? '—' : n0(m[k])) + '<span>' + (k === 'kcal' ? '' : ' ' + esc(unit('g'))) + '</span></div><div class="k">' + esc(macroShort(k)) + '</div></div>';
   return '<div class="card fcard"><div class="row between" style="align-items:flex-start;gap:8px"><div class="grow"><div class="h3">' + esc(it.name) + '</div><div class="mute small">' + esc(fmtQty(it.qty) + ' ' + it.unit) + (it.unit_kind === 'count' && it.grams ? ' · ' + t('about {g} g', { g: Math.round(it.grams * it.qty) }) : '') + '</div></div>' + sourceChip(it.source) + '</div>' +
     '<div class="row between"><div class="chips" style="gap:6px">' + gramsToggle + '</div><div class="stepper"><button type="button" aria-label="' + t('Less') + '" onclick="A.foodStep(' + i + ',-' + stepBig + ')">−</button><input class="input" inputmode="decimal" value="' + esc(fmtQty(it.qty)) + '" onchange="A.foodQty(' + i + ',this.value)" aria-label="' + t('Amount') + '"><span class="mute small">' + esc(it.unit) + '</span><button type="button" aria-label="' + t('More') + '" onclick="A.foodStep(' + i + ',' + stepBig + ')">+</button></div></div>' +
     '<div class="macs">' + mac('kcal', 'kcal', 'kcal', 'var(--a-ink)') + mac('protein_g', 'g', 'protein', 'var(--a-accent)') + mac('carbs_g', 'g', 'carbs', 'var(--a-carb)') + mac('fat_g', 'g', 'fats', 'var(--a-fat)') + '</div>' +

@@ -57,6 +57,8 @@ export const MOODS = { 1: 'Rough', 2: 'Low', 3: 'OK', 4: 'Good', 5: 'Great' };
 export function mood(v) { return MOODS[v] ? t(MOODS[v]) : ''; }
 export function exName(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.name_ka) ? x.name_ka : x.name; }
 export function exMuscle(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.muscle_ka) ? x.muscle_ka : x.muscle; }
+// short macro labels for tight spots (rings, macro strips); the full words stay in t()
+export function macroShort(k) { const M = { en: { kcal: 'kcal', protein_g: 'protein', carbs_g: 'carbs', fat_g: 'fats', Calories: 'Calories', Protein: 'Protein', Carbs: 'Carbs', Fats: 'Fats' }, ka: { kcal: 'კკალ', protein_g: 'ცილა', carbs_g: 'ნახშირწ.', fat_g: 'ცხიმი', Calories: 'კალორია', Protein: 'ცილა', Carbs: 'ნახშირწ.', Fats: 'ცხიმი' } }; return (M[LANG.cur] || M.en)[k] || k; }
 export function unit(u) { return LANG.cur === 'ka' ? ({ kg: 'კგ', cm: 'სმ', kcal: 'კკალ', g: 'გ', ml: 'მლ', min: 'წთ', L: 'ლ' }[u] || u) : u; }
 
 // option labels shared by forms (stored as English keys)
