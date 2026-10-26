@@ -4,6 +4,7 @@ import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy
 import * as db from './db.js';
 import { S } from './state.js';
 import { effectiveTargets } from './plan.js';
+import { loadMeals } from './food.js';
 
 // ---- helpers over S.today.logs (today) or any list of logs
 export function sumDay(logs, kind, key) { return logs.filter(l => l.kind === kind).reduce((a, l) => a + (Number(l[key || 'value']) || 0), 0); }
@@ -12,6 +13,7 @@ function tg(k) { const T = S.plan && effectiveTargets(S.plan.targets); return (T
 function bar(v, max, cls) { const pct = max ? Math.min(100, Math.round(v / max * 100)) : 0; return '<div class="bar"><i class="' + (cls || '') + '" style="width:' + pct + '%"></i></div>'; }
 function n0(v) { return Math.round(Number(v) || 0); }
 async function reloadToday() { S.today.logs = await db.logsForDay(S.me.id, S.today.day); rerender(); }
+export const reloadTodayLogs = reloadToday;
 function fail(e) { toast(t('Could not save — try again'), 'err'); }
 // two-tap confirm for small destructive buttons: the first tap asks, the second (within 4 s) does it
 export function armed(el, label) {
@@ -36,7 +38,7 @@ function ring(key, uni, label, color, v, max) {
   const C = 2 * Math.PI * 26; const pct = max ? Math.min(1, v / max) : 0; const left = max ? Math.max(0, Math.round(max - v)) : null;
   const inner = max ? '<text x="32" y="30" text-anchor="middle" class="rv">' + (left > 0 ? left : I_CHECK) + '</text><text x="32" y="42" text-anchor="middle" class="rs">' + (left > 0 ? esc(t('left')) : esc(t('done'))) + '</text>'
     : '<text x="32" y="36" text-anchor="middle" class="rv">' + n0(v) + '</text>';
-  return '<div class="f1" role="img" aria-label="' + esc(t(label)) + ' ' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '">' +
+  return '<div class="f1" role="button" tabindex="0" onclick="A.openFoods(\'' + key + '\')" onkeydown="if(event.key===\'Enter\')this.click()" aria-label="' + esc(t(label)) + ' ' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '">' +
     '<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="var(--a-line2)" stroke-width="6"/><circle cx="32" cy="32" r="26" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + (C * pct).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 32 32)"' + (max && pct >= 1 ? ' opacity=".55"' : '') + '/>' + inner + '</svg>' +
     '<div class="k" style="color:' + color + '">' + esc(macroShort(label)) + '</div><div class="s">' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '</div></div>';
 }
@@ -44,7 +46,7 @@ const I_CHECK = '✓';
 export function fuelGauge(L) {
   const m = macroTotals(L); const any = MAC.some(x => tg(x[0]));
   return '<div class="fuel">' + MAC.map(x => ring(x[0], x[1], x[2], x[3], m[x[0]], tg(x[0]))).join('') + '</div>' +
-    (any ? '' : '<div class="mute small" style="text-align:center">' + t('Your coach has not set daily targets yet.') + '</div>');
+    '<div class="mute small" style="text-align:center">' + (any ? t('Tap a ring to see the best foods for it') : t('Your coach has not set daily targets yet.')) + '</div>';
 }
 function macroLine(f, sep) { return [f.protein_g != null && f.protein_g !== '' ? t('P') + ' ' + n0(f.protein_g) : '', f.carbs_g != null && f.carbs_g !== '' ? t('C') + ' ' + n0(f.carbs_g) : '', f.fat_g != null && f.fat_g !== '' ? t('F') + ' ' + n0(f.fat_g) : ''].filter(Boolean).join(sep || ' · '); }
 export function logCards() {
@@ -53,7 +55,7 @@ export function logCards() {
   const steps = oneOf(L, 'steps'), weight = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
   const foods = L.filter(l => l.kind === 'food');
   const food = '<div class="card"><div class="row between"><div class="h3">' + t('Food') + '</div><span class="mute small">' + (foods.length ? (foods.length === 1 ? t('1 entry') : t('{n} entries', { n: foods.length })) : '') + '</span></div>' + fuelGauge(L) +
-    (foods.length ? '<div>' + foods.map(f => '<div class="food"><div><div class="n">' + esc(f.note || t('Meal')) + '</div><div class="m">' + esc(macroLine(f)) + (macroLine(f) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(f.value) + '</div><button class="act" style="width:28px;height:28px;border:0" onclick="A.delLog(\'' + f.id + '\',this)" aria-label="' + t('Remove') + '">' + I.x + '</button></div>').join('') + '</div>' : '') +
+    (foods.length ? '<div>' + foods.map(f => '<div class="food"><div><div class="n">' + esc(f.note || t('Meal')) + (f.reaction === 'up' ? ' <span title="' + esc(t('Your coach liked this')) + '">👍</span>' : '') + '</div><div class="m">' + esc(macroLine(f)) + (macroLine(f) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(f.value) + '</div><button class="act" style="width:28px;height:28px;border:0" onclick="A.delLog(\'' + f.id + '\',this)" aria-label="' + t('Remove') + '">' + I.x + '</button></div>').join('') + '</div>' : '') +
     '<button class="btn sec sm" onclick="A.foodSheet()">' + I.plus + ' ' + t('Add food') + '</button></div>';
   const wat = '<div class="card"><div class="row between"><div class="h3">' + t('Water') + '</div><span class="mute small">' + (water / 1000).toFixed(water % 1000 ? 2 : 1).replace(/\.?0+$/, '') + (tg('water_ml') ? ' / ' + (tg('water_ml') / 1000) : '') + ' ' + unit('L') + '</span></div>' + (tg('water_ml') ? bar(water, tg('water_ml'), 'blue') : '') +
     '<div class="btn-row"><button class="btn sec sm" onclick="A.addWater(250)">+ 250 ' + unit('ml') + '</button><button class="btn sec sm" onclick="A.addWater(500)">+ 500 ' + unit('ml') + '</button>' + (water ? '<button class="btn sec sm" onclick="A.undoWater()" aria-label="Undo">' + I.x + '</button>' : '') + '</div></div>';
@@ -77,10 +79,11 @@ function sourceChip(src) { return src === 'table' ? '<span class="chip sm grn">'
 A.foodSheet = () => {
   S.draft.food = { items: [], state: 'idle', text: '', recents: null };
   sheet('<div class="h2">' + t('Add food') + '</div>' +
-    field(t('What did you eat?'), 'fd_text', '', { ph: t('e.g. 5 khinkali, chicken with rice, coffee with milk'), attrs: ' autocomplete="off" enterkeyhint="done" oninput="A.foodTyped()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();A.foodTyped(true)}"' }) +
-    '<div class="mute small">' + t('The numbers fill in by themselves — several foods in one line are fine.') + '</div>' +
+    '<div class="row" style="gap:8px;align-items:flex-end">' + field(t('What did you eat?'), 'fd_text', '', { ph: t('e.g. 5 khinkali, chicken with rice, coffee with milk'), attrs: ' autocomplete="off" enterkeyhint="done" oninput="A.foodTyped()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();A.foodTyped(true)}"' }).replace('<div class="field">', '<div class="field grow">') +
+    '<button class="act camera" onclick="document.getElementById(\'fd_photo\').click()" aria-label="' + esc(t('Photo of your plate')) + '">' + I.camera + '</button><input type="file" id="fd_photo" accept="image/*" capture="environment" style="display:none" onchange="A.foodPhoto(this)"></div>' +
+    '<div class="mute small">' + t('Type it, or take a photo of the plate — the numbers fill in by themselves.') + '</div>' +
     '<div id="fd_sug"></div><div id="fd_recent"></div>' +
-    '<span class="link" style="align-self:flex-start" onclick="A.foodManual()">' + t('Enter the numbers myself') + '</span>');
+    '<div class="row between" style="flex-wrap:wrap;gap:8px 16px"><span class="link" onclick="A.foodManual()">' + t('Enter the numbers myself') + '</span><span class="link" onclick="A.closeSheet();A.openFoods(\'protein_g\')">' + t('Browse foods') + ' ›</span></div>');
   const el = document.getElementById('fd_text'); if (el) el.focus();
   loadRecents();
 };
@@ -88,6 +91,7 @@ async function loadRecents() {
   const D = FD();
   try {
     const L = (await db.logsBetween(S.me.id, addDays(S.today.day, -21), S.today.day)).filter(l => l.kind === 'food' && l.note).sort((a, b) => a.day < b.day ? 1 : -1);
+    S.foodRecents = L; D.meals = await loadMeals();
     const seen = new Set(); D.recents = [];
     for (const l of L) { const k = l.note.toLowerCase(); if (seen.has(k)) continue; seen.add(k); D.recents.push(l); if (D.recents.length >= 6) break; }
   } catch (e) { D.recents = []; }
@@ -95,8 +99,10 @@ async function loadRecents() {
 }
 function renderRecents() {
   const D = FD(); const el = document.getElementById('fd_recent'); if (!el) return;
-  if (!D.recents || !D.recents.length || D.items.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="section-title"><span class="eyebrow">' + t('Logged before') + '</span></div><div class="card" style="padding:4px 14px;gap:0">' +
+  if (D.items.length || ((!D.recents || !D.recents.length) && !(D.meals && D.meals.length))) { el.innerHTML = ''; return; }
+  const meals = (D.meals && D.meals.length) ? '<div class="section-title"><span class="eyebrow">' + t('My meals') + '</span></div><div class="card" style="padding:4px 14px;gap:0">' + D.meals.map(m => '<div class="food"><div class="grow" style="min-width:0;cursor:pointer" onclick="A.mealUse(\'' + m.id + '\')"><div class="n">' + esc(m.name) + '</div><div class="m">' + esc((m.items || []).map(x => x.name).join(', ')) + '</div></div><div class="kc" style="cursor:pointer" onclick="A.mealUse(\'' + m.id + '\')">' + n0(m.kcal) + '</div><span class="link small" onclick="A.mealForget(\'' + m.id + '\',this)">' + t('Remove') + '</span></div>').join('') + '</div>' : '';
+  if (!D.recents || !D.recents.length) { el.innerHTML = meals; return; }
+  el.innerHTML = meals + '<div class="section-title"><span class="eyebrow">' + t('Logged before') + '</span></div><div class="card" style="padding:4px 14px;gap:0">' +
     D.recents.map((l, i) => '<div class="food" style="cursor:pointer" onclick="A.foodRecent(' + i + ')"><div><div class="n">' + esc(l.note) + '</div><div class="m">' + esc(macroLine(l)) + (macroLine(l) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(l.value) + '</div><span class="mute">' + I.plus + '</span></div>').join('') + '</div>';
 }
 A.foodRecent = (i) => {
@@ -104,6 +110,24 @@ A.foodRecent = (i) => {
   D.items = [{ name: l.note, qty: 1, unit: t('serving'), unit_kind: 'count', grams: null, per: { kcal: Number(l.value) || 0, protein_g: Number(l.protein_g) || 0, carbs_g: l.carbs_g == null ? null : Number(l.carbs_g), fat_g: l.fat_g == null ? null : Number(l.fat_g) }, source: 'recent' }];
   D.state = 'ready'; const el = document.getElementById('fd_text'); if (el) el.value = l.note; renderSug(); renderRecents();
 };
+// photo of the plate → the estimator (vision) → the same cards. The picture is shrunk in the phone and never stored.
+A.foodPhoto = async (input) => {
+  const file = input.files && input.files[0]; if (!file) return; input.value = '';
+  const D = FD(); const n = ++lookupN; D.state = 'looking'; D.items = []; renderSug();
+  try {
+    const dataUrl = await shrink(file, 1024, 0.72);
+    const r = await db.lookupFoodImage(dataUrl, LANG.cur); if (n !== lookupN) return;
+    D.items = (r.items || []).map(x => Object.assign({}, x, { per: Object.assign({ kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }, x.per || {}) })); D.state = D.items.length ? 'ready' : 'none'; D.error = r.error || (D.items.length ? '' : t('No food found in the photo — try again closer, or type it.'));
+    const el = document.getElementById('fd_text'); if (el && D.items.length) el.value = D.items.map(x => x.name).join(', ');
+    track('food', { what: 'photo', n: D.items.length });
+  } catch (e) { if (n !== lookupN) return; D.items = []; D.state = 'none'; D.error = e.message || ''; }
+  renderSug(); renderRecents();
+};
+function shrink(file, max, q) {
+  return new Promise((res, rej) => { const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', q)); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error(t('Could not read the photo'))); }; img.src = url; });
+}
 let typedT = null, lookupN = 0;
 A.foodTyped = (now) => {
   const D = FD(); const text = val('fd_text'); D.text = text; clearTimeout(typedT);

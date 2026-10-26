@@ -96,7 +96,7 @@ A.setLangSave = async (l) => { A.lang(l); try { await db.updateProfile(S.me.id, 
 
 SCREENS.myProfile = () => {
   const tp = S.traineeProfile || {};
-  const rows = [[t('Weight'), tp.weight_kg ? tp.weight_kg + ' ' + unit('kg') : '—'], [t('Height'), tp.height_cm ? tp.height_cm + ' ' + unit('cm') : '—'], [t('Experience'), opt('experience', tp.experience)], [t('Main goal'), opt('goal', tp.goal)], [t('Anything specific?'), tp.goal_detail || '—'], [t('Injuries or limits'), tp.injuries || '—'], [t('Diet'), tp.diet || '—'], [t('How you want to train'), opt('format', tp.format)]];
+  const rows = [[t('Weight'), tp.weight_kg ? tp.weight_kg + ' ' + unit('kg') : '—'], [t('Height'), tp.height_cm ? tp.height_cm + ' ' + unit('cm') : '—'], [t('Experience'), opt('experience', tp.experience)], [t('Main goal'), opt('goal', tp.goal)], [t('Anything specific?'), tp.goal_detail || '—'], [t('Injuries or limits'), tp.injuries || '—'], [t('Diet'), tp.diet || '—'], [t('Eating style'), opt('eating_style', tp.eating_style || '')], [t('Allergies or foods I avoid'), tp.allergies || '—'], [t('How you want to train'), opt('format', tp.format)]];
   return { title: t('My answers'), body: '<div class="card">' + rows.map(r => '<div class="lrow"><div class="grow"><div class="s">' + esc(r[0]) + '</div><div class="t">' + esc(r[1]) + '</div></div></div>').join('') + '</div>' +
     '<button class="btn sec" onclick="A.go(\'editAnswers\')">' + I.edit + ' ' + t('Edit my answers') + '</button><div class="mute small">' + t('Your coach sees the changes. Your weigh-ins update the weight here.') + '</div>' };
 };
@@ -111,6 +111,8 @@ SCREENS.editAnswers = () => {
     '<div class="field"><label for="ea_goal">' + t('Main goal') + '</label>' + sel('ea_goal', 'goal', tp.goal) + '</div>' +
     field(t('Anything specific?'), 'ea_gd', tp.goal_detail || '', { textarea: true }) +
     field(t('Injuries or limits'), 'ea_inj', tp.injuries || '') + field(t('Diet'), 'ea_diet', tp.diet || '') +
+    '<div class="field"><label for="ea_style">' + t('Eating style') + '</label>' + sel('ea_style', 'eating_style', tp.eating_style || '') + '</div>' +
+    field(t('Allergies or foods I avoid'), 'ea_allergies', tp.allergies || '', { ph: t('e.g. nuts, lactose, pork') }) + '<div class="mute small">' + t('Food suggestions and Tune respect these.') + '</div>' +
     '<div class="field"><label for="ea_fmt">' + t('How you want to train') + '</label>' + sel('ea_fmt', 'format', tp.format) + '</div>' +
     '<button class="btn" onclick="A.saveAnswers()">' + t('Save') + '</button>' };
 };
@@ -120,7 +122,7 @@ A.saveAnswers = async () => {
   if (h !== null && (isNaN(h) || h < 100 || h > 250)) { toast(t('Check the number: height in cm, 100–250.'), 'err'); return; }
   busy(true);
   try {
-    const patch = { weight_kg: w, height_cm: h, experience: val('ea_exp'), goal: val('ea_goal'), goal_detail: val('ea_gd').slice(0, 300), injuries: val('ea_inj').slice(0, 300), diet: val('ea_diet').slice(0, 200), format: val('ea_fmt') };
+    const patch = { weight_kg: w, height_cm: h, experience: val('ea_exp'), goal: val('ea_goal'), goal_detail: val('ea_gd').slice(0, 300), injuries: val('ea_inj').slice(0, 300), diet: val('ea_diet').slice(0, 200), eating_style: val('ea_style'), allergies: val('ea_allergies').slice(0, 200), format: val('ea_fmt') };
     const r = await db.updateTraineeProfile(S.me.id, patch); S.traineeProfile = Object.assign({}, S.traineeProfile, patch, r || {});
     toast(t('Saved')); back();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }

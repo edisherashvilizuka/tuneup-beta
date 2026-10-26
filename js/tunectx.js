@@ -8,7 +8,7 @@ import { isoDate, addDays, weekdayOf, fmtTime, MOODS, exName, opt, LANG } from '
 import * as db from './db.js';
 import { S } from './state.js';
 import { effectiveTargets } from './plan.js';
-import { sumDay, oneOf } from './log.js';
+import { sumDay, oneOf, macroTotals } from './log.js';
 import { statsFor, flagsFor } from './monitor.js';
 import { loadSessions, occurrences } from './calendar.js';
 
@@ -30,6 +30,8 @@ function todayLine() { const d = isoDate(); return d + ', ' + dayName(weekdayOf(
 function answers(p) { return ['weight ' + (p.weight_kg ? p.weight_kg + ' kg' : '—'), 'height ' + (p.height_cm ? p.height_cm + ' cm' : '—'), 'experience ' + (p.experience || '—'), 'goal ' + (p.goal || '—'), p.goal_detail ? 'goal detail ' + q(p.goal_detail) : '', 'injuries ' + (p.injuries ? q(p.injuries) : 'none given'), 'diet ' + (p.diet ? q(p.diet) : '—'), 'trains ' + (p.format || '—')].filter(Boolean).join(', '); }
 function chatLines(list, nameOf) { return list.length ? list.map(m => '  [' + stamp(m.created_at) + '] ' + nameOf(m) + ': ' + q(m.text)).join('\n') : '  (no messages yet)'; }
 function macros(x) { return (x.protein_g != null ? ' / ' + n0(x.protein_g) + ' g protein' : '') + (x.carbs_g != null ? ' / ' + n0(x.carbs_g) + ' g carbs' : '') + (x.fat_g != null ? ' / ' + n0(x.fat_g) + ' g fat' : ''); }
+function leftLine() { const T = effectiveTargets((S.plan && S.plan.targets) || {}) || {}; const E = macroTotals((S.today && S.today.logs) || []); if (!T.kcal && !T.protein_g) return ''; const L = k => T[k] ? n0(T[k] - E[k]) : null; return ' LEFT TODAY: ' + [L('kcal') != null ? L('kcal') + ' kcal' : '', L('protein_g') != null ? L('protein_g') + ' g protein' : '', L('carbs_g') != null ? L('carbs_g') + ' g carbs' : '', L('fat_g') != null ? L('fat_g') + ' g fat' : ''].filter(Boolean).join(', ') + ' (negative = over).'; }
+function prefLine(p) { return [p.eating_style ? 'eating style ' + p.eating_style : '', p.allergies ? 'allergies / avoids ' + q(p.allergies) : '', p.diet ? 'diet note ' + q(p.diet) : ''].filter(Boolean).join(', ') || 'none given'; }
 function targetsLine(tg) { tg = effectiveTargets(tg); return tg && (tg.kcal || tg.protein_g || tg.water_ml || tg.steps) ? [tg.kcal ? tg.kcal + ' kcal' : '', tg.protein_g ? tg.protein_g + ' g protein' : '', tg.carbs_g ? tg.carbs_g + ' g carbs' : '', tg.fat_g ? tg.fat_g + ' g fat' : '', tg.water_ml ? tg.water_ml / 1000 + ' L water' : '', tg.steps ? tg.steps + ' steps' : ''].filter(Boolean).join(', ') : 'not set'; }
 
 // ---- load fresh data before each question (cheap: a few small queries)
@@ -64,7 +66,8 @@ export function traineeContext(D) {
   const sess = occurrences(today, addDays(today, 14)).map(o => (o.cancelled ? 'CANCELLED by the coach' + (o.note ? ' (' + q(o.note) + ')' : '') + ': ' : '') + isoDate(o.at) + ' ' + fmtDay(o.date) + ' ' + fmtTime(o.at) + ', ' + o.s.minutes + ' min, ' + (o.s.where_kind === 'video' ? 'video call' : (o.s.place || 'in person')) + (o.s.repeat === 'weekly' ? ', weekly' : '') + (o.moved ? ' (moved)' : '') + (o.s.note ? ' ' + q(o.s.note) : ''));
   const text = [
     'Trainee: ' + S.me.name + '. Coach: ' + (coach.name || 'none') + (coach.lang ? ' (app language ' + (coach.lang === 'ka' ? 'Georgian' : 'English') + ')' : '') + (p.status === 'active' ? '' : ' (coaching ended — no messages possible)') + '. Today: ' + todayLine() + '.',
-    'Daily targets (set by the coach): ' + targetsLine(tg) + '.',
+    'Daily targets (set by the coach): ' + targetsLine(tg) + '.' + leftLine(),
+    'Food preferences (from My answers): ' + prefLine(S.traineeProfile || {}) + '. Saved meals: ' + ((S.meals || []).map(m => q(m.name)).join(', ') || 'none') + '.',
     "TODAY'S WORKOUT: " + (workout.length ? workout.join('; ') : items.length ? 'rest day' : 'none — the coach has not made a plan yet'),
     'Weekly plan: ' + (!items.length ? 'not made yet (the coach builds it; logging food, water, steps and weight works already)' : '') + (!items.length ? '' : [1, 2, 3, 4, 5, 6, 7].map(d => dayName(d, true) + ': ' + (items.filter(i => i.day === d).map(i => exName(i.exercise) + ' ' + i.sets + '×' + i.reps).join(', ') || 'rest')).join(' | ')),
     "TODAY'S LOGS: " + (logs.length ? logs.join('; ') : 'nothing logged yet'),
@@ -94,7 +97,7 @@ export function coachContext(D) {
       '  Today: ' + (d.planned ? 'workout ' + d.done + '/' + d.planned : 'rest day') + ', ' + n0(d.kcal) + ' kcal / ' + n0(d.prot) + ' g protein' + (d.carbs ? ' / ' + n0(d.carbs) + ' g carbs' : '') + (d.fat ? ' / ' + n0(d.fat) + ' g fat' : '') + (d.water ? ', ' + d.water / 1000 + ' L' : '') + (d.steps ? ', ' + n0(d.steps.value) + ' steps' : '') + (d.ci ? ', check-in ' + mood(d.ci.value) + (d.ci.note ? ' ' + q(d.ci.note) : '') : '') + '.\n' +
       '  Last 7 days: workouts ' + st.workouts[0] + '/' + st.workouts[1] + ', avg ' + st.avgKcal + ' kcal / ' + st.avgProt + ' g protein, avg ' + st.avgSteps + ' steps' + (st.lastWeight ? ', weight ' + st.lastWeight.value + ' kg (' + st.lastWeight.day + ')' : '') + (st.lastLog ? ', last log ' + st.lastLog : ', nothing logged yet') + (f.length ? '. Flags: ' + f.map(x => x.label + ' (' + x.sub + ')').join('; ') : '') + '.\n' +
       '  CHECK-INS: ' + (st.cis.slice(0, 5).map(x => x.day + ' ' + mood(x.value) + (x.note ? ' ' + q(x.note) : '')).join('; ') || 'none') + '\n' +
-      '  Targets: ' + targetsLine(c.targets) + '\n' +
+      '  Targets: ' + targetsLine(c.targets) + '. Food preferences: ' + prefLine(tpOf(c)) + '\n' +
       '  Goals: ' + (goals.join('; ') || 'none') + '\n' +
       '  Plan: ' + plan + '\n' +
       "  Coach's private NOTES (only the coach sees them): " + (note && note.text ? q(note.text) : 'none') + '\n' +

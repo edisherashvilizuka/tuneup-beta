@@ -6,7 +6,8 @@ import { KA4 } from './ka4.js';
 import { KA5 } from './ka5.js';
 import { KA6 } from './ka6.js';
 import { KA7 } from './ka7.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7);
+import { KA8 } from './ka8.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}
@@ -58,12 +59,13 @@ export function mood(v) { return MOODS[v] ? t(MOODS[v]) : ''; }
 export function exName(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.name_ka) ? x.name_ka : x.name; }
 export function exMuscle(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.muscle_ka) ? x.muscle_ka : x.muscle; }
 // short macro labels for tight spots (rings, macro strips); the full words stay in t()
-export function macroShort(k) { const M = { en: { kcal: 'kcal', protein_g: 'protein', carbs_g: 'carbs', fat_g: 'fats', Calories: 'Calories', Protein: 'Protein', Carbs: 'Carbs', Fats: 'Fats' }, ka: { kcal: 'კკალ', protein_g: 'ცილა', carbs_g: 'ნახშირწ.', fat_g: 'ცხიმი', Calories: 'კალორია', Protein: 'ცილა', Carbs: 'ნახშირწ.', Fats: 'ცხიმი' } }; return (M[LANG.cur] || M.en)[k] || k; }
+export function macroShort(k) { const M = { en: { kcal: 'kcal', protein_g: 'protein', carbs_g: 'carbs', fat_g: 'fats', Calories: 'Calories', Protein: 'Protein', Carbs: 'Carbs', Fats: 'Fats', Light: 'Light' }, ka: { kcal: 'კკალ', protein_g: 'ცილა', carbs_g: 'ნახშირწ.', fat_g: 'ცხიმი', Calories: 'კალორია', Protein: 'ცილა', Carbs: 'ნახშირწ.', Fats: 'ცხიმი', Light: 'მსუბუქი' } }; return (M[LANG.cur] || M.en)[k] || k; }
 export function unit(u) { return LANG.cur === 'ka' ? ({ kg: 'კგ', cm: 'სმ', kcal: 'კკალ', g: 'გ', ml: 'მლ', min: 'წთ', L: 'ლ' }[u] || u) : u; }
 
 // option labels shared by forms (stored as English keys)
 export const OPTS = {
   experience: { beginner: 'Beginner', some: 'Some experience', regular: 'Train regularly' },
+  eating_style: { '': 'Not set', normal: 'Eat everything', vegetarian: 'Vegetarian', vegan: 'Vegan', nopork: 'No pork', fasting: 'Fasting (Orthodox)' },
   goal: { lose: 'Lose fat', gain: 'Build muscle', tone: 'Get fit and toned', health: 'Health and energy', sport: 'Sport performance' },
   format: { inperson: 'In person', online: 'Online', either: 'In person or online' },
   specialty: { strength: 'Strength', fatloss: 'Fat loss', hypertrophy: 'Muscle', mobility: 'Mobility', running: 'Running', rehab: 'After injury', women: 'Women’s fitness', seniors: '50+' }

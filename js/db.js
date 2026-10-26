@@ -53,7 +53,7 @@ export async function saveTraineeProfile(uid, patch) { return q(sb.from('trainee
 
 // ---- coach
 export async function myClients(uid) {
-  return q(sb.from('pairs').select('id,status,format,started_at,ended_at,end_note,trainee:profiles!pairs_trainee_id_fkey(id,name,lang,trainee_profiles(weight_kg,height_cm,experience,goal,goal_detail,injuries,diet,format))')
+  return q(sb.from('pairs').select('id,status,format,started_at,ended_at,end_note,trainee:profiles!pairs_trainee_id_fkey(id,name,lang,trainee_profiles(weight_kg,height_cm,experience,goal,goal_detail,injuries,diet,format,allergies,eating_style))')
     .eq('coach_id', uid).order('started_at', { ascending: false }));
 }
 export async function myCoachProfile(uid) { return q(sb.from('coach_profiles').select('*').eq('id', uid).maybeSingle()); }
@@ -92,13 +92,13 @@ export async function updateGoal(id, patch) { return q(sb.from('goals').update(p
 export async function deleteGoal(id) { return q(sb.from('goals').delete().eq('id', id)); }
 
 // ---- logs (trainee's day)
-export async function logsForDay(traineeId, day) { return q(sb.from('logs').select('id,kind,ref,value,protein_g,carbs_g,fat_g,note,created_at').eq('trainee_id', traineeId).eq('day', day)); }
+export async function logsForDay(traineeId, day) { return q(sb.from('logs').select('id,kind,ref,value,protein_g,carbs_g,fat_g,note,reaction,created_at').eq('trainee_id', traineeId).eq('day', day)); }
 export async function logsBetween(traineeId, from, to) { return q(sb.from('logs').select('id,day,kind,ref,value,protein_g,carbs_g,fat_g,note').eq('trainee_id', traineeId).gte('day', from).lte('day', to)); }
 export async function setExerciseDone(traineeId, day, itemId, done) {
   await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', 'exercise').eq('ref', itemId));
   if (done) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind: 'exercise', ref: itemId, value: 1 }));
 }
-const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,carbs_g,fat_g,note,created_at';
+const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,carbs_g,fat_g,note,reaction,created_at';
 export async function addLog(traineeId, day, kind, value, extra) {
   const x = extra || {}; const n = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
   return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, protein_g: n(x.protein_g), carbs_g: n(x.carbs_g), fat_g: n(x.fat_g), note: x.note || '' }).select(LOG_COLS).single());
@@ -162,6 +162,18 @@ export async function lookupFood(text, lang) {
   if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }
   return data || { items: [] };
 }
+export async function lookupFoodImage(dataUrl, lang) {
+  const { data, error } = await sb.functions.invoke('food', { body: { image: dataUrl, lang } });
+  if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }
+  return data || { items: [] };
+}
+// saved meals (trainee's own templates) and the coach's one-tap reaction on a food log
+const MEAL_COLS = 'id,name,items,kcal,protein_g,carbs_g,fat_g,created_at,used_at';
+export async function listMeals(uid) { return q(sb.from('meals').select(MEAL_COLS).eq('trainee_id', uid).order('used_at', { ascending: false }).limit(12)); }
+export async function saveMeal(uid, name, items, m) { return q(sb.from('meals').insert({ trainee_id: uid, name, items, kcal: Math.round(m.kcal), protein_g: m.protein_g, carbs_g: m.carbs_g, fat_g: m.fat_g }).select(MEAL_COLS).single()); }
+export async function touchMeal(id) { return q(sb.from('meals').update({ used_at: new Date().toISOString() }).eq('id', id)); }
+export async function deleteMeal(id) { return q(sb.from('meals').delete().eq('id', id)); }
+export async function reactToLog(logId, on) { return q(sb.rpc('react_to_log', { p_log: logId, p_on: !!on })); }
 export async function askTune(payload) {
   const { data, error } = await sb.functions.invoke('tune', { body: payload });
   if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }

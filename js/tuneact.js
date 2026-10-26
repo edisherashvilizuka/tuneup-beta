@@ -5,13 +5,14 @@
 import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, unit, firstName } from './i18n.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { go, root } from './ui.js';
 import { loadSessions } from './calendar.js';
 import { loadPlan, splitFor } from './plan.js';
 import { loadMonitor } from './monitor.js';
 
-export const INSTANT = new Set(['log_food', 'log_water', 'log_steps', 'log_weight', 'log_checkin', 'tick_exercise', 'add_private_note']);
-const TRAINEE = ['log_food', 'log_water', 'log_steps', 'log_weight', 'log_checkin', 'tick_exercise', 'remove_log', 'send_message', 'update_my_answers', 'send_feedback'];
-const COACH = ['send_message', 'add_session', 'move_session', 'cancel_session', 'set_targets', 'add_goal', 'set_goal_done', 'remove_goal', 'add_plan_items', 'update_plan_item', 'remove_plan_items', 'add_private_note', 'send_feedback'];
+export const INSTANT = new Set(['log_food', 'log_water', 'log_steps', 'log_weight', 'log_checkin', 'tick_exercise', 'add_private_note', 'open_screen']);
+const TRAINEE = ['log_food', 'log_water', 'log_steps', 'log_weight', 'log_checkin', 'tick_exercise', 'remove_log', 'send_message', 'update_my_answers', 'send_feedback', 'open_screen'];
+const COACH = ['send_message', 'add_session', 'move_session', 'cancel_session', 'set_targets', 'add_goal', 'set_goal_done', 'remove_goal', 'add_plan_items', 'update_plan_item', 'remove_plan_items', 'add_private_note', 'send_feedback', 'open_screen'];
 
 const n0 = v => Math.round(Number(v) || 0);
 const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
@@ -47,7 +48,16 @@ export function prepare(a, refs) {
   } catch (e) { p.status = 'invalid'; p.err = e instanceof Bad ? e.message : t('Something went wrong — try again'); if (!p.card.title) p.card.title = t('Could not prepare this'); }
   return p;
 }
+// screens Tune may open for the person ("show me protein foods", "open my calendar"); the names come from the tool enum
+const SCREENS_T = { foods: ['go', 'foods', { macro: 'protein_g' }], carbs: ['go', 'foods', { macro: 'carbs_g' }], fats: ['go', 'foods', { macro: 'fat_g' }], light: ['go', 'foods', { macro: 'kcal' }], meal: ['go', 'meal'], today: ['tab', 'home'], week: ['go', 'week'], plan: ['tab', 'plan'], chat: ['tab', 'chat'], sessions: ['tab', 'sessions'], answers: ['go', 'myProfile'], more: ['tab', 'more'] };
+const SCREENS_C = { today: ['tab', 'ctoday'], clients: ['tab', 'clients'], chat: ['tab', 'chat'], calendar: ['tab', 'ccal'], more: ['tab', 'more'], client: ['client'] };
+const SCREEN_LABEL = { foods: 'Foods', carbs: 'Foods', fats: 'Foods', light: 'Foods', meal: 'Build a meal', today: 'Today', week: 'This week', plan: 'Plan', chat: 'Chat', sessions: 'Sessions', answers: 'My answers', more: 'More', clients: 'Clients', calendar: 'Calendar', client: 'Client' };
 const PREP = {
+  open_screen(p, x, R) {
+    const key = str(x.screen, 20).toLowerCase(); const map = S.me.role === 'coach' ? SCREENS_C : SCREENS_T; const s = map[key]; if (!s) bad('Tune tried to open a screen that does not exist.');
+    p.data = { s }; if (key === 'client') { const c = client(R, x.client); p.data.s = ['go', 'client', { id: c.id }]; }
+    p.card.title = t('Opened {screen}', { screen: t(SCREEN_LABEL[key] || key) });
+  },
   log_food(p, x) { const kcal = n0(x.kcal), pr = num(x.protein_g), cb = num(x.carbs_g), ft = num(x.fat_g); if (kcal < 0 || kcal > 10000 || (pr != null && (pr < 0 || pr > 1000)) || (cb != null && (cb < 0 || cb > 2000)) || (ft != null && (ft < 0 || ft > 1000))) bad('Check the numbers: calories 0–10000, protein 0–1000 g.'); p.data = { kcal, protein_g: pr == null ? null : n0(pr), carbs_g: cb == null ? null : n0(cb), fat_g: ft == null ? null : n0(ft), note: str(x.note, 120) }; p.card.title = t('Food') + ': ' + (p.data.note || t('Meal')); p.card.body = kcal + ' ' + unit('kcal') + [p.data.protein_g != null ? t('P') + ' ' + p.data.protein_g : '', p.data.carbs_g != null ? t('C') + ' ' + p.data.carbs_g : '', p.data.fat_g != null ? t('F') + ' ' + p.data.fat_g : ''].filter(Boolean).map(x => ' · ' + x).join('') + (p.data.protein_g != null || p.data.carbs_g != null ? ' ' + unit('g') : ''); },
   log_water(p, x) { const ml = n0(x.ml); if (ml < 50 || ml > 5000) bad('Check the number: water 50–5000 ml.'); p.data = { ml }; p.card.title = t('Water') + ' +' + ml + ' ' + unit('ml'); },
   log_steps(p, x) { const v = n0(x.steps); if (v < 0 || v > 100000) bad('Check the number: at most 100000 steps.'); p.data = { v }; p.card.title = t('Steps today') + ': ' + v; },
@@ -145,6 +155,7 @@ export async function run(p) {
 }
 async function todayReload() { if (S.today) { try { S.today.logs = await db.logsForDay(S.me.id, S.today.day); } catch (e) {} } }
 const RUN = {
+  async open_screen(d) { const [how, name, params] = d.s; setTimeout(() => { if (how === 'tab') root(name); else go(name, params || {}); }, 350); },
   async log_food(d, uid, day) { await db.addLog(uid, day, 'food', d.kcal, { protein_g: d.protein_g, carbs_g: d.carbs_g, fat_g: d.fat_g, note: d.note }); await todayReload(); },
   async log_water(d, uid, day) { await db.addLog(uid, day, 'water', d.ml); await todayReload(); },
   async log_steps(d, uid, day) { await db.setDayLog(uid, day, 'steps', d.v); await todayReload(); },

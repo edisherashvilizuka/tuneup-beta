@@ -1,9 +1,10 @@
 // Tune Up beta — coach monitoring: Today tab (needs your eye + everyone today), per-client 7-day stats,
 // weight trend, check-in notes and the coach's private notes.
-import { t, esc, unit, isoDate, addDays, weekdayOf, fmtDay, firstName, mood, fmtDate } from './i18n.js';
+import { t, esc, unit, isoDate, addDays, weekdayOf, fmtDay, firstName, mood, fmtDate, macroShort } from './i18n.js';
 import { SCREENS, A, I, rerender, toast, val, busy, avatar } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { effectiveTargets } from './plan.js';
 import { tuneButton } from './tune.js';
 import { pushCard } from './push.js';
 import { guideCard } from './guide.js';
@@ -26,7 +27,7 @@ export function statsFor(c) {
   const logs = M.logs.filter(l => l.trainee_id === c.trainee.id); const items = M.items.filter(i => i.pair_id === c.id);
   const days = [6, 5, 4, 3, 2, 1, 0].map(n => addDays(today, -n));
   const byDay = days.map(d => { const L = logs.filter(l => l.day === d); const planned = items.filter(i => i.day === weekdayOf(new Date(d + 'T00:00:00')) && (!i.created_at || i.created_at.slice(0, 10) <= d)).length; const done = L.filter(l => l.kind === 'exercise').length;
-    return { day: d, L, planned, done, kcal: sum(L, 'food'), prot: sum(L, 'food', 'protein_g'), carbs: sum(L, 'food', 'carbs_g'), fat: sum(L, 'food', 'fat_g'), water: sum(L, 'water'), steps: one(L, 'steps'), weight: one(L, 'weight'), ci: one(L, 'checkin'), any: L.length > 0 }; });
+    return { day: d, L, planned, done, kcal: sum(L, 'food'), prot: sum(L, 'food', 'protein_g'), carbs: sum(L, 'food', 'carbs_g'), fat: sum(L, 'food', 'fat_g'), hasMacros: L.some(l => l.kind === 'food' && l.carbs_g != null), water: sum(L, 'water'), steps: one(L, 'steps'), weight: one(L, 'weight'), ci: one(L, 'checkin'), any: L.length > 0 }; });
   const plannedDays = byDay.filter(x => x.planned), doneDays = plannedDays.filter(x => x.done >= x.planned);
   const foodDays = byDay.filter(x => x.kcal || x.prot), waterDays = byDay.filter(x => x.water), stepDays = byDay.filter(x => x.steps);
   const weights = logs.filter(l => l.kind === 'weight').sort((a, b) => a.day < b.day ? -1 : 1);
@@ -39,10 +40,12 @@ export function statsFor(c) {
     weights, lastWeight: weights.length ? weights[weights.length - 1] : null, cis, lastLog };
 }
 export function flagsFor(c, st) {
-  const M = S.mon || {}; const today = M.today || isoDate(); const f = []; const tg = c.targets || null;
+  const M = S.mon || {}; const today = M.today || isoDate(); const f = []; const tg = effectiveTargets(c.targets) || null;
   const last = st.byDay.slice(0, 6).filter(x => x.planned).pop();                  // most recent planned day before today
   if (last && last.done < last.planned) f.push({ k: 'missed', label: t('Missed workout'), sub: fmtDay(last.day, 'dm') + ' · ' + last.done + '/' + last.planned });
   if (tg && tg.protein_g && st.yesterday.prot && st.yesterday.prot < tg.protein_g * 0.7) f.push({ k: 'protein', label: t('Low protein'), sub: n0(st.yesterday.prot) + ' / ' + tg.protein_g + ' ' + unit('g') + ' ' + t('yesterday') });
+  if (tg && tg.carbs_g && st.yesterday.carbs && st.yesterday.kcal && st.yesterday.carbs < tg.carbs_g * 0.6) f.push({ k: 'carbs', label: t('Low carbs'), sub: n0(st.yesterday.carbs) + ' / ' + tg.carbs_g + ' ' + unit('g') + ' ' + t('yesterday') });
+  if (tg && tg.fat_g && st.yesterday.fat && st.yesterday.fat > tg.fat_g * 1.35) f.push({ k: 'fat', label: t('High fats'), sub: n0(st.yesterday.fat) + ' / ' + tg.fat_g + ' ' + unit('g') + ' ' + t('yesterday') });
   const ci = st.cis[0];
   if (ci && ci.day >= addDays(today, -2) && Number(ci.value) <= 2) f.push({ k: 'mood', label: t('Low mood'), sub: mood(ci.value) + ' · ' + fmtDay(ci.day, 'dm') });
   if (ci && ci.day >= addDays(today, -2) && ci.note) f.push({ k: 'note', label: t('Wrote a note'), sub: ci.note });
@@ -71,7 +74,7 @@ A.refreshMon = async () => { try { await loadMonitor(); rerender(); toast(t('Upd
 // ---- cards inside the client screen (coach side)
 export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefined (both)
   if (!S.mon) return '';
-  const st = statsFor(c); const flags = flagsFor(c, st); const tg = c.targets || {};
+  const st = statsFor(c); const flags = flagsFor(c, st); const tg = effectiveTargets(c.targets) || {};
   const d = st.today;
   const todayBits = [d.planned ? t('workout') + ' ' + d.done + '/' + d.planned : t('rest day'), d.kcal ? n0(d.kcal) + ' ' + unit('kcal') : '', d.prot ? n0(d.prot) + ' ' + unit('g') + ' ' + t('P') : '', d.carbs ? n0(d.carbs) + ' ' + unit('g') + ' ' + t('C') : '', d.fat ? n0(d.fat) + ' ' + unit('g') + ' ' + t('F') : '', d.water ? (d.water / 1000) + ' ' + unit('L') : '', d.steps ? n0(d.steps.value) + ' ' + t('steps') : '', d.weight ? Number(d.weight.value) + ' ' + unit('kg') : '', d.ci ? mood(d.ci.value) : ''].filter(Boolean).join(' · ');
   const stat = (v, k) => '<div class="tile"><div class="stat"><div class="v">' + v + '</div><div class="k">' + esc(k) + '</div></div></div>';
@@ -83,12 +86,30 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
   const overview = (flags.length ? '<div class="chips">' + flags.map(chip).join('') + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Today') + '</span></div><div class="card"><div class="lead">' + esc(todayBits || t('Nothing logged yet')) + '</div>' + (d.ci && d.ci.note ? '<div class="mute">“' + esc(d.ci.note) + '”</div>' : '') + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + t('Last 7 days') + '</span></div>' + week + '<div class="card">' + dots + '</div>' +
+    (tg.kcal || tg.protein_g ? '<div class="section-title"><span class="eyebrow">' + t('Food vs targets') + '</span><span class="mute small">' + t('green = on target') + '</span></div><div class="card">' + heatmap(st, tg) + '</div>' : '') +
+    foodList(c, st) +
     (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '');
   const notes = (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Private notes') + '</span><span class="mute small">' + t('only you see these') + '</span></div><div class="card">' +
     (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<textarea class="input" id="cnote" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(note.text || '') + '</textarea><button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
   return part === 'overview' ? overview : part === 'notes' ? notes : overview + notes;
 }
+// 7 days × 4 macros; a cell is green within 85–115 % of the target, amber 60–85 / 115–135, red beyond, grey when nothing was logged that day
+function heatmap(st, tg) {
+  const rows = [['kcal', 'Calories'], ['prot', 'Protein'], ['carbs', 'Carbs'], ['fat', 'Fats']].map(([k, label]) => { const T = tg[{ kcal: 'kcal', prot: 'protein_g', carbs: 'carbs_g', fat: 'fat_g' }[k]]; if (!T) return '';
+    return '<div class="lab">' + esc(macroShort(label)) + '</div>' + st.byDay.map(x => { if (!x.kcal || ((k === 'carbs' || k === 'fat') && !x.hasMacros)) return '<div class="c" title="' + esc(fmtDay(x.day, 'dm')) + '"></div>'; const r = x[k] / T; const cls = r >= 0.85 && r <= 1.15 ? 'g' : (r >= 0.6 && r <= 1.35) ? 'a' : 'r'; return '<div class="c ' + cls + '" title="' + esc(fmtDay(x.day, 'dm') + ' · ' + n0(x[k]) + ' / ' + T) + '"></div>'; }).join(''); }).join('');
+  return '<div class="heat"><div></div>' + st.byDay.map(x => '<div class="d">' + esc(fmtDay(x.day, 'dm').split(' ')[0]) + '</div>').join('') + rows + '</div>';
+}
+// today's and yesterday's food entries with a one-tap 👍 (the client is notified once)
+function foodList(c, st) {
+  const days = [st.today, st.yesterday].filter(Boolean);
+  const rows = days.map(d => { const F = d.L.filter(l => l.kind === 'food'); if (!F.length) return ''; return '<div class="mute small" style="margin-top:4px">' + esc(d === st.today ? t('Today') : t('Yesterday')) + '</div>' + F.map(f => '<div class="food"><div class="grow" style="min-width:0"><div class="n">' + esc(f.note || t('Meal')) + '</div><div class="m">' + n0(f.value) + ' ' + unit('kcal') + (f.protein_g != null ? ' · ' + t('P') + ' ' + n0(f.protein_g) : '') + (f.carbs_g != null ? ' · ' + t('C') + ' ' + n0(f.carbs_g) : '') + (f.fat_g != null ? ' · ' + t('F') + ' ' + n0(f.fat_g) : '') + '</div></div><button class="rx ' + (f.reaction === 'up' ? 'on' : '') + '" onclick="A.reactLog(\'' + f.id + '\',' + (f.reaction === 'up' ? 'false' : 'true') + ')" aria-label="' + esc(t('Like')) + '" aria-pressed="' + (f.reaction === 'up' ? 'true' : 'false') + '">' + I.thumb + '</button></div>').join(''); }).join('');
+  return rows ? '<div class="section-title"><span class="eyebrow">' + t('Food log') + '</span><span class="mute small">' + t('tap 👍 to encourage') + '</span></div><div class="card" style="gap:0">' + rows + '</div>' : '';
+}
+A.reactLog = async (id, on) => {
+  try { await db.reactToLog(id, on); const l = (S.mon.logs || []).find(x => x.id === id); if (l) l.reaction = on ? 'up' : null; rerender(); if (on) toast(t('Sent 👍')); }
+  catch (e) { toast(t('Could not save — try again'), 'err'); }
+};
 function spark(ws) {
   const vals = ws.map(w => Number(w.value)); const min = Math.min(...vals), max = Math.max(...vals); const span = (max - min) || 1;
   const W = 300, H = 70, pad = 6; const pts = vals.map((v, i) => [pad + (vals.length > 1 ? i / (vals.length - 1) : 0.5) * (W - 2 * pad), H - pad - (v - min) / span * (H - 2 * pad)]);
