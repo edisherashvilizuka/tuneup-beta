@@ -3,11 +3,12 @@ import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS,
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { effectiveTargets } from './plan.js';
 
 // ---- helpers over S.today.logs (today) or any list of logs
 export function sumDay(logs, kind, key) { return logs.filter(l => l.kind === kind).reduce((a, l) => a + (Number(l[key || 'value']) || 0), 0); }
 export function oneOf(logs, kind) { return logs.find(l => l.kind === kind) || null; }
-function tg(k) { return (S.plan && S.plan.targets && S.plan.targets[k]) || 0; }
+function tg(k) { const T = S.plan && effectiveTargets(S.plan.targets); return (T && T[k]) || 0; }
 function bar(v, max, cls) { const pct = max ? Math.min(100, Math.round(v / max * 100)) : 0; return '<div class="bar"><i class="' + (cls || '') + '" style="width:' + pct + '%"></i></div>'; }
 function n0(v) { return Math.round(Number(v) || 0); }
 async function reloadToday() { S.today.logs = await db.logsForDay(S.me.id, S.today.day); rerender(); }

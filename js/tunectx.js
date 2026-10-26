@@ -7,6 +7,7 @@
 import { isoDate, addDays, weekdayOf, fmtTime, MOODS, exName, opt, LANG } from './i18n.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { effectiveTargets } from './plan.js';
 import { sumDay, oneOf } from './log.js';
 import { statsFor, flagsFor } from './monitor.js';
 import { loadSessions, occurrences } from './calendar.js';
@@ -29,7 +30,7 @@ function todayLine() { const d = isoDate(); return d + ', ' + dayName(weekdayOf(
 function answers(p) { return ['weight ' + (p.weight_kg ? p.weight_kg + ' kg' : '—'), 'height ' + (p.height_cm ? p.height_cm + ' cm' : '—'), 'experience ' + (p.experience || '—'), 'goal ' + (p.goal || '—'), p.goal_detail ? 'goal detail ' + q(p.goal_detail) : '', 'injuries ' + (p.injuries ? q(p.injuries) : 'none given'), 'diet ' + (p.diet ? q(p.diet) : '—'), 'trains ' + (p.format || '—')].filter(Boolean).join(', '); }
 function chatLines(list, nameOf) { return list.length ? list.map(m => '  [' + stamp(m.created_at) + '] ' + nameOf(m) + ': ' + q(m.text)).join('\n') : '  (no messages yet)'; }
 function macros(x) { return (x.protein_g != null ? ' / ' + n0(x.protein_g) + ' g protein' : '') + (x.carbs_g != null ? ' / ' + n0(x.carbs_g) + ' g carbs' : '') + (x.fat_g != null ? ' / ' + n0(x.fat_g) + ' g fat' : ''); }
-function targetsLine(tg) { return tg && (tg.kcal || tg.protein_g || tg.water_ml || tg.steps) ? [tg.kcal ? tg.kcal + ' kcal' : '', tg.protein_g ? tg.protein_g + ' g protein' : '', tg.carbs_g ? tg.carbs_g + ' g carbs' : '', tg.fat_g ? tg.fat_g + ' g fat' : '', tg.water_ml ? tg.water_ml / 1000 + ' L water' : '', tg.steps ? tg.steps + ' steps' : ''].filter(Boolean).join(', ') : 'not set'; }
+function targetsLine(tg) { tg = effectiveTargets(tg); return tg && (tg.kcal || tg.protein_g || tg.water_ml || tg.steps) ? [tg.kcal ? tg.kcal + ' kcal' : '', tg.protein_g ? tg.protein_g + ' g protein' : '', tg.carbs_g ? tg.carbs_g + ' g carbs' : '', tg.fat_g ? tg.fat_g + ' g fat' : '', tg.water_ml ? tg.water_ml / 1000 + ' L water' : '', tg.steps ? tg.steps + ' steps' : ''].filter(Boolean).join(', ') : 'not set'; }
 
 // ---- load fresh data before each question (cheap: a few small queries)
 export async function loadTuneData(focus) {

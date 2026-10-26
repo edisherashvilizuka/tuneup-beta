@@ -113,7 +113,15 @@ export function splitFor(kcal, protein, split) {
   const r = SPLITS[split]; if (!r || !kcal || !protein) return null;
   const rem = Math.max(0, kcal - protein * 4); return { carbs_g: Math.max(10, Math.round(rem * r[0] / 4)), fat_g: Math.max(10, Math.round(rem * r[1] / 9)) };
 }
+// targets as the trainee should see them: carbs/fats missing on an older row follow the split (balanced by default)
+export function effectiveTargets(tg) {
+  if (!tg) return tg;
+  if ((tg.carbs_g && tg.fat_g) || tg.split === 'custom') return tg;
+  const r = splitFor(tg.kcal, tg.protein_g, tg.split || 'balanced'); if (!r) return tg;
+  return Object.assign({}, tg, { carbs_g: tg.carbs_g || r.carbs_g, fat_g: tg.fat_g || r.fat_g });
+}
 export function targetsLine(tg) {
+  tg = effectiveTargets(tg);
   return tg ? [tg.kcal ? tg.kcal + ' ' + unit('kcal') : '', tg.protein_g ? tg.protein_g + ' ' + unit('g') + ' ' + t('protein') : '', tg.carbs_g ? tg.carbs_g + ' ' + unit('g') + ' ' + t('carbs') : '', tg.fat_g ? tg.fat_g + ' ' + unit('g') + ' ' + t('fats') : '', tg.water_ml ? (tg.water_ml / 1000) + ' ' + unit('L') : '', tg.steps ? tg.steps + ' ' + t('steps') : ''].filter(Boolean).join(' · ') : t('Not set yet');
 }
 A.targetsSheet = () => {
