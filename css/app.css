@@ -4,7 +4,7 @@
   --a-bg:#E9E7E2; --a-card:#F5F4F0; --a-ink:#1D1C19; --a-ink2:#45423C; --a-mute:#6F6B64; --a-line:#D7D4CD; --a-line2:#E2DFD9;
   --a-accent:#9C3B08; --a-accent-ink:#7A2E06; --a-accent-soft:#F0E2D8; --a-accent-soft2:#E1C6B4;
   --a-amber:#C2960E; --a-amber-soft:#F1E8CF; --a-amber-ink:#7A5C03; --a-red:#B0473F; --a-red-soft:#F0DDDA; --a-blue:#4A6B8A; --a-blue-soft:#DEE4EA;
-  --a-green:#4F7A4A; --a-green-soft:#DFE8DA; --a-beacon:#2F8F5B;
+  --a-green:#4F7A4A; --a-green-soft:#DFE8DA; --a-beacon:#2F8F5B; --a-carb:#2F6F6B; --a-fat:#8A6A1F;
   --a-shadow:0 8px 24px rgba(29,28,25,.08);
   --font-body:"Hanken Grotesk","Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
   --font-display:"Hanken Grotesk","Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,sans-serif;
@@ -360,3 +360,22 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .note ul{margin:0;padding-left:18px}
 .codebox{font-family:var(--font-mono);font-size:15px;letter-spacing:.12em;padding:10px 12px;background:var(--a-bg);border-radius:10px;border:1px dashed var(--a-line);word-break:break-all}
 .err{color:var(--a-red);font-size:13px;font-weight:600}
+
+/* ---- food: fuel gauge rings, suggestion cards, portion stepper (2026-10-26) */
+.fuel{display:flex;justify-content:space-between;gap:2px;padding:4px 0 2px}
+.fuel .f1{display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;min-width:0}
+.fuel svg{display:block;width:64px;height:64px}
+.fuel .rv{font-family:var(--font-mono);font-size:13px;font-weight:600;fill:var(--a-ink)}
+.fuel .rs{font-size:9px;font-weight:700;fill:var(--a-mute)}
+.fuel .k{font-size:11px;font-weight:800;margin-top:2px}
+.fuel .s{font-size:11px;color:var(--a-mute);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip.grn{background:var(--a-green-soft);border-color:transparent;color:#35582F}
+.fcard{border-color:var(--a-accent-soft2)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:36px;height:36px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-card);font-size:20px;font-weight:700;color:var(--a-ink);display:grid;place-items:center}
+.stepper .input{width:64px;padding:8px 6px;text-align:center;font-weight:700}
+.macs{display:flex;background:var(--a-bg);border-radius:12px;padding:10px 6px}
+.mac{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px}
+.mac .v{font-family:var(--font-mono);font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.mac .v span{font-size:10px;color:var(--a-mute)}
+.mac .k{font-size:10.5px;color:var(--a-mute);font-weight:700}

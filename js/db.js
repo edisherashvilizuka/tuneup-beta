@@ -92,15 +92,16 @@ export async function updateGoal(id, patch) { return q(sb.from('goals').update(p
 export async function deleteGoal(id) { return q(sb.from('goals').delete().eq('id', id)); }
 
 // ---- logs (trainee's day)
-export async function logsForDay(traineeId, day) { return q(sb.from('logs').select('id,kind,ref,value,protein_g,note,created_at').eq('trainee_id', traineeId).eq('day', day)); }
-export async function logsBetween(traineeId, from, to) { return q(sb.from('logs').select('id,day,kind,ref,value,protein_g,note').eq('trainee_id', traineeId).gte('day', from).lte('day', to)); }
+export async function logsForDay(traineeId, day) { return q(sb.from('logs').select('id,kind,ref,value,protein_g,carbs_g,fat_g,note,created_at').eq('trainee_id', traineeId).eq('day', day)); }
+export async function logsBetween(traineeId, from, to) { return q(sb.from('logs').select('id,day,kind,ref,value,protein_g,carbs_g,fat_g,note').eq('trainee_id', traineeId).gte('day', from).lte('day', to)); }
 export async function setExerciseDone(traineeId, day, itemId, done) {
   await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', 'exercise').eq('ref', itemId));
   if (done) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind: 'exercise', ref: itemId, value: 1 }));
 }
-const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,note,created_at';
+const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,carbs_g,fat_g,note,created_at';
 export async function addLog(traineeId, day, kind, value, extra) {
-  return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, protein_g: (extra && extra.protein_g) || null, note: (extra && extra.note) || '' }).select(LOG_COLS).single());
+  const x = extra || {}; const n = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
+  return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, protein_g: n(x.protein_g), carbs_g: n(x.carbs_g), fat_g: n(x.fat_g), note: x.note || '' }).select(LOG_COLS).single());
 }
 export async function setDayLog(traineeId, day, kind, value, note) {    // steps / weight / checkin: one row per day
   await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', kind));
@@ -155,6 +156,12 @@ export async function clearTune(uid) { return q(sb.from('tune_messages').delete(
 export async function planItemsFull(pairIds) { return pairIds.length ? q(sb.from('plan_items').select(ITEM_COLS).in('pair_id', pairIds).order('day').order('position').order('created_at')) : []; }
 export async function goalsForPairs(pairIds) { return pairIds.length ? q(sb.from('goals').select('id,pair_id,text,done,position,created_at').in('pair_id', pairIds).order('position').order('created_at')) : []; }
 export async function coachNotesFor(pairIds) { return pairIds.length ? q(sb.from('coach_notes').select('pair_id,text,updated_at').in('pair_id', pairIds)) : []; }
+// food estimator (Edge Function `food`): what the trainee typed → items with a portion and the four macros per unit
+export async function lookupFood(text, lang) {
+  const { data, error } = await sb.functions.invoke('food', { body: { text, lang } });
+  if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }
+  return data || { items: [] };
+}
 export async function askTune(payload) {
   const { data, error } = await sb.functions.invoke('tune', { body: payload });
   if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }

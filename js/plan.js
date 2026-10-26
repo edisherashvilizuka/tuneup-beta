@@ -22,7 +22,7 @@ export function planCard(pairId) {
   if (!p) return '';
   const days = [1, 2, 3, 4, 5, 6, 7].map(d => { const n = itemsFor(d).length; return '<div class="lrow" style="cursor:pointer" onclick="A.go(\'planDay\',{day:' + d + '})"><div class="grow"><div class="t">' + esc(dayName(d)) + '</div><div class="s">' + (n ? nEx(n) : t('Rest day')) + '</div></div>' + I.chev + '</div>'; }).join('');
   const tg = p.targets;
-  const tgLine = tg ? [tg.kcal ? tg.kcal + ' ' + unit('kcal') : '', tg.protein_g ? tg.protein_g + ' ' + unit('g') + ' ' + t('protein') : '', tg.water_ml ? (tg.water_ml / 1000) + ' ' + unit('L') : '', tg.steps ? tg.steps + ' ' + t('steps') : ''].filter(Boolean).join(' · ') : t('Not set yet');
+  const tgLine = targetsLine(tg);
   const goals = p.goals.length ? p.goals.map(g => '<div class="row" style="gap:8px"><span class="check ' + (g.done ? 'on' : '') + '" style="width:20px;height:20px">' + (g.done ? I.check : '') + '</span><span class="grow ' + (g.done ? 'mute' : '') + '">' + esc(g.text) + '</span></div>').join('') : '<div class="mute">' + t('No goals yet') + '</div>';
   return '<div class="section-title"><span class="eyebrow">' + t('Weekly plan') + '</span></div><div class="card">' + days + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + t('Daily targets') + '</span><span class="link" onclick="A.targetsSheet()">' + t('Edit') + '</span></div><div class="card"><div class="lead">' + esc(tgLine) + '</div></div>' +
@@ -105,17 +105,39 @@ SCREENS.myExercises = () => {
 };
 A.deleteExercise = async (id) => { try { await db.deleteExercise(id); S.exercises = S.exercises.filter(x => x.id !== id); rerender(); toast(t('Removed')); } catch (e) { toast(t('Could not remove — it may be in a plan'), 'err'); } };
 
-// ---- targets
+// ---- targets. Calories and protein are typed; carbs and fats follow the coach's chosen split of the remaining
+// calories (balanced 55/45, higher-carb 65/35, lower-carb 40/60) and can be overridden by hand (→ custom).
+export const SPLITS = { balanced: [0.55, 0.45], highcarb: [0.65, 0.35], lowcarb: [0.40, 0.60] };
+export const SPLIT_NAMES = { balanced: 'Balanced', highcarb: 'High-carb', lowcarb: 'Low-carb', custom: 'Custom' };
+export function splitFor(kcal, protein, split) {
+  const r = SPLITS[split]; if (!r || !kcal || !protein) return null;
+  const rem = Math.max(0, kcal - protein * 4); return { carbs_g: Math.max(10, Math.round(rem * r[0] / 4)), fat_g: Math.max(10, Math.round(rem * r[1] / 9)) };
+}
+export function targetsLine(tg) {
+  return tg ? [tg.kcal ? tg.kcal + ' ' + unit('kcal') : '', tg.protein_g ? tg.protein_g + ' ' + unit('g') + ' ' + t('protein') : '', tg.carbs_g ? tg.carbs_g + ' ' + unit('g') + ' ' + t('carbs') : '', tg.fat_g ? tg.fat_g + ' ' + unit('g') + ' ' + t('fats') : '', tg.water_ml ? (tg.water_ml / 1000) + ' ' + unit('L') : '', tg.steps ? tg.steps + ' ' + t('steps') : ''].filter(Boolean).join(' · ') : t('Not set yet');
+}
 A.targetsSheet = () => {
-  const tg = (S.plan && S.plan.targets) || {};
+  const tg = (S.plan && S.plan.targets) || {}; S.draft.split = tg.split || 'balanced';
   sheet('<div class="h2">' + t('Daily targets') + '</div><div class="mute">' + t('Leave empty what you do not track.') + '</div>' +
-    '<div class="input-row">' + field(t('Calories'), 'tg_kcal', tg.kcal || '', { type: 'number', unit: unit('kcal'), ph: '1800' }) + field(t('Protein'), 'tg_protein', tg.protein_g || '', { type: 'number', unit: unit('g'), ph: '120' }) + '</div>' +
+    '<div class="input-row">' + field(t('Calories'), 'tg_kcal', tg.kcal || '', { type: 'number', unit: unit('kcal'), ph: '1800', attrs: ' oninput="A.tgRecalc()"' }) + field(t('Protein'), 'tg_protein', tg.protein_g || '', { type: 'number', unit: unit('g'), ph: '120', attrs: ' oninput="A.tgRecalc()"' }) + '</div>' +
+    '<div class="field"><label>' + t('Carbs and fats') + '</label><div class="segc" id="tg_split">' + splitButtons() + '</div><div class="mute small" style="margin-top:6px">' + t('Filled from calories and protein. Change a number to set your own.') + '</div></div>' +
+    '<div class="input-row">' + field(t('Carbs'), 'tg_carbs', tg.carbs_g || '', { type: 'number', unit: unit('g'), ph: '200', attrs: ' oninput="A.tgCustom()"' }) + field(t('Fats'), 'tg_fat', tg.fat_g || '', { type: 'number', unit: unit('g'), ph: '60', attrs: ' oninput="A.tgCustom()"' }) + '</div>' +
     '<div class="input-row">' + field(t('Water'), 'tg_water', tg.water_ml || '', { type: 'number', unit: unit('ml'), ph: '2000' }) + field(t('Steps'), 'tg_steps', tg.steps || '', { type: 'number', ph: '8000' }) + '</div>' +
     '<button class="btn" onclick="A.saveTargets()">' + t('Save') + '</button>');
+  if (!tg.carbs_g && !tg.fat_g) A.tgRecalc();
 };
+function splitButtons() { return Object.keys(SPLIT_NAMES).map(k => '<button type="button" class="' + (S.draft.split === k ? 'on' : '') + '" onclick="A.tgSplit(\'' + k + '\')">' + esc(t(SPLIT_NAMES[k])) + '</button>').join(''); }
+A.tgSplit = (k) => { S.draft.split = k; const el = document.getElementById('tg_split'); if (el) el.innerHTML = splitButtons(); A.tgRecalc(); };
+A.tgRecalc = () => {
+  if (S.draft.split === 'custom') return;
+  const r = splitFor(parseInt(val('tg_kcal'), 10), parseInt(val('tg_protein'), 10), S.draft.split);
+  const c = document.getElementById('tg_carbs'), f = document.getElementById('tg_fat');
+  if (c) c.value = r ? r.carbs_g : ''; if (f) f.value = r ? r.fat_g : '';
+};
+A.tgCustom = () => { if (S.draft.split !== 'custom') { S.draft.split = 'custom'; const el = document.getElementById('tg_split'); if (el) el.innerHTML = splitButtons(); } };
 A.saveTargets = async () => {
   const n = id => { const v = parseInt(val(id), 10); return isNaN(v) ? null : v; };
-  const patch = { kcal: n('tg_kcal'), protein_g: n('tg_protein'), water_ml: n('tg_water'), steps: n('tg_steps') };
+  const patch = { kcal: n('tg_kcal'), protein_g: n('tg_protein'), carbs_g: n('tg_carbs'), fat_g: n('tg_fat'), water_ml: n('tg_water'), steps: n('tg_steps'), split: S.draft.split || 'balanced' };
   busy(true);
   try { await db.saveTargets(S.plan.pairId, patch); S.plan.targets = { pair_id: S.plan.pairId, ...patch }; const c = (S.clients || []).find(x => x.id === S.plan.pairId); if (c) c.targets = S.plan.targets; closeSheet(); toast(t('Saved')); rerender(); }
   catch (e) { busy(false); toast(t('Could not save — check the numbers'), 'err'); }

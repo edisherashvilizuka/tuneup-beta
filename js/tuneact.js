@@ -6,7 +6,7 @@ import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName,
 import * as db from './db.js';
 import { S } from './state.js';
 import { loadSessions } from './calendar.js';
-import { loadPlan } from './plan.js';
+import { loadPlan, splitFor } from './plan.js';
 import { loadMonitor } from './monitor.js';
 
 export const INSTANT = new Set(['log_food', 'log_water', 'log_steps', 'log_weight', 'log_checkin', 'tick_exercise', 'add_private_note']);
@@ -48,7 +48,7 @@ export function prepare(a, refs) {
   return p;
 }
 const PREP = {
-  log_food(p, x) { const kcal = n0(x.kcal), pr = num(x.protein_g); if (kcal < 0 || kcal > 10000) bad('Check the numbers: calories 0–10000, protein 0–1000 g.'); p.data = { kcal, protein_g: pr == null ? null : n0(pr), note: str(x.note, 120) }; p.card.title = t('Food') + ': ' + (p.data.note || t('Meal')); p.card.body = kcal + ' ' + unit('kcal') + (p.data.protein_g != null ? ' · ' + p.data.protein_g + ' ' + unit('g') + ' ' + t('protein') : ''); },
+  log_food(p, x) { const kcal = n0(x.kcal), pr = num(x.protein_g), cb = num(x.carbs_g), ft = num(x.fat_g); if (kcal < 0 || kcal > 10000 || (pr != null && (pr < 0 || pr > 1000)) || (cb != null && (cb < 0 || cb > 2000)) || (ft != null && (ft < 0 || ft > 1000))) bad('Check the numbers: calories 0–10000, protein 0–1000 g.'); p.data = { kcal, protein_g: pr == null ? null : n0(pr), carbs_g: cb == null ? null : n0(cb), fat_g: ft == null ? null : n0(ft), note: str(x.note, 120) }; p.card.title = t('Food') + ': ' + (p.data.note || t('Meal')); p.card.body = kcal + ' ' + unit('kcal') + [p.data.protein_g != null ? t('P') + ' ' + p.data.protein_g : '', p.data.carbs_g != null ? t('C') + ' ' + p.data.carbs_g : '', p.data.fat_g != null ? t('F') + ' ' + p.data.fat_g : ''].filter(Boolean).map(x => ' · ' + x).join('') + (p.data.protein_g != null || p.data.carbs_g != null ? ' ' + unit('g') : ''); },
   log_water(p, x) { const ml = n0(x.ml); if (ml < 50 || ml > 5000) bad('Check the number: water 50–5000 ml.'); p.data = { ml }; p.card.title = t('Water') + ' +' + ml + ' ' + unit('ml'); },
   log_steps(p, x) { const v = n0(x.steps); if (v < 0 || v > 100000) bad('Check the number: at most 100000 steps.'); p.data = { v }; p.card.title = t('Steps today') + ': ' + v; },
   log_weight(p, x) { const v = Math.round(Number(x.kg) * 10) / 10; if (!(v >= 20 && v <= 400)) bad('Check the number: weight in kg, 20–400.'); p.data = { v }; p.card.title = t('Weigh-in') + ': ' + v + ' ' + unit('kg'); },
@@ -93,10 +93,12 @@ const PREP = {
     p.card = { icon: 'x', title: t('Cancel the session with {name}', { name: nm }), body: whenText(o.at) + ' · ' + o.s.minutes + ' ' + t('min') + (p.data.weekly ? '\n' + t('Only this week; the weekly session stays.') : '') + (note ? '\n' + note : ''), who: t('{name} is notified.', { name: firstName(nm) }) };
   },
   set_targets(p, x, R) {
-    const c = client(R, x.client); const old = c.targets || {}; const next = { kcal: old.kcal || null, protein_g: old.protein_g || null, water_ml: old.water_ml || null, steps: old.steps || null }; const lines = [];
-    const lim = { kcal: [800, 6000, unit('kcal'), 'Calories'], protein_g: [20, 400, unit('g'), 'Protein'], water_ml: [500, 8000, unit('ml'), 'Water'], steps: [1000, 40000, '', 'Steps'] };
+    const c = client(R, x.client); const old = c.targets || {}; const next = { kcal: old.kcal || null, protein_g: old.protein_g || null, carbs_g: old.carbs_g || null, fat_g: old.fat_g || null, water_ml: old.water_ml || null, steps: old.steps || null, split: old.split || 'balanced' }; const lines = [];
+    const lim = { kcal: [800, 6000, unit('kcal'), 'Calories'], protein_g: [20, 400, unit('g'), 'Protein'], carbs_g: [10, 1000, unit('g'), 'Carbs'], fat_g: [10, 500, unit('g'), 'Fats'], water_ml: [500, 8000, unit('ml'), 'Water'], steps: [1000, 40000, '', 'Steps'] };
     for (const k of Object.keys(lim)) if (x[k] != null) { const v = n0(x[k]); if (v < lim[k][0] || v > lim[k][1]) bad('Check the numbers: calories 800–6000, protein 20–400 g, water 500–8000 ml, steps 1000–40000.'); lines.push(t(lim[k][3]) + ': ' + (old[k] ? old[k] + ' → ' : '') + v + (lim[k][2] ? ' ' + lim[k][2] : '')); next[k] = v; }
     if (!lines.length) bad('Tune did not say which target to change.');
+    if (x.carbs_g != null || x.fat_g != null) next.split = 'custom';
+    else if ((x.kcal != null || x.protein_g != null) && next.split !== 'custom') { const r = splitFor(next.kcal, next.protein_g, next.split); if (r) { if (next.carbs_g !== r.carbs_g) lines.push(t('Carbs') + ': ' + (old.carbs_g ? old.carbs_g + ' → ' : '') + r.carbs_g + ' ' + unit('g')); if (next.fat_g !== r.fat_g) lines.push(t('Fats') + ': ' + (old.fat_g ? old.fat_g + ' → ' : '') + r.fat_g + ' ' + unit('g')); next.carbs_g = r.carbs_g; next.fat_g = r.fat_g; } }
     p.data = { pairId: c.id, next }; p.card = { icon: 'chart', title: t('Daily targets for {name}', { name: c.trainee.name }), body: lines.join('\n'), who: t('{name} sees them on Today.', { name: firstName(c.trainee.name) }) };
   },
   add_goal(p, x, R) { const c = client(R, x.client); const text = str(x.text, 200); if (text.length < 2) bad('The goal is empty.'); p.data = { pairId: c.id, text }; p.card = { icon: 'check', title: t('New goal for {name}', { name: c.trainee.name }), body: text, who: t('{name} sees it on Today.', { name: firstName(c.trainee.name) }) }; },
@@ -143,7 +145,7 @@ export async function run(p) {
 }
 async function todayReload() { if (S.today) { try { S.today.logs = await db.logsForDay(S.me.id, S.today.day); } catch (e) {} } }
 const RUN = {
-  async log_food(d, uid, day) { await db.addLog(uid, day, 'food', d.kcal, { protein_g: d.protein_g, note: d.note }); await todayReload(); },
+  async log_food(d, uid, day) { await db.addLog(uid, day, 'food', d.kcal, { protein_g: d.protein_g, carbs_g: d.carbs_g, fat_g: d.fat_g, note: d.note }); await todayReload(); },
   async log_water(d, uid, day) { await db.addLog(uid, day, 'water', d.ml); await todayReload(); },
   async log_steps(d, uid, day) { await db.setDayLog(uid, day, 'steps', d.v); await todayReload(); },
   async log_weight(d, uid, day) { await db.setDayLog(uid, day, 'weight', d.v); await todayReload(); try { const r = await db.updateTraineeProfile(uid, { weight_kg: d.v }); S.traineeProfile = Object.assign({}, S.traineeProfile, { weight_kg: d.v }, r || {}); } catch (e) {} },
