@@ -83,7 +83,8 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '">' + esc(f.label) + ' · ' + esc(f.sub) + '</span>';
   const ciList = st.cis.slice(0, 5).map(ci => '<div class="lrow"><div class="grow"><div class="t">' + esc(mood(ci.value)) + ' <span class="mute small">' + fmtDay(ci.day, 'dm') + '</span></div>' + (ci.note ? '<div class="s">' + esc(ci.note) + '</div>' : '') + '</div></div>').join('');
   const note = S.mon.notes[c.id];
-  const overview = (flags.length ? '<div class="chips">' + flags.map(chip).join('') + '</div>' : '') +
+  const streak = (() => { if (!tg.protein_g) return 0; let n = 0; const days = st.byDay.slice().reverse(); if (days[0].prot < tg.protein_g * 0.9) days.shift(); for (const x of days) { if (x.prot >= tg.protein_g * 0.9) n++; else break; } return n; })();
+  const overview = (flags.length || streak >= 2 ? '<div class="chips">' + flags.map(chip).join('') + (streak >= 2 ? '<span class="chip sm soft">' + I.spark + ' ' + esc(t('{n}-day protein streak', { n: streak >= 7 ? '7+' : streak })) + '</span>' : '') + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Today') + '</span></div><div class="card"><div class="lead">' + esc(todayBits || t('Nothing logged yet')) + '</div>' + (d.ci && d.ci.note ? '<div class="mute">“' + esc(d.ci.note) + '”</div>' : '') + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + t('Last 7 days') + '</span></div>' + week + '<div class="card">' + dots + '</div>' +
     (tg.kcal || tg.protein_g ? '<div class="section-title"><span class="eyebrow">' + t('Food vs targets') + '</span><span class="mute small">' + t('green = on target') + '</span></div><div class="card">' + heatmap(st, tg) + '</div>' : '') +

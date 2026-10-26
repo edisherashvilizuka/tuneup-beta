@@ -12,6 +12,7 @@ import { loadUnread, track } from './chat.js';
 import './calendar.js';
 import './tune.js';
 import './food.js';
+import './habits.js';
 import { initPush, routePending } from './push.js';
 import './guide.js';
 

@@ -12,8 +12,8 @@ import { effectiveTargets } from './plan.js';
 const n0 = v => Math.round(Number(v) || 0);
 const r1 = v => Math.round(Number(v) * 10) / 10;
 export const MACROS = { protein_g: 'p', carbs_g: 'c', fat_g: 'f', kcal: 'k' };
-const FILTERS = ['geo', 'cheap', 'nocook', 'quick', 'veg'];
-const FILTER_LABEL = { geo: 'Georgian', cheap: 'Cheap', nocook: 'No cooking', quick: 'Quick', veg: 'Vegetarian', mine: 'Logged before' };
+const FILTERS = ['geo', 'cheap', 'nocook', 'quick', 'veg', 'out'];
+const FILTER_LABEL = { geo: 'Georgian', cheap: 'Cheap', nocook: 'No cooking', quick: 'Quick', veg: 'Vegetarian', out: 'Eating out', mine: 'Logged before' };
 const NEVER = ['sweet', 'alcohol'];   // never ranked as a "source" of anything
 
 export function foodName(f) { return LANG.cur === 'ka' ? f.ka : f.en; }

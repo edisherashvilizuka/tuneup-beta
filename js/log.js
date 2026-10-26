@@ -80,8 +80,9 @@ A.foodSheet = () => {
   S.draft.food = { items: [], state: 'idle', text: '', recents: null };
   sheet('<div class="h2">' + t('Add food') + '</div>' +
     '<div class="row" style="gap:8px;align-items:flex-end">' + field(t('What did you eat?'), 'fd_text', '', { ph: t('e.g. 5 khinkali, chicken with rice, coffee with milk'), attrs: ' autocomplete="off" enterkeyhint="done" oninput="A.foodTyped()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();A.foodTyped(true)}"' }).replace('<div class="field">', '<div class="field grow">') +
-    '<button class="act camera" onclick="document.getElementById(\'fd_photo\').click()" aria-label="' + esc(t('Photo of your plate')) + '">' + I.camera + '</button><input type="file" id="fd_photo" accept="image/*" capture="environment" style="display:none" onchange="A.foodPhoto(this)"></div>' +
-    '<div class="mute small">' + t('Type it, or take a photo of the plate — the numbers fill in by themselves.') + '</div>' +
+    (SR ? '<button class="act camera" id="fd_mic" onclick="A.foodVoice()" aria-label="' + esc(t('Say what you ate')) + '">' + I.mic + '</button>' : '') +
+    '<button class="act camera" onclick="document.getElementById(\'fd_photo\').click()" aria-label="' + esc(t('Photo of your plate or a nutrition label')) + '">' + I.camera + '</button><input type="file" id="fd_photo" accept="image/*" capture="environment" style="display:none" onchange="A.foodPhoto(this)"></div>' +
+    '<div class="mute small">' + t('Type it, say it, or photograph the plate or the nutrition label — the numbers fill in by themselves.') + '</div>' +
     '<div id="fd_sug"></div><div id="fd_recent"></div>' +
     '<div class="row between" style="flex-wrap:wrap;gap:8px 16px"><span class="link" onclick="A.foodManual()">' + t('Enter the numbers myself') + '</span><span class="link" onclick="A.closeSheet();A.openFoods(\'protein_g\')">' + t('Browse foods') + ' ›</span></div>');
   const el = document.getElementById('fd_text'); if (el) el.focus();
@@ -100,7 +101,7 @@ async function loadRecents() {
 function renderRecents() {
   const D = FD(); const el = document.getElementById('fd_recent'); if (!el) return;
   if (D.items.length || ((!D.recents || !D.recents.length) && !(D.meals && D.meals.length))) { el.innerHTML = ''; return; }
-  const meals = (D.meals && D.meals.length) ? '<div class="section-title"><span class="eyebrow">' + t('My meals') + '</span></div><div class="card" style="padding:4px 14px;gap:0">' + D.meals.map(m => '<div class="food"><div class="grow" style="min-width:0;cursor:pointer" onclick="A.mealUse(\'' + m.id + '\')"><div class="n">' + esc(m.name) + '</div><div class="m">' + esc((m.items || []).map(x => x.name).join(', ')) + '</div></div><div class="kc" style="cursor:pointer" onclick="A.mealUse(\'' + m.id + '\')">' + n0(m.kcal) + '</div><span class="link small" onclick="A.mealForget(\'' + m.id + '\',this)">' + t('Remove') + '</span></div>').join('') + '</div>' : '';
+  const meals = (D.meals && D.meals.length) ? '<div class="section-title"><span class="eyebrow">' + t('My meals') + '</span><span class="link" onclick="A.grocerySheet()">' + t('Grocery list') + ' ›</span></div><div class="card" style="padding:4px 14px;gap:0">' + D.meals.map(m => '<div class="food"><div class="grow" style="min-width:0;cursor:pointer" onclick="A.mealUse(\'' + m.id + '\')"><div class="n">' + esc(m.name) + '</div><div class="m">' + esc((m.items || []).map(x => x.name).join(', ')) + '</div></div><div class="kc" style="cursor:pointer" onclick="A.mealUse(\'' + m.id + '\')">' + n0(m.kcal) + '</div><span class="link small" onclick="A.mealForget(\'' + m.id + '\',this)">' + t('Remove') + '</span></div>').join('') + '</div>' : '';
   if (!D.recents || !D.recents.length) { el.innerHTML = meals; return; }
   el.innerHTML = meals + '<div class="section-title"><span class="eyebrow">' + t('Logged before') + '</span></div><div class="card" style="padding:4px 14px;gap:0">' +
     D.recents.map((l, i) => '<div class="food" style="cursor:pointer" onclick="A.foodRecent(' + i + ')"><div><div class="n">' + esc(l.note) + '</div><div class="m">' + esc(macroLine(l)) + (macroLine(l) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(l.value) + '</div><span class="mute">' + I.plus + '</span></div>').join('') + '</div>';
@@ -109,6 +110,19 @@ A.foodRecent = (i) => {
   const D = FD(); const l = (D.recents || [])[i]; if (!l) return;
   D.items = [{ name: l.note, qty: 1, unit: t('serving'), unit_kind: 'count', grams: null, per: { kcal: Number(l.value) || 0, protein_g: Number(l.protein_g) || 0, carbs_g: l.carbs_g == null ? null : Number(l.carbs_g), fat_g: l.fat_g == null ? null : Number(l.fat_g) }, source: 'recent' }];
   D.state = 'ready'; const el = document.getElementById('fd_text'); if (el) el.value = l.note; renderSug(); renderRecents();
+};
+// voice: the phone's own speech recognition (Chrome, Safari 14.5+); the words land in the field and are looked up
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let rec = null;
+A.foodVoice = () => {
+  if (!SR) return; const btn = document.getElementById('fd_mic');
+  if (rec) { try { rec.stop(); } catch (e) {} return; }
+  rec = new SR(); rec.lang = LANG.cur === 'ka' ? 'ka-GE' : 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
+  if (btn) btn.classList.add('live');
+  rec.onresult = (e) => { const txt = Array.from(e.results).map(r => r[0].transcript).join(' ').trim(); const el = document.getElementById('fd_text'); if (el) el.value = txt; if (e.results[e.results.length - 1].isFinal) { A.foodTyped(true); track('food', { what: 'voice' }); } };
+  rec.onerror = (e) => { if (e.error !== 'aborted' && e.error !== 'no-speech') toast(t('Could not hear that — try again or type it.'), 'err'); };
+  rec.onend = () => { rec = null; if (btn) btn.classList.remove('live'); };
+  try { rec.start(); } catch (e) { rec = null; if (btn) btn.classList.remove('live'); }
 };
 // photo of the plate → the estimator (vision) → the same cards. The picture is shrunk in the phone and never stored.
 A.foodPhoto = async (input) => {

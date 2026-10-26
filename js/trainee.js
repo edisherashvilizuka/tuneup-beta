@@ -8,6 +8,7 @@ import { pushCard, pushRow } from './push.js';
 import { guideCard, guideRow } from './guide.js';
 import { loadUnread, loadChatIndex } from './chat.js';
 import { tuneButton } from './tune.js';
+import { loadHistory, streakChip, recapCard, nudgeRow } from './habits.js';
 
 export const TRAINEE_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
 
@@ -17,7 +18,7 @@ export async function loadTrainee() {
   S.today = { day: isoDate(), logs: [] };
   if (S.pair && S.pair.status === 'active') {
     const [items, targets, goals, logs] = await Promise.all([db.planItems(S.pair.id), db.getTargets(S.pair.id), db.listGoals(S.pair.id), db.logsForDay(S.me.id, S.today.day)]);
-    S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs;
+    S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs; S.hist35 = null; loadHistory().then(() => rerender()).catch(() => {});
   } else S.plan = null;
   S.cal = null; S.chat = null; S.notifs = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
 }
@@ -83,7 +84,7 @@ SCREENS.coach = () => {
 
 SCREENS.more = () => ({ title: t('More'), body:
   '<div class="card"><div class="lrow"><div class="grow"><div class="t">' + esc(S.me.name) + '</div><div class="s">' + esc((S.session.user && S.session.user.email) || '') + '</div></div></div>' +
-  '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + pushRow() + guideRow() +
+  '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + pushRow() + (S.pair && S.pair.status === 'active' ? nudgeRow() : '') + guideRow() +
   '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myProfile\')"><div class="grow"><div class="t">' + t('My answers') + '</div><div class="s">' + t('Weight, goal, injuries, diet') + '</div></div>' + I.chev + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.go(\'coach\')"><div class="grow"><div class="t">' + t('Your coach') + '</div><div class="s">' + esc(((S.pair || {}).coach || {}).name || t('No coach yet')) + '</div></div>' + I.chev + '</div>' +
   '<div class="lrow" style="cursor:pointer" onclick="A.go(\'tune\')"><div class="grow"><div class="t">' + t('Ask Tune') + '</div><div class="s">' + t('Your assistant') + '</div></div>' + I.chev + '</div>' +

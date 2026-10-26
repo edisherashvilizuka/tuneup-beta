@@ -399,3 +399,5 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .heat .c.g{background:#BFD6B8}.heat .c.a{background:#EAD9A6}.heat .c.r{background:#E7B8B3}
 .rx{width:32px;height:32px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-card);display:grid;place-items:center;color:var(--a-mute)}
 .rx.on{background:var(--a-accent);border-color:var(--a-accent);color:#fff}
+.act.camera.live{background:var(--a-accent);color:#fff;border-color:var(--a-accent);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.6}}
