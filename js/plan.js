@@ -1,6 +1,6 @@
 // Tune Up beta — coach side: weekly plan builder, exercise library, targets, goals (per client).
 import { t, esc, dayName, exName, exMuscle, unit } from './i18n.js';
-import { SCREENS, A, I, go, back, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
+import { SCREENS, A, I, go, back, cur, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 
@@ -59,17 +59,21 @@ A.removeItem = async (id) => {
 
 // ---- pick an exercise from the library (global + own)
 SCREENS.pickExercise = ({ day }) => {
+  return { title: t('Add to {day}', { day: dayName(day) }), body:
+    '<input class="input" id="exq" placeholder="' + esc(t('Search exercises')) + '" value="' + esc(S.draft.exq || '') + '" oninput="A.exSearch(this.value)">' +
+    '<button class="btn sec sm" onclick="A.newExercise(' + day + ')">' + I.plus + ' ' + t('New exercise with my video link') + '</button>' +
+    '<div class="col" id="exlist" style="gap:14px">' + exList(day) + '</div>' };
+};
+function exList(day) {
   const qy = (S.draft.exq || '').toLowerCase();
   const list = (S.exercises || []).filter(x => !qy || exName(x).toLowerCase().includes(qy) || x.name.toLowerCase().includes(qy) || exMuscle(x).toLowerCase().includes(qy));
   const mine = list.filter(x => x.owner_id === S.me.id), glob = list.filter(x => !x.owner_id);
   const row = x => '<div class="lrow" style="cursor:pointer" onclick="A.addItemFor(' + day + ',\'' + x.id + '\')"><div class="grow"><div class="t">' + esc(exName(x)) + '</div><div class="s">' + esc(exMuscle(x)) + (x.video_url ? ' · ' + t('video') : '') + '</div></div>' + I.plus + '</div>';
-  return { title: t('Add to {day}', { day: dayName(day) }), body:
-    '<input class="input" id="exq" placeholder="' + esc(t('Search exercises')) + '" value="' + esc(S.draft.exq || '') + '" oninput="A.exSearch(this.value)">' +
-    '<button class="btn sec sm" onclick="A.newExercise(' + day + ')">' + I.plus + ' ' + t('New exercise with my video link') + '</button>' +
-    (mine.length ? '<div class="section-title"><span class="eyebrow">' + t('My exercises') + '</span></div><div class="card">' + mine.map(row).join('') + '</div>' : '') +
-    (glob.length ? '<div class="section-title"><span class="eyebrow">' + t('Library') + '</span></div><div class="card">' + glob.map(row).join('') + '</div>' : '<div class="mute">' + t('Nothing found') + '</div>') };
-};
-A.exSearch = (v) => { S.draft.exq = v; const el = document.getElementById('exq'); const pos = el ? el.selectionStart : 0; rerender(); const n = document.getElementById('exq'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } };
+  return (mine.length ? '<div class="section-title"><span class="eyebrow">' + t('My exercises') + '</span></div><div class="card">' + mine.map(row).join('') + '</div>' : '') +
+    (glob.length ? '<div class="section-title"><span class="eyebrow">' + t('Library') + '</span></div><div class="card">' + glob.map(row).join('') + '</div>' : '<div class="mute">' + t('Nothing found') + '</div>');
+}
+// typing in the search box only redraws the list under it — the box keeps focus and the phone keyboard stays up
+A.exSearch = (v) => { S.draft.exq = v; const el = document.getElementById('exlist'); const c = cur(); if (el && c && c.name === 'pickExercise') el.innerHTML = exList(c.params.day); else rerender(); };
 A.addItemFor = async (day, exId) => {
   const x = S.exercises.find(e => e.id === exId); if (!x) return;
   sheet('<div class="h2">' + esc(exName(x)) + '</div><div class="mute">' + esc(exMuscle(x)) + '</div>' + itemFields({ sets: 3, reps: '10', load: '', note: '' }) +

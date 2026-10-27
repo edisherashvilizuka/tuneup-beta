@@ -54,8 +54,25 @@ A.go = go; A.back = back; A.setTab = root;
 
 function nowHM() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 
+// A redraw of the SAME screen (rerender, anim = null) keeps the person where they were: the scroll position of the
+// screen and of any scrolling row, the open sheet (untouched, so it does not slide in again) and the focused field.
+// Before 27 Oct every button that changed something threw the screen back to the top (most visible on phones).
+function keepView(app) {
+  const body = document.getElementById('body'); const sig = e => e.tagName + '.' + [...e.classList].sort().join('.');
+  const rows = []; if (body) body.querySelectorAll('*').forEach(e => { if (e.scrollLeft > 0 || e.scrollTop > 0) { const s = sig(e); rows.push({ id: e.id, s, i: [...body.querySelectorAll('*')].filter(x => sig(x) === s).indexOf(e), left: e.scrollLeft, top: e.scrollTop }); } });
+  const f = document.activeElement; const focus = f && f.id && body && body.contains(f) ? { id: f.id, s: f.selectionStart, e: f.selectionEnd } : null;
+  const ov = document.getElementById('overlay'); return { top: body ? body.scrollTop : 0, rows, focus, overlay: ov && ov.firstChild ? ov : null, sig };
+}
+function restoreView(k) {
+  const body = document.getElementById('body'); if (!body) return;
+  body.scrollTop = k.top;
+  for (const r of k.rows) { const e = r.id ? document.getElementById(r.id) : [...body.querySelectorAll('*')].filter(x => k.sig(x) === r.s)[r.i]; if (e) { e.scrollLeft = r.left; e.scrollTop = r.top; } }
+  if (k.focus) { const e = document.getElementById(k.focus.id); if (e && e.focus) { e.focus({ preventScroll: true }); try { if (k.focus.s != null) e.setSelectionRange(k.focus.s, k.focus.e); } catch (err) {} } }
+}
+
 export function render(anim) {
   const app = document.getElementById('app');
+  const keep = anim == null && app.querySelector('.screen') ? keepView(app) : null;
   app.setAttribute('lang', LANG.cur);
   const c = cur(); if (!c) return;
   const scr = SCREENS[c.name];
@@ -66,24 +83,44 @@ export function render(anim) {
     hdr = '<div class="hdr">' + (v.back !== false && NAV.stack.length > 1 ? '<button class="back" onclick="A.back()" aria-label="Back">' + I.back + '</button>' : '') +
       '<div class="grow"><div class="title">' + esc(v.title || '') + '</div>' + (v.sub ? '<div class="sub">' + esc(v.sub) + '</div>' : '') + '</div>' + (v.actions || '') + (v.bell !== false && NAV.tabs.length && NAV.stack.length === 1 ? bell() : '') + '</div>';
   }
-  const tabs = v.tabs !== false && NAV.tabs.length ? '<div class="tabbar">' + NAV.tabs.map(tb =>
-    '<button class="' + (NAV.tab === tb.id ? 'on' : '') + '" onclick="A.setTab(\'' + tb.id + '\')"><span class="ico">' + I[tb.ico] + '</span>' + esc(t(tb.label)) +
-    (tb.badge && tb.badge() ? '<span class="badge">' + tb.badge() + '</span>' : '') + '</button>').join('') + '</div>' : '';
-  app.innerHTML = '<div class="status"><span>' + nowHM() + '</span><span class="sig">' + I.dot + I.dot + I.dot + '</span></div>' +
-    '<div class="screen-wrap"><div class="screen ' + (anim || '') + '">' + hdr + '<div class="body ' + (v.center ? 'center' : '') + '" id="body">' + (v.body || '') + '</div>' + (v.footer || '') + '</div></div>' +
-    tabs + '<div id="overlay"></div>';
+  const tabs = v.tabs !== false && NAV.tabs.length ? tabbar() : '';
+  const html = '<div class="status"><span>' + nowHM() + '</span><span class="sig">' + I.dot + I.dot + I.dot + '</span></div>' +
+    '<div class="screen-wrap"><div class="screen ' + (anim || '') + '">' + hdr + '<div class="body ' + (v.center ? 'center' : '') + '" id="body">' + (v.body || '') + '</div>' + (v.footer || '') + '</div></div>' + tabs;
+  if (keep && keep.overlay) { [...app.children].forEach(c => { if (c !== keep.overlay) c.remove(); }); keep.overlay.insertAdjacentHTML('beforebegin', html); }   // the open sheet stays as it is
+  else app.innerHTML = html + '<div id="overlay"></div>';
+  if (keep) restoreView(keep);
   if (v.after) v.after();
 }
 
+function tabbar() {
+  return '<div class="tabbar">' + NAV.tabs.map(tb => '<button class="' + (NAV.tab === tb.id ? 'on' : '') + '" onclick="A.setTab(\'' + tb.id + '\')"><span class="ico">' + I[tb.ico] + '</span>' + esc(t(tb.label)) +
+    (tb.badge && tb.badge() ? '<span class="badge">' + tb.badge() + '</span>' : '') + '</button>').join('') + '</div>';
+}
+// new notifications / unread counts arrived in the background: update the bell dot and the tab badges only, so whatever
+// the person is reading or typing stays exactly as it is
+export function refreshBadges() {
+  const app = document.getElementById('app'); if (!app) return;
+  const tb = app.querySelector('.tabbar'); if (tb) tb.outerHTML = tabbar();
+  const b = app.querySelector('.hdr button[aria-label="Notifications"]'); if (b) b.outerHTML = bell();
+}
 export function bell() { return '<button class="act" onclick="A.go(\'notifs\')" aria-label="Notifications">' + I.bell + (S.unread ? '<span class="dot"></span>' : '') + '</button>'; }
 export function sheet(html) {
   const o = document.getElementById('overlay'); if (!o) return;
-  o.innerHTML = '<div class="sheet-bg" onclick="if(event.target===this)A.closeSheet()"><div class="sheet">' + html + '</div></div>';
+  // a sheet that is already open is redrawn in place: no second slide-in, and the same sheet keeps its scroll position
+  const old = o.querySelector('.sheet'); let sh, keepTop = null;
+  if (old) {
+    const h2 = s => { const m = /<div class="h2">([\s\S]*?)<\/div>/.exec(s); return m ? m[1] : null; };
+    const oldH2 = old.querySelector('.h2'); if (oldH2 && h2(html) != null && oldH2.innerHTML === h2(html)) keepTop = old.scrollTop;
+    old.innerHTML = html; old.style.transform = ''; sh = old;
+  } else {
+    o.innerHTML = '<div class="sheet-bg" onclick="if(event.target===this)A.closeSheet()"><div class="sheet">' + html + '</div></div>';
+    sh = o.querySelector('.sheet'); swipeToClose(sh);
+  }
   // the trailing buttons go into a footer that stays at the bottom while the form above it scrolls
-  const sh = o.querySelector('.sheet'); const tail = [];
+  const tail = [];
   for (let c = sh.lastElementChild; c && (c.matches('button.btn, .btn-row')); c = c.previousElementSibling) tail.unshift(c);
   if (tail.length) { const f = document.createElement('div'); f.className = 'sheet-foot'; tail.forEach(c => f.appendChild(c)); sh.appendChild(f); if (sh.scrollHeight <= sh.clientHeight + 1) f.classList.add('flat'); }
-  swipeToClose(sh);
+  sh.scrollTop = keepTop || 0;
 }
 // drag a panel down (from its top, or anywhere while it is scrolled to the top) to close it
 function swipeToClose(sh) {

@@ -176,7 +176,7 @@ A.mealUse = async (id) => {
     db.touchMeal(id).catch(() => {}); track('log', { kind: 'food', how: 'saved-meal' }); closeSheet(); await reloadTodayLogs(); toast(t('Logged {n} foods', { n: (m.items || []).length }));
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };
-A.mealForget = async (id, el) => { if (el && !el.dataset.armed) { el.dataset.armed = '1'; el.textContent = t('Remove?'); setTimeout(() => { if (el.isConnected) { delete el.dataset.armed; el.textContent = t('Remove'); } }, 4000); return; } try { await db.deleteMeal(id); S.meals = (S.meals || []).filter(x => x.id !== id); A.foodSheet(); } catch (e) { toast(t('Could not remove'), 'err'); } };
+A.mealForget = async (id, el) => { if (el && !el.dataset.armed) { el.dataset.armed = '1'; el.textContent = t('Remove?'); setTimeout(() => { if (el.isConnected) { delete el.dataset.armed; el.textContent = t('Remove'); } }, 4000); return; } try { await db.deleteMeal(id); S.meals = (S.meals || []).filter(x => x.id !== id); if (S.draft.food) S.draft.food.meals = S.meals; const row = el && el.closest('.food'); if (row) row.remove(); else A.foodSheet(); } catch (e) { toast(t('Could not remove'), 'err'); } };   // just the row goes: the sheet, what was typed and the keyboard stay
 // open the meal builder with one table food already in (from Tune or from Today)
 export function openFoods(macro) { go('foods', { macro: macro || 'protein_g' }); }
 A.openFoods = openFoods;

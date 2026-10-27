@@ -1,6 +1,6 @@
 // Tune Up beta — boot: decide which screen the person lands on.
 import { setLang, LANG, t } from './i18n.js';
-import { root, setTabs, toast, A, rerender } from './ui.js';
+import { root, setTabs, toast, A, rerender, refreshBadges } from './ui.js';
 import * as db from './db.js';
 import { S, readInviteFromUrl, clearInvite, forgetInvite } from './state.js';
 import { onSignedIn } from './auth.js';
@@ -53,7 +53,7 @@ async function home() {
   } catch (e) { console.error(e); toast(t('Could not load your data — pull to refresh or sign in again'), 'err'); setTabs([]); root('noinvite'); }
 }
 onSignedIn(afterSignIn);
-setInterval(async () => { if (!S.me || !S.me.role || S.me.role === 'admin') return; const before = S.unread; await loadUnread(); if (S.unread !== before) rerender(); }, 60000);
+setInterval(async () => { if (!S.me || !S.me.role || S.me.role === 'admin') return; const before = S.unread; await loadUnread(); if (S.unread !== before) refreshBadges(); }, 60000);   // badges only — a full redraw here used to wipe what was being typed
 onOnboarded(async () => { S.me = await db.loadProfile(S.session.user.id); await home(); });
 
 async function boot() {
