@@ -67,3 +67,12 @@ async function boot() {
   await afterSignIn();
 }
 boot();
+
+// Phone keyboard: iPhone does not shrink the page when the keyboard opens — it slides the whole view up and sometimes
+// leaves it there after the keyboard closes. Size and place the app to the part of the screen that is really visible
+// (CSS variables --vvh / --vvtop, used in the phone layout). Not while zoomed in with two fingers.
+(function fitViewport() {
+  const vv = window.visualViewport; if (!vv) return; const r = document.documentElement.style;
+  const fit = () => { if (Math.abs(vv.scale - 1) > 0.01) { r.removeProperty('--vvh'); r.removeProperty('--vvtop'); return; } r.setProperty('--vvh', Math.round(vv.height) + 'px'); r.setProperty('--vvtop', Math.round(vv.offsetTop) + 'px'); };
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
+})();

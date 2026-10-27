@@ -111,10 +111,11 @@ export function sheet(html) {
   if (old) {
     const h2 = s => { const m = /<div class="h2">([\s\S]*?)<\/div>/.exec(s); return m ? m[1] : null; };
     const oldH2 = old.querySelector('.h2'); if (oldH2 && h2(html) != null && oldH2.innerHTML === h2(html)) keepTop = old.scrollTop;
+    if (keepTop == null) { old._maxH = 0; old.style.minHeight = ''; }   // another sheet: its own height
     old.innerHTML = html; old.style.transform = ''; sh = old;
   } else {
     o.innerHTML = '<div class="sheet-bg" onclick="if(event.target===this)A.closeSheet()"><div class="sheet">' + html + '</div></div>';
-    sh = o.querySelector('.sheet'); swipeToClose(sh);
+    sh = o.querySelector('.sheet'); swipeToClose(sh); holdHeight(sh);
   }
   // the trailing buttons go into a footer that stays at the bottom while the form above it scrolls
   const tail = [];
@@ -130,7 +131,17 @@ function swipeToClose(sh) {
   const end = () => { if (y0 == null) return; y0 = null; if (dy > 90) { closeSheet(); return; } sh.style.transition = 'transform .2s ease'; sh.style.transform = ''; };
   sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end);
 }
-export function closeSheet() { const o = document.getElementById('overlay'); if (o) o.innerHTML = ''; }
+// an open sheet only grows: when its content changes (suggestions appear while typing, a chip is toggled) the top edge
+// stays put instead of jumping up and down. Capped at the sheet's own maximum (88 %), so it still fits above the keyboard.
+function holdHeight(sh) {
+  if (!window.ResizeObserver) return;
+  new ResizeObserver(() => { const h = sh.offsetHeight; if (h > (sh._maxH || 0) + 1) { sh._maxH = h; sh.style.minHeight = 'min(' + h + 'px, 88%)'; } }).observe(sh);
+}
+export function closeSheet() {
+  const o = document.getElementById('overlay'); if (!o) return;
+  const f = document.activeElement; if (f && o.contains(f) && f.blur) f.blur();   // let the phone keyboard go down first
+  o.innerHTML = '';
+}
 A.closeSheet = closeSheet;
 
 let toastT;

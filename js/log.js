@@ -86,7 +86,7 @@ A.foodSheet = () => {
     '<div class="mute small">' + t('Type it, say it, or photograph the plate or the nutrition label — the numbers fill in by themselves.') + '</div>' +
     '<div id="fd_sug"></div><div id="fd_recent"></div>' +
     '<div class="row between" style="flex-wrap:wrap;gap:8px 16px"><span class="link" onclick="A.foodManual()">' + t('Enter the numbers myself') + '</span><span class="link" onclick="A.closeSheet();A.openFoods(\'protein_g\')">' + t('Browse foods') + ' ›</span></div>');
-  const el = document.getElementById('fd_text'); if (el) el.focus();
+  const el = document.getElementById('fd_text'); if (el && !matchMedia('(pointer:coarse)').matches) el.focus();   // phones: the keyboard opens when they tap the field, not while the panel slides in
   loadRecents();
 };
 async function loadRecents() {
@@ -169,8 +169,9 @@ function itemCard(it, i) {
 }
 function renderSug() {
   const D = FD(); const el = document.getElementById('fd_sug'); if (!el) return;
-  if (D.state === 'typing') { el.innerHTML = '<div class="mute small">' + t('…') + '</div>'; return; }
-  if (D.state === 'looking') { el.innerHTML = '<div class="mute small">' + t('Looking it up…') + '</div>'; return; }
+  // while typing / looking up, the cards already there stay (dimmed) so the panel does not shrink and grow on every letter
+  if (D.state === 'typing' || D.state === 'looking') { if (el.querySelector('.fcard')) { el.style.opacity = '.5'; return; } el.innerHTML = '<div class="mute small">' + (D.state === 'looking' ? t('Looking it up…') : t('…')) + '</div>'; return; }
+  el.style.opacity = '';
   if (D.state === 'none') { el.innerHTML = '<div class="card flat"><div class="mute">' + (D.error ? esc(D.error) : t('Could not work that one out — try another wording, or enter the numbers yourself.')) + '</div></div>'; return; }
   if (D.state !== 'ready' || !D.items.length) { el.innerHTML = ''; return; }
   const tot = D.items.reduce((a, it) => { const m = itemTotals(it); a.kcal += m.kcal; a.p += m.protein_g || 0; return a; }, { kcal: 0, p: 0 });
