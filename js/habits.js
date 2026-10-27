@@ -5,7 +5,8 @@ import { A, I, rerender, toast, sheet, closeSheet, busy, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { effectiveTargets } from './plan.js';
-import { itemMacros, fmtServing } from './food.js';
+import { itemMacros, fmtServing, foodName, unitLabel } from './food.js';
+import { FOODS } from './foods.js';
 
 const n0 = v => Math.round(Number(v) || 0);
 function sum(L, kind, key) { return L.filter(l => l.kind === kind).reduce((a, l) => a + (Number(l[key || 'value']) || 0), 0); }
@@ -49,8 +50,8 @@ export function recapCard() {
   const lines = [
     hit != null ? t('Protein target reached {hit} of 7 days', { hit }) : t('Food logged {n} of 7 days', { n: foodDays.length }),
     avgK ? t('Average {k} kcal a day', { k: avgK }) + (T.kcal ? ' · ' + t('target {k}', { k: T.kcal }) : '') : '',
-    best && best[1] >= 10 ? t('Best protein source: {f} ({g} g over the week)', { f: best[0], g: n0(best[1]) }) : '',
-    exercises ? t('{n} exercises ticked', { n: exercises }) : ''
+    best && best[1] >= 10 ? t('Best protein source: {f} ({g} g of protein over the week)', { f: best[0], g: n0(best[1]) }) : '',
+    exercises ? (exercises === 1 ? t('1 exercise ticked') : t('{n} exercises ticked', { n: exercises })) : ''
   ].filter(Boolean);
   return '<div class="card soft" id="recap"><div class="row between"><div class="h3">' + t('Last week') + '</div><span class="mute small">' + esc(fmtDay(days[0], 'dm') + ' – ' + fmtDay(days[6], 'dm')) + '</span></div>' +
     '<div class="col" style="gap:4px">' + lines.map(x => '<div>' + esc(x) + '</div>').join('') + '</div>' +
@@ -73,7 +74,8 @@ const GR = () => (S.grocery = S.grocery || { days: 5, picked: null });
 export function grocerySheet() {
   const G = GR(); const meals = S.meals || [];
   if (!meals.length) { sheet('<div class="h2">' + t('Grocery list') + '</div><div class="mute">' + t('Save a meal first (Build a meal → Save as a meal) — the list is made from your saved meals.') + '</div>'); return; }
-  if (!G.picked) G.picked = meals.map(m => m.id);
+  const ids = meals.map(m => m.id);
+  if (!G.picked || G.known !== ids.join()) { G.picked = (G.picked || []).filter(id => ids.includes(id)).concat(ids.filter(id => !(G.known || '').split(',').includes(id))); G.known = ids.join(); }   // a newly saved meal starts ticked
   const rows = aggregate(meals.filter(m => G.picked.includes(m.id)), G.days);
   sheet('<div class="h2">' + t('Grocery list') + '</div><div class="mute">' + t('Your saved meals, multiplied for the days you pick.') + '</div>' +
     '<div class="chips">' + [3, 5, 7].map(d => '<button class="chip ' + (G.days === d ? 'on' : '') + '" onclick="A.groceryDays(' + d + ')">' + d + ' ' + t('days') + '</button>').join('') + '</div>' +
@@ -84,7 +86,8 @@ export function grocerySheet() {
 function aggregate(meals, days) {
   const acc = {};
   for (const m of meals) for (const it of (m.items || [])) {
-    const k = it.name; const a = acc[k] || (acc[k] = { name: it.name, qty: 0, unit: it.unit, unit_kind: it.unit_kind, grams: it.grams });
+    const f = it.id ? FOODS.find(x => x.id === it.id) : null;   // table foods are named in the reader's language, whatever language the meal was saved in
+    const k = f ? f.id : it.name; const a = acc[k] || (acc[k] = { name: f ? foodName(f) : it.name, qty: 0, unit: f ? (it.unit_kind === 'g' ? unit('g') : unitLabel(f.unit)) : it.unit, unit_kind: it.unit_kind, grams: it.grams });
     a.qty += (Number(it.qty) || 0) * days;
   }
   return Object.values(acc).map(a => ({ name: a.name, amount: a.unit_kind === 'g' ? Math.round(a.qty) + ' ' + a.unit : (Math.round(a.qty * 10) / 10) + ' ' + a.unit + (a.grams ? ' (' + Math.round(a.grams * a.qty) + ' ' + unit('g') + ')' : '') }));

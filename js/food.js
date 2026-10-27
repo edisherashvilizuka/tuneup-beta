@@ -2,7 +2,7 @@
 // filters), the meal builder (a tray that shows today's remaining targets closing, "Fill the gap" suggestions,
 // saved meals) and the food preferences used by all of them. Logging itself stays in log.js.
 import { t, esc, unit, isoDate, LANG, macroShort } from './i18n.js';
-import { SCREENS, A, I, go, back, rerender, toast, sheet, closeSheet, busy, track, field, val } from './ui.js';
+import { SCREENS, A, I, go, back, cur, rerender, toast, sheet, closeSheet, busy, track, field, val } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { FOODS, UNITS } from './foods.js';
@@ -39,6 +39,7 @@ export function allowed(f, P) {
   if (P.style === 'vegetarian' && !tags.includes('veg')) return false;
   if (P.style === 'vegan' && !tags.includes('vegan')) return false;
   if (P.style === 'nopork' && tags.includes('pork')) return false;
+  if (P.style === 'fasting' && (tags.includes('meat') || tags.includes('dairy') || tags.includes('egg'))) return false;   // Orthodox fast: no meat, dairy or eggs (fish allowed)
   const hay = (f.en + ' ' + f.ka + ' ' + f.id + ' ' + tags.join(' ')).toLowerCase();
   const GROUPS = { nuts: 'nuts', walnut: 'nuts', ნიგოზი: 'nuts', dairy: 'dairy', milk: 'dairy', lactose: 'dairy', რძე: 'dairy', gluten: 'gluten', wheat: 'gluten', bread: 'gluten', egg: 'egg', კვერცხი: 'egg', fish: 'fish', თევზი: 'fish', pork: 'pork', ღორი: 'pork', meat: 'meat', ხორცი: 'meat' };
   for (const a of P.avoid) { const g = GROUPS[a]; if ((g && tags.includes(g)) || hay.includes(a)) return false; }
@@ -57,7 +58,10 @@ export function ranked(macro, filters, recents) {
 // table foods the trainee logged in the last weeks (by name match)
 export function recentIds() {
   const notes = (S.foodRecents || []).map(l => String(l.note || '').toLowerCase());
-  return new Set(FOODS.filter(f => notes.some(n => n.includes(f.en.toLowerCase().split(' (')[0]) || n.includes(f.ka.split(' (')[0]))).map(f => f.id));
+  // whole-word match on the food-name part of a note ("Boiled eggs, 2 piece" → Egg; "Steak" is not Tea)
+  const heads = notes.map(n => ' ' + n.split(',')[0].trim().replace(/[()]/g, ' ') + ' ');
+  const hit = w => { w = w.toLowerCase(); return heads.some(h => h.includes(' ' + w + ' ') || h.includes(' ' + w + 's ') || h.includes(' ' + w + 'es ')); };
+  return new Set(FOODS.filter(f => hit(f.en.split(' (')[0]) || hit(f.ka.split(' (')[0])).map(f => f.id));
 }
 
 // ---- the explorer screen
@@ -87,7 +91,7 @@ function leftLine(left) {
   return left.protein_g > 0 ? t('{g} g protein still left after this', { g: n0(left.protein_g) }) : t('Protein target reached ✓');
 }
 export function fmtServing(it) { return (it.unit_kind === 'g' ? it.qty + ' ' + it.unit : String(Math.round(it.qty * 100) / 100) + ' ' + it.unit + (it.grams ? ' · ' + t('about {g} g', { g: Math.round(it.grams * it.qty) }) : '')); }
-A.exMacro = (k) => { EX().macro = k; rerender(); };
+A.exMacro = (k) => { EX().macro = k; const c = cur(); if (c && c.name === 'foods') c.params = Object.assign({}, c.params, { macro: k }); rerender(); };   // the screen's own macro param would otherwise win on every redraw
 A.exFilter = (x) => { const E = EX(); E.filters = E.filters.includes(x) ? E.filters.filter(y => y !== x) : E.filters.concat([x]); rerender(); };
 A.exAdd = (id) => {
   const items = trayItems(); const f = FOODS.find(x => x.id === id); if (!f) return;
@@ -134,28 +138,31 @@ A.mealSave = async () => {
 };
 
 // ---- "Fill the gap": table foods (allowed by the preferences) whose usual serving closes what is left, protein first
+function verdict(items, left, it) {
+  const after = leftToday(items.concat([it]));
+  return after.protein_g <= Math.max(5, left.protein_g * 0.1) && (after.kcal == null || after.kcal >= -80) && (after.carbs_g == null || after.carbs_g >= -25) && (after.fat_g == null || after.fat_g >= -12) ? 'all' : after.protein_g <= Math.max(5, left.protein_g * 0.1) ? 'protein' : t('{g} g short', { g: n0(after.protein_g) });
+}
 export function suggestions(items) {
   const left = leftToday(items); if (left.protein_g == null) return [];
   if (left.protein_g <= 5 && (left.kcal == null || left.kcal <= 80)) return [];
   const P = prefs(); const rec = recentIds(); const out = [];
   for (const f of FOODS) {
     if (f.tags.some(x => NEVER.includes(x) || x === 'drink') || !allowed(f, P)) continue;
-    for (const mult of (f.unit === 'g' ? [0.5, 1, 1.5, 2] : [0.5, 1, 2, 3])) {
+    for (const mult of (f.unit === 'g' ? [0.5, 1, 1.5, 2] : f.unit === 'piece' ? [1, 2, 3] : [0.5, 1, 2, 3])) {   // no half khinkali or half egg
       const it = servingOf(f, mult); const m = itemMacros(it);
       if (m.kcal < 40) continue;
       const overK = left.kcal != null ? Math.max(0, m.kcal - left.kcal) : 0;
       const pGap = Math.abs(left.protein_g - m.protein_g) / Math.max(20, left.protein_g);
       const cPen = left.carbs_g != null ? Math.max(0, m.carbs_g - Math.max(0, left.carbs_g)) / 60 : 0, fPen = left.fat_g != null ? Math.max(0, m.fat_g - Math.max(0, left.fat_g)) / 25 : 0;
       const cost = pGap * 2 + overK / 150 * 3 + cPen + fPen + (mult > 2 ? 0.4 : 0) - (rec.has(f.id) ? 0.35 : 0) - (f.tags.includes('geo') ? 0.1 : 0);
-      out.push({ f, it, m, cost, overK });
+      const v = verdict(items, left, it); out.push({ f, it, m, cost, overK, v, rank: v === 'all' ? 0 : v === 'protein' ? 1 : 2 });
     }
   }
-  out.sort((a, b) => a.cost - b.cost);
+  out.sort((a, b) => a.rank - b.rank || a.cost - b.cost);   // what closes every target first, then protein only, then the rest
   const picked = []; const seen = new Set();
   for (const s of out) { if (seen.has(s.f.id)) continue; seen.add(s.f.id); picked.push(s); if (picked.length === 3) break; }
   return picked.map(s => {
-    const after = leftToday(items.concat([s.it]));
-    const ok = after.protein_g <= Math.max(5, left.protein_g * 0.1) && (after.kcal == null || after.kcal >= -80) && (after.carbs_g == null || after.carbs_g >= -25) && (after.fat_g == null || after.fat_g >= -12) ? 'all' : after.protein_g <= Math.max(5, left.protein_g * 0.1) ? 'protein' : t('{g} g short', { g: n0(after.protein_g) });
+    const ok = s.v;
     return { item: s.it, label: t('Add {what}', { what: s.it.name + ' · ' + fmtServing(s.it).split(' · ')[0] }), sub: '+' + n0(s.m.kcal) + ' ' + unit('kcal') + ' · +' + n0(s.m.protein_g) + ' ' + unit('g') + ' ' + t('protein') + (s.m.carbs_g >= 15 ? ' · +' + n0(s.m.carbs_g) + ' ' + unit('g') + ' ' + t('carbs') : '') + (s.m.fat_g >= 10 ? ' · +' + n0(s.m.fat_g) + ' ' + unit('g') + ' ' + t('fats') : ''), ok };
   });
 }

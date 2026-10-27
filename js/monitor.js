@@ -98,9 +98,12 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
 // 7 days × 4 macros; a cell is green within 85–115 % of the target, amber 60–85 / 115–135, red beyond, grey when nothing was logged that day
 function heatmap(st, tg) {
   const rows = [['kcal', 'Calories'], ['prot', 'Protein'], ['carbs', 'Carbs'], ['fat', 'Fats']].map(([k, label]) => { const T = tg[{ kcal: 'kcal', prot: 'protein_g', carbs: 'carbs_g', fat: 'fat_g' }[k]]; if (!T) return '';
-    return '<div class="lab">' + esc(macroShort(label)) + '</div>' + st.byDay.map(x => { if (!x.kcal || ((k === 'carbs' || k === 'fat') && !x.hasMacros)) return '<div class="c" title="' + esc(fmtDay(x.day, 'dm')) + '"></div>'; const r = x[k] / T; const cls = r >= 0.85 && r <= 1.15 ? 'g' : (r >= 0.6 && r <= 1.35) ? 'a' : 'r'; return '<div class="c ' + cls + '" title="' + esc(fmtDay(x.day, 'dm') + ' · ' + n0(x[k]) + ' / ' + T) + '"></div>'; }).join(''); }).join('');
-  return '<div class="heat"><div></div>' + st.byDay.map(x => '<div class="d">' + esc(fmtDay(x.day, 'dm').split(' ')[0]) + '</div>').join('') + rows + '</div>';
+    return '<div class="lab">' + esc(k === 'kcal' ? unit('kcal') : macroShort(label)) + '</div>' + st.byDay.map(x => { if (!x.kcal || ((k === 'carbs' || k === 'fat') && !x.hasMacros)) return '<div class="c" title="' + esc(fmtDay(x.day, 'dm')) + '"></div>'; const r = x[k] / T; let cls = r >= 0.85 && r <= 1.15 ? 'g' : (r >= 0.6 && r <= 1.35) ? 'a' : 'r'; if (x === st.today && r < 0.85) cls = 'p';   // today is still in progress: not judged until it is on target or over
+      return '<div class="c ' + cls + '" role="button" tabindex="0" onclick="A.heatTip(this)" title="' + esc(fmtDay(x.day, 'dm') + ' · ' + t(label) + ' ' + n0(x[k]) + ' / ' + T) + '"></div>'; }).join(''); }).join('');
+  return '<div class="heat"><div></div>' + st.byDay.map(x => '<div class="d">' + esc(fmtDay(x.day, 'dm').split(' ')[0]) + '</div>').join('') + rows + '</div>' +
+    '<div class="mute small">' + t('Dashed = today so far. Tap a square for the numbers.') + '</div>';
 }
+A.heatTip = (el) => { if (el && el.title) toast(el.title); };
 // today's and yesterday's food entries with a one-tap 👍 (the client is notified once)
 function foodList(c, st) {
   const days = [st.today, st.yesterday].filter(Boolean);

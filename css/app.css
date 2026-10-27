@@ -392,11 +392,12 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .sug{display:flex;align-items:center;gap:10px;background:var(--a-card);border:1px solid var(--a-line);border-radius:12px;padding:10px 12px;text-align:left;width:100%;color:var(--a-ink)}
 .sug .t{font-weight:700;font-size:14px}
 .act.camera{width:48px;height:48px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-card);display:grid;place-items:center;flex:none;margin-bottom:12px}
-.heat{display:grid;grid-template-columns:52px repeat(7,1fr);gap:4px;align-items:center}
-.heat .lab{font-size:11px;font-weight:700;color:var(--a-mute)}
+.heat{display:grid;grid-template-columns:44px repeat(7,1fr);gap:3px;align-items:center}
+.heat .lab{font-size:10px;font-weight:700;color:var(--a-mute)}
 .heat .d{font-size:10px;color:var(--a-mute);text-align:center}
-.heat .c{height:22px;border-radius:6px;background:var(--a-line2)}
+.heat .c{height:32px;border-radius:6px;background:var(--a-line2)}
 .heat .c.g{background:#BFD6B8}.heat .c.a{background:#EAD9A6}.heat .c.r{background:#E7B8B3}
+.heat .c[title]{cursor:pointer}.heat .c.p{background:transparent;border:1.5px dashed var(--a-mute)}
 .rx{width:32px;height:32px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-card);display:grid;place-items:center;color:var(--a-mute)}
 .rx.on{background:var(--a-accent);border-color:var(--a-accent);color:#fff}
 .act.camera.live{background:var(--a-accent);color:#fff;border-color:var(--a-accent);animation:pulse 1s ease-in-out infinite}

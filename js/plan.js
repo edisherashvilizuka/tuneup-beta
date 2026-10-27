@@ -130,9 +130,10 @@ A.targetsSheet = () => {
     '<div class="input-row">' + field(t('Calories'), 'tg_kcal', tg.kcal || '', { type: 'number', unit: unit('kcal'), ph: '1800', attrs: ' oninput="A.tgRecalc()"' }) + field(t('Protein'), 'tg_protein', tg.protein_g || '', { type: 'number', unit: unit('g'), ph: '120', attrs: ' oninput="A.tgRecalc()"' }) + '</div>' +
     '<div class="field"><label>' + t('Carbs and fats') + '</label><div class="segc" id="tg_split">' + splitButtons() + '</div><div class="mute small" style="margin-top:6px">' + t('Filled from calories and protein. Change a number to set your own.') + '</div></div>' +
     '<div class="input-row">' + field(t('Carbs'), 'tg_carbs', tg.carbs_g || '', { type: 'number', unit: unit('g'), ph: '200', attrs: ' oninput="A.tgCustom()"' }) + field(t('Fats'), 'tg_fat', tg.fat_g || '', { type: 'number', unit: unit('g'), ph: '60', attrs: ' oninput="A.tgCustom()"' }) + '</div>' +
+    '<div class="mute small" id="tg_sum" aria-live="polite"></div>' +
     '<div class="input-row">' + field(t('Water'), 'tg_water', tg.water_ml || '', { type: 'number', unit: unit('ml'), ph: '2000' }) + field(t('Steps'), 'tg_steps', tg.steps || '', { type: 'number', ph: '8000' }) + '</div>' +
     '<button class="btn" onclick="A.saveTargets()">' + t('Save') + '</button>');
-  if (!tg.carbs_g && !tg.fat_g) A.tgRecalc();
+  if (!tg.carbs_g && !tg.fat_g) A.tgRecalc(); else A.tgSum();
 };
 function splitButtons() { return Object.keys(SPLIT_NAMES).map(k => '<button type="button" class="' + (S.draft.split === k ? 'on' : '') + '" onclick="A.tgSplit(\'' + k + '\')">' + esc(t(SPLIT_NAMES[k])) + '</button>').join(''); }
 A.tgSplit = (k) => { S.draft.split = k; const el = document.getElementById('tg_split'); if (el) el.innerHTML = splitButtons(); A.tgRecalc(); };
@@ -141,8 +142,17 @@ A.tgRecalc = () => {
   const r = splitFor(parseInt(val('tg_kcal'), 10), parseInt(val('tg_protein'), 10), S.draft.split);
   const c = document.getElementById('tg_carbs'), f = document.getElementById('tg_fat');
   if (c) c.value = r ? r.carbs_g : ''; if (f) f.value = r ? r.fat_g : '';
+  A.tgSum();
 };
-A.tgCustom = () => { if (S.draft.split !== 'custom') { S.draft.split = 'custom'; const el = document.getElementById('tg_split'); if (el) el.innerHTML = splitButtons(); } };
+// the check line under carbs/fats: what protein + carbs + fats add up to, and a warning when protein alone is over the calories
+A.tgSum = () => {
+  const el = document.getElementById('tg_sum'); if (!el) return;
+  const n = id => { const v = parseInt(val(id), 10); return isNaN(v) ? 0 : v; };
+  const k = n('tg_kcal'), p = n('tg_protein'), sum = p * 4 + n('tg_carbs') * 4 + n('tg_fat') * 9;
+  if (k && p * 4 > k) { el.innerHTML = '<span style="color:var(--a-red)">' + esc(t('Protein alone is {k} kcal — more than the calorie target.', { k: p * 4 })) + '</span>'; return; }
+  el.textContent = sum && k ? t('Protein, carbs and fats add up to {k} kcal (target {t}).', { k: sum, t: k }) : '';
+};
+A.tgCustom = () => { if (S.draft.split !== 'custom') { S.draft.split = 'custom'; const el = document.getElementById('tg_split'); if (el) el.innerHTML = splitButtons(); } A.tgSum(); };
 A.saveTargets = async () => {
   const n = id => { const v = parseInt(val(id), 10); return isNaN(v) ? null : v; };
   const patch = { kcal: n('tg_kcal'), protein_g: n('tg_protein'), carbs_g: n('tg_carbs'), fat_g: n('tg_fat'), water_ml: n('tg_water'), steps: n('tg_steps'), split: S.draft.split || 'balanced' };

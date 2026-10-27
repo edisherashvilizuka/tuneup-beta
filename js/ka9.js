@@ -7,7 +7,9 @@ export const KA9 = {
   'Food logged {n} of 7 days': 'საკვები ჩაწერილია 7-დან {n} დღეს',
   'Average {k} kcal a day': 'საშუალოდ {k} კკალ დღეში',
   'target {k}': 'მიზანი {k}',
-  'Best protein source: {f} ({g} g over the week)': 'ცილის საუკეთესო წყარო: {f} ({g} გ კვირაში)',
+  'Best protein source: {f} ({g} g of protein over the week)': 'ცილის საუკეთესო წყარო: {f} ({g} გ ცილა კვირაში)',
+  'over': 'მეტი',
+  '1 exercise ticked': '1 სავარჯიშო შესრულებულია',
   '{n} exercises ticked': '{n} სავარჯიშო შესრულებულია',
   'Last week': 'გასული კვირა',
   'Food reminders': 'კვების შეხსენებები',
@@ -27,5 +29,7 @@ export const KA9 = {
   'Could not hear that — try again or type it.': 'ვერ გავიგე — სცადე თავიდან ან ჩაწერე.',
   'Eating out': 'რესტორანში',
   'Protein check': 'ცილის შემოწმება',
-  'Nothing logged yet': 'დღეს ჯერ არაფერია ჩაწერილი'
+  'Dashed = today so far. Tap a square for the numbers.': 'წყვეტილი = დღეს აქამდე. ციფრების სანახავად დააჭირე უჯრას.',
+  'Protein alone is {k} kcal — more than the calorie target.': 'მხოლოდ ცილა უკვე {k} კკალ-ია — კალორიების მიზანზე მეტი.',
+  'Protein, carbs and fats add up to {k} kcal (target {t}).': 'ცილა, ნახშირწყლები და ცხიმები ჯამში {k} კკალ-ია (მიზანი {t}).'
 };

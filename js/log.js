@@ -36,7 +36,8 @@ export function macroTotals(L) { const F = L.filter(l => l.kind === 'food'); con
 // the fuel gauge: one ring per macro; a ring fills towards the coach's target and shows what is left inside
 function ring(key, uni, label, color, v, max) {
   const C = 2 * Math.PI * 26; const pct = max ? Math.min(1, v / max) : 0; const left = max ? Math.max(0, Math.round(max - v)) : null;
-  const inner = max ? '<text x="32" y="30" text-anchor="middle" class="rv">' + (left > 0 ? left : I_CHECK) + '</text><text x="32" y="42" text-anchor="middle" class="rs">' + (left > 0 ? esc(t('left')) : esc(t('done'))) + '</text>'
+  const over = max && key !== 'protein_g' && v > max * 1.05 ? Math.round(v - max) : 0;   // calories, carbs or fats well past the target are not "done"
+  const inner = max ? '<text x="32" y="30" text-anchor="middle" class="rv">' + (over ? '+' + over : left > 0 ? left : I_CHECK) + '</text><text x="32" y="42" text-anchor="middle" class="rs">' + (over ? esc(t('over')) : left > 0 ? esc(t('left')) : esc(t('done'))) + '</text>'
     : '<text x="32" y="36" text-anchor="middle" class="rv">' + n0(v) + '</text>';
   return '<div class="f1" role="button" tabindex="0" onclick="A.openFoods(\'' + key + '\')" onkeydown="if(event.key===\'Enter\')this.click()" aria-label="' + esc(t(label)) + ' ' + n0(v) + (max ? ' / ' + max : '') + ' ' + esc(unit(uni)) + '">' +
     '<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="var(--a-line2)" stroke-width="6"/><circle cx="32" cy="32" r="26" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + (C * pct).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 32 32)"' + (max && pct >= 1 ? ' opacity=".55"' : '') + '/>' + inner + '</svg>' +
