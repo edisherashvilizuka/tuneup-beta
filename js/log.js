@@ -56,7 +56,7 @@ export function logCards() {
   const steps = oneOf(L, 'steps'), weight = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
   const foods = L.filter(l => l.kind === 'food');
   const food = '<div class="card"><div class="row between"><div class="h3">' + t('Food') + '</div><span class="mute small">' + (foods.length ? (foods.length === 1 ? t('1 entry') : t('{n} entries', { n: foods.length })) : '') + '</span></div>' + fuelGauge(L) +
-    (foods.length ? '<div>' + foods.map(f => '<div class="food"><div><div class="n">' + esc(f.note || t('Meal')) + (f.reaction === 'up' ? ' <span title="' + esc(t('Your coach liked this')) + '">👍</span>' : '') + '</div><div class="m">' + esc(macroLine(f)) + (macroLine(f) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(f.value) + '</div><button class="act" style="width:28px;height:28px;border:0" onclick="A.delLog(\'' + f.id + '\',this)" aria-label="' + t('Remove') + '">' + I.x + '</button></div>').join('') + '</div>' : '') +
+    (foods.length ? '<div>' + foods.map(f => '<div class="food"><div><div class="n">' + esc(f.note || t('Meal')) + (f.reaction === 'up' ? ' <span title="' + esc(t('Your coach liked this')) + '">👍</span>' : '') + '</div><div class="m">' + esc(macroLine(f)) + (macroLine(f) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(f.value) + '</div><button class="act" style="width:36px;height:36px;border:0" onclick="A.delLog(\'' + f.id + '\',this)" aria-label="' + t('Remove') + '">' + I.x + '</button></div>').join('') + '</div>' : '') +
     '<button class="btn sec sm" onclick="A.foodSheet()">' + I.plus + ' ' + t('Add food') + '</button></div>';
   const wat = '<div class="card"><div class="row between"><div class="h3">' + t('Water') + '</div><span class="mute small">' + (water / 1000).toFixed(water % 1000 ? 2 : 1).replace(/\.?0+$/, '') + (tg('water_ml') ? ' / ' + (tg('water_ml') / 1000) : '') + ' ' + unit('L') + '</span></div>' + (tg('water_ml') ? bar(water, tg('water_ml'), 'blue') : '') +
     '<div class="btn-row"><button class="btn sec sm" onclick="A.addWater(250)">+ 250 ' + unit('ml') + '</button><button class="btn sec sm" onclick="A.addWater(500)">+ 500 ' + unit('ml') + '</button>' + (water ? '<button class="btn sec sm" onclick="A.undoWater()" aria-label="Undo">' + I.x + '</button>' : '') + '</div></div>';
@@ -159,7 +159,7 @@ async function lookup(text) {
   renderSug(); renderRecents();
 }
 function itemCard(it, i) {
-  const m = itemTotals(it); const gramsToggle = it.unit_kind === 'count' && it.grams ? '<button class="chip sm" onclick="A.foodGrams(' + i + ')">' + t('in grams') + '</button>' : it.unit_kind === 'g' && it.fromCount ? '<button class="chip sm" onclick="A.foodCount(' + i + ')">' + esc(it.fromCount.unit) + '</button>' : '';
+  const m = itemTotals(it); const gramsToggle = it.unit_kind === 'count' && it.grams ? '<button class="chip" style="min-height:34px" onclick="A.foodGrams(' + i + ')">' + t('in grams') + '</button>' : it.unit_kind === 'g' && it.fromCount ? '<button class="chip" style="min-height:34px" onclick="A.foodCount(' + i + ')">' + esc(it.fromCount.unit) + '</button>' : '';
   const stepBig = it.unit_kind === 'g' ? (Number(it.qty) >= 100 ? 25 : 10) : 1;
   const mac = (k, uni, label, color) => '<div class="mac"><div class="v" style="color:' + color + '">' + (m[k] == null || (it.per[k] == null && k !== 'kcal') ? '—' : n0(m[k])) + '<span>' + (k === 'kcal' ? '' : ' ' + esc(unit('g'))) + '</span></div><div class="k">' + esc(macroShort(k)) + '</div></div>';
   return '<div class="card fcard"><div class="row between" style="align-items:flex-start;gap:8px"><div class="grow"><div class="h3">' + esc(it.name) + '</div><div class="mute small">' + esc(fmtQty(it.qty) + ' ' + it.unit) + (it.unit_kind === 'count' && it.grams ? ' · ' + t('about {g} g', { g: Math.round(it.grams * it.qty) }) : '') + '</div></div>' + sourceChip(it.source) + '</div>' +
@@ -177,7 +177,7 @@ function renderSug() {
   const left = tg('protein_g') ? Math.max(0, tg('protein_g') - macroTotals(S.today.logs || []).protein_g - tot.p) : null;
   el.innerHTML = D.items.map(itemCard).join('') +
     (left != null ? '<div class="mute small">' + (left > 0 ? t('After this: {g} g protein left today.', { g: n0(left) }) : t('After this your protein target is reached.')) + '</div>' : '') +
-    '<button class="btn" onclick="A.saveFoodItems()">' + (D.items.length === 1 ? t('Use this') : t('Log all {n}', { n: D.items.length })) + ' · ' + n0(tot.kcal) + ' ' + unit('kcal') + '</button>';
+    '<div class="sug-foot"><button class="btn" onclick="A.saveFoodItems()">' + (D.items.length === 1 ? t('Use this') : t('Log all {n}', { n: D.items.length })) + ' · ' + n0(tot.kcal) + ' ' + unit('kcal') + '</button></div>';
 }
 A.foodStep = (i, d) => { const it = FD().items[i]; if (!it) return; it.qty = Math.max(it.unit_kind === 'g' ? 5 : 0.5, r1(Number(it.qty) + d)); renderSug(); };
 A.foodQty = (i, v) => { const it = FD().items[i]; if (!it) return; const q = parseFloat(String(v).replace(',', '.')); if (q > 0 && q <= 5000) it.qty = q; renderSug(); };

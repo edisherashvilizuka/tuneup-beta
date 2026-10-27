@@ -27,6 +27,8 @@ a.btn{text-decoration:none}                                   /* Join / Video bu
 .sheet:has(.sheet-foot){padding-bottom:0!important}
 .sheet-foot{position:sticky;bottom:0;margin:0 -18px;padding:10px 18px calc(20px + env(safe-area-inset-bottom,0px));background:var(--a-card);display:flex;flex-direction:column;gap:10px;box-shadow:0 -1px 0 var(--a-line)}
 .sheet-foot.flat{box-shadow:none}
+/* Add food: the Log button stays at the bottom of the panel while the suggestion cards above it scroll */
+.sug-foot{position:sticky;bottom:0;margin:0 -18px;padding:10px 18px calc(10px + env(safe-area-inset-bottom,0px));background:var(--a-card);box-shadow:0 -1px 0 var(--a-line);z-index:2}
 button.check{position:relative}button.check::after{content:"";position:absolute;inset:-10px}   /* goal tick: bigger tap area */
 
 /* UX round 2026-10-13 */
