@@ -3,6 +3,7 @@ import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS,
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { voiceAvailable, attachBlock, saveAttachments, attHtml, resolveUrls } from './attach.js';
 import { effectiveTargets } from './plan.js';
 import { loadMeals } from './food.js';
 
@@ -12,7 +13,7 @@ export function oneOf(logs, kind) { return logs.find(l => l.kind === kind) || nu
 function tg(k) { const T = S.plan && effectiveTargets(S.plan.targets); return (T && T[k]) || 0; }
 function bar(v, max, cls) { const pct = max ? Math.min(100, Math.round(v / max * 100)) : 0; return '<div class="bar"><i class="' + (cls || '') + '" style="width:' + pct + '%"></i></div>'; }
 function n0(v) { return Math.round(Number(v) || 0); }
-async function reloadToday() { S.today.logs = await db.logsForDay(S.me.id, S.today.day); rerender(); }
+async function reloadToday() { S.today.logs = await db.logsForDay(S.me.id, S.today.day); await resolveUrls(S.today.logs); rerender(); }
 export const reloadTodayLogs = reloadToday;
 function fail(e) { toast(t('Could not save — try again'), 'err'); }
 // two-tap confirm for small destructive buttons: the first tap asks, the second (within 4 s) does it
@@ -65,7 +66,7 @@ export function logCards() {
   // evening check-in: the moods sit on the card, one tap saves; the line for the coach is optional, after
   const moods = '<div class="chips mood-row">' + Object.keys(MOODS).map(k => '<button class="chip ' + (ci && Number(ci.value) === Number(k) ? 'on' : '') + '" onclick="A.quickMood(' + k + ')" aria-pressed="' + (ci && Number(ci.value) === Number(k) ? 'true' : 'false') + '">' + esc(t(MOODS[k])) + '</button>').join('') + '</div>';
   const chk = '<div class="card soft"><div class="h3">' + t('Evening check-in') + '</div>' + (ci ? '' : '<div class="mute">' + t('How was your day? Tap one.') + '</div>') + moods +
-    (ci ? (ci.note ? '<div class="row between" style="gap:10px;align-items:flex-start"><span class="mute grow">' + esc(ci.note) + '</span><span class="link" onclick="A.checkinSheet()">' + t('Edit') + '</span></div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + t('Add a line for your coach') + '</span>') : '') + '</div>';
+    (ci ? (ci.note || (ci.attachments || []).length ? '<div class="row between" style="gap:10px;align-items:flex-start"><span class="mute grow">' + esc(ci.note) + attHtml(ci.attachments) + '</span><span class="link" onclick="A.checkinSheet()">' + t('Edit') + '</span></div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + t('Add a line for your coach') + '</span>') : '') + '</div>';
   return '<div class="section-title"><span class="eyebrow">' + t('Today\'s log') + '</span><span class="link" onclick="A.go(\'week\')">' + t('This week') + ' ›</span></div>' + food + wat + tiles + chk;
 }
 
@@ -81,7 +82,7 @@ A.foodSheet = () => {
   S.draft.food = { items: [], state: 'idle', text: '', recents: null };
   sheet('<div class="h2">' + t('Add food') + '</div>' +
     '<div class="row" style="gap:8px;align-items:flex-end">' + field(t('What did you eat?'), 'fd_text', '', { ph: t('e.g. 5 khinkali, chicken with rice, coffee with milk'), attrs: ' autocomplete="off" enterkeyhint="done" oninput="A.foodTyped()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();A.foodTyped(true)}"' }).replace('<div class="field">', '<div class="field grow">') +
-    (SR ? '<button class="act camera" id="fd_mic" onclick="A.foodVoice()" aria-label="' + esc(t('Say what you ate')) + '">' + I.mic + '</button>' : '') +
+    (voiceAvailable() ? '<button class="act camera" id="fd_text_mic" onclick="A.voice(\'fd_text\')" aria-label="' + esc(t('Say what you ate')) + '">' + I.mic + '</button>' : '') +
     '<button class="act camera" onclick="document.getElementById(\'fd_photo\').click()" aria-label="' + esc(t('Photo of your plate or a nutrition label')) + '">' + I.camera + '</button><input type="file" id="fd_photo" accept="image/*" capture="environment" style="display:none" onchange="A.foodPhoto(this)"></div>' +
     '<div class="mute small">' + t('Type it, say it, or photograph the plate or the nutrition label — the numbers fill in by themselves.') + '</div>' +
     '<div id="fd_sug"></div><div id="fd_recent"></div>' +
@@ -112,19 +113,8 @@ A.foodRecent = (i) => {
   D.items = [{ name: l.note, qty: 1, unit: t('serving'), unit_kind: 'count', grams: null, per: { kcal: Number(l.value) || 0, protein_g: Number(l.protein_g) || 0, carbs_g: l.carbs_g == null ? null : Number(l.carbs_g), fat_g: l.fat_g == null ? null : Number(l.fat_g) }, source: 'recent' }];
   D.state = 'ready'; const el = document.getElementById('fd_text'); if (el) el.value = l.note; renderSug(); renderRecents();
 };
-// voice: the phone's own speech recognition (Chrome, Safari 14.5+); the words land in the field and are looked up
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-let rec = null;
-A.foodVoice = () => {
-  if (!SR) return; const btn = document.getElementById('fd_mic');
-  if (rec) { try { rec.stop(); } catch (e) {} return; }
-  rec = new SR(); rec.lang = LANG.cur === 'ka' ? 'ka-GE' : 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1;
-  if (btn) btn.classList.add('live');
-  rec.onresult = (e) => { const txt = Array.from(e.results).map(r => r[0].transcript).join(' ').trim(); const el = document.getElementById('fd_text'); if (el) el.value = txt; if (e.results[e.results.length - 1].isFinal) { A.foodTyped(true); track('food', { what: 'voice' }); } };
-  rec.onerror = (e) => { if (e.error !== 'aborted' && e.error !== 'no-speech') toast(t('Could not hear that — try again or type it.'), 'err'); };
-  rec.onend = () => { rec = null; if (btn) btn.classList.remove('live'); };
-  try { rec.start(); } catch (e) { rec = null; if (btn) btn.classList.remove('live'); }
-};
+// voice: the shared voice note (attach.js) puts the words into #fd_text and this looks them up
+A.voiceDone = (id) => { if (id === 'fd_text') { A.foodTyped(true); track('food', { what: 'voice' }); } };
 // photo of the plate → the estimator (vision) → the same cards. The picture is shrunk in the phone and never stored.
 A.foodPhoto = async (input) => {
   const file = input.files && input.files[0]; if (!file) return; input.value = '';
@@ -254,19 +244,20 @@ A.checkinSheet = () => {
   const cur = oneOf(S.today.logs || [], 'checkin'); S.draft.mood = cur ? Number(cur.value) : 0;
   sheet('<div class="h2">' + t('Evening check-in') + '</div><div class="field"><label>' + t('How was your day?') + '</label><div class="chips" id="moods">' + moodChips() + '</div></div>' +
     field(t('A line for your coach (optional)'), 'ci_note', cur ? cur.note : '', { textarea: true, ph: t('e.g. slept badly, knee felt fine') }) +
+    attachBlock('ci_att', cur ? cur.attachments : []) +
     '<button class="btn" onclick="A.saveCheckin()">' + t('Save') + '</button>');
 };
 function moodChips() { return Object.keys(MOODS).map(k => '<button class="chip ' + (S.draft.mood === Number(k) ? 'on' : '') + '" onclick="A.pickMood(' + k + ')">' + esc(t(MOODS[k])) + '</button>').join(''); }
 A.quickMood = async (k) => {
   const cur = oneOf(S.today.logs || [], 'checkin'); const first = !cur;
-  try { await db.setDayLog(S.me.id, S.today.day, 'checkin', k, cur ? cur.note : ''); track('log', { kind: 'checkin' }); await reloadToday(); toast(t('Saved')); }
+  try { await db.setDayLog(S.me.id, S.today.day, 'checkin', k, cur ? cur.note : '', cur ? cur.attachments : []); track('log', { kind: 'checkin' }); await reloadToday(); toast(t('Saved')); }
   catch (e) { fail(e); }
 };
 A.pickMood = (k) => { S.draft.mood = k; const el = document.getElementById('moods'); if (el) el.innerHTML = moodChips(); };
 A.saveCheckin = async () => {
   if (!S.draft.mood) { toast(t('Pick how your day was.'), 'err'); return; }
   busy(true);
-  try { await db.setDayLog(S.me.id, S.today.day, 'checkin', S.draft.mood, val('ci_note')); track('log', { kind: 'checkin' }); closeSheet(); toast(t('Saved — see you tomorrow')); await reloadToday(); }
+  try { const atts = await saveAttachments('ci_att', S.pair && S.pair.id ? S.pair.id + '/checkin' : 'tune/' + S.me.id + '/checkin'); await db.setDayLog(S.me.id, S.today.day, 'checkin', S.draft.mood, val('ci_note'), atts); track('log', { kind: 'checkin', photos: atts.length }); closeSheet(); toast(t('Saved — see you tomorrow')); await reloadToday(); }
   catch (e) { busy(false); fail(e); }
 };
 

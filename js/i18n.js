@@ -8,7 +8,8 @@ import { KA6 } from './ka6.js';
 import { KA7 } from './ka7.js';
 import { KA8 } from './ka8.js';
 import { KA9 } from './ka9.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9);
+import { KA10 } from './ka10.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}

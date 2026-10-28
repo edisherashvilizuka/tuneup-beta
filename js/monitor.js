@@ -4,6 +4,7 @@ import { t, esc, unit, isoDate, addDays, weekdayOf, fmtDay, firstName, mood, fmt
 import { SCREENS, A, I, rerender, toast, val, busy, avatar } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { attHtml, attachBlock, saveAttachments, resolveUrls } from './attach.js';
 import { effectiveTargets } from './plan.js';
 import { tuneButton } from './tune.js';
 import { pushCard } from './push.js';
@@ -15,7 +16,7 @@ export async function loadMonitor() {
   const today = isoDate(); S.mon = { today, logs: [], items: [], notes: {} };
   if (!active.length) return;
   const [logs, items, targets] = await Promise.all([db.logsForTrainees(active.map(c => c.trainee.id), addDays(today, -DAYS_BACK), today), db.planItemsForPairs(active.map(c => c.id)), db.targetsForPairs(active.map(c => c.id))]);
-  S.mon.logs = logs; S.mon.items = items; active.forEach(c => { c.targets = targets.find(x => x.pair_id === c.id) || null; });
+  S.mon.logs = logs; S.mon.items = items; resolveUrls(logs.filter(l => l.kind === 'checkin')).then(ok => { if (ok) rerender(); }).catch(() => {}); active.forEach(c => { c.targets = targets.find(x => x.pair_id === c.id) || null; });
 }
 function sum(L, kind, key) { return L.filter(l => l.kind === kind).reduce((a, l) => a + (Number(l[key || 'value']) || 0), 0); }
 function one(L, kind) { return L.find(l => l.kind === kind) || null; }
@@ -81,7 +82,7 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
   const week = '<div class="grid2">' + stat(st.workouts[0] + '/' + st.workouts[1], t('workouts done')) + stat(st.avgKcal ? st.avgKcal + (tg.kcal ? ' / ' + tg.kcal : '') : '—', unit('kcal') + ' ' + t('avg')) + stat(st.avgProt ? st.avgProt + (tg.protein_g ? ' / ' + tg.protein_g : '') : '—', unit('g') + ' ' + t('protein avg')) + stat(st.avgSteps ? st.avgSteps : '—', t('steps avg')) + '</div>';
   const dots = '<div class="row" style="gap:6px;justify-content:space-between">' + st.byDay.map(x => '<div style="text-align:center;flex:1"><div class="check ' + (x.planned ? (x.done >= x.planned ? 'on' : (x.done ? 'on' : '')) : '') + '" style="margin:0 auto;width:22px;height:22px;' + (x.planned && x.done && x.done < x.planned ? 'background:var(--a-amber);border-color:var(--a-amber)' : '') + (!x.planned ? 'border-style:dashed' : '') + '">' + (x.planned && x.done ? I.check : '') + '</div><div class="mute small">' + fmtDay(x.day, 'dm').split(' ')[0] + '</div></div>').join('') + '</div>';
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '">' + esc(f.label) + ' · ' + esc(f.sub) + '</span>';
-  const ciList = st.cis.slice(0, 5).map(ci => '<div class="lrow"><div class="grow"><div class="t">' + esc(mood(ci.value)) + ' <span class="mute small">' + fmtDay(ci.day, 'dm') + '</span></div>' + (ci.note ? '<div class="s">' + esc(ci.note) + '</div>' : '') + '</div></div>').join('');
+  const ciList = st.cis.slice(0, 5).map(ci => '<div class="lrow"><div class="grow"><div class="t">' + esc(mood(ci.value)) + ' <span class="mute small">' + fmtDay(ci.day, 'dm') + '</span></div>' + (ci.note ? '<div class="s">' + esc(ci.note) + '</div>' : '') + attHtml(ci.attachments) + '</div></div>').join('');
   const note = S.mon.notes[c.id];
   const streak = (() => { if (!tg.protein_g) return 0; let n = 0; const days = st.byDay.slice().reverse(); if (days[0].prot < tg.protein_g * 0.9) days.shift(); for (const x of days) { if (x.prot >= tg.protein_g * 0.9) n++; else break; } return n; })();
   const overview = (flags.length || streak >= 2 ? '<div class="chips">' + flags.map(chip).join('') + (streak >= 2 ? '<span class="chip sm soft">' + I.spark + ' ' + esc(t('{n}-day protein streak', { n: streak >= 7 ? '7+' : streak })) + '</span>' : '') + '</div>' : '') +
@@ -92,7 +93,7 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
     (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '');
   const notes = (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Private notes') + '</span><span class="mute small">' + t('only you see these') + '</span></div><div class="card">' +
-    (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<textarea class="input" id="cnote" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(note.text || '') + '</textarea><button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
+    (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<div class="vwrap ta"><textarea class="input" id="cnote" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(note.text || '') + '</textarea><button type="button" class="vmic" id="cnote_mic" onclick="A.voice(\'cnote\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button></div>' + attachBlock('cn_att', note.attachments || []) + '<button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
   return part === 'overview' ? overview : part === 'notes' ? notes : overview + notes;
 }
 // 7 days × 4 macros; a cell is green within 85–115 % of the target, amber 60–85 / 115–135, red beyond, grey when nothing was logged that day
@@ -121,10 +122,10 @@ function spark(ws) {
     '<div class="row between mute small"><span>' + fmtDay(ws[0].day, 'dm') + ' · ' + vals[0] + '</span><span>' + min + '–' + max + ' ' + unit('kg') + '</span><span>' + fmtDay(ws[ws.length - 1].day, 'dm') + ' · ' + vals[vals.length - 1] + '</span></div>';
 }
 export async function loadClientExtras(c) {       // the private note, fetched when the client screen opens
-  const note = await db.getCoachNote(c.id); S.mon.notes[c.id] = note || { text: '' };
+  const note = await db.getCoachNote(c.id); S.mon.notes[c.id] = note || { text: '', attachments: [] }; await resolveUrls([note || {}]);
 }
 A.saveCoachNote = async (pairId) => {
   const text = val('cnote'); busy(true);
-  try { await db.saveCoachNote(pairId, text); S.mon.notes[pairId] = { text }; toast(t('Saved')); busy(false); }
+  try { const atts = await saveAttachments('cn_att', 'tune/' + S.me.id + '/notes'); await db.saveCoachNote(pairId, text, atts); S.mon.notes[pairId] = { text, attachments: atts }; toast(t('Saved')); busy(false); rerender(); }
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };

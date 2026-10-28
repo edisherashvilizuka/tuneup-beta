@@ -9,6 +9,7 @@ import { S } from './state.js';
 import { track } from './chat.js';
 import { loadTuneData, traineeContext, coachContext } from './tunectx.js';
 import { prepare, run } from './tuneact.js';
+import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, dataUrlOf, stopVoice } from './attach.js';
 
 const STALE_MS = 2 * 3600 * 1000;           // a proposal older than this (or followed by a newer question) can no longer be confirmed
 function tuneState() { S.tune = S.tune || { msgs: [], busy: false, loaded: false }; return S.tune; }
@@ -62,40 +63,50 @@ function card(st, m, a, i) {
 function bubble(st, m) {
   const acts = (m.actions || []).map((a, i) => card(st, m, a, i)).join('');
   const pend = (m.actions || []).filter((a, i) => liveCard(st, m, a)).length;
-  return (m.content && !(m.content === '…' && (m.actions || []).length) ? '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + (m.role === 'user' ? esc(m.content).replace(/\n/g, '<br>') : plain(m.content)) + '</div>' : '') + acts +
+  const hasAtt = (m.attachments || []).length > 0; const txt = m.content === '…' ? '' : (m.content || '');
+  return ((txt || hasAtt) && !(!txt && !hasAtt && (m.actions || []).length) ? '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + (m.role === 'user' ? attHtml(m.attachments) + esc(txt).replace(/\n/g, '<br>') : plain(txt)) + '</div>' : '') + acts +
     (pend > 1 ? '<button class="btn sm tc-all" onclick="A.tuneYesAll(\'' + m.id + '\',this)">' + t('Yes to all ({n})', { n: pend }) + '</button>' : '');
 }
 SCREENS.tune = (params) => {
   const st = tuneState(); const client = params && params.client; const name = client ? clientName(client) : '';
-  const intro = S.me.role === 'coach' ? t('Ask how your clients are doing — or tell me what to do: message a client, plan or move sessions, build a plan, set targets and goals. I ask you before anything reaches a client.') : t('Ask about your plan and your day — or tell me what to do: log food, tick exercises, write to your coach, update your answers. I ask you before anything is sent.');
+  const intro = S.me.role === 'coach' ? t('Ask how your clients are doing — or tell me what to do: message a client, plan or move sessions, build a plan, set targets and goals. I ask you before anything reaches a client.') : t('Ask about your plan and your day — or tell me what to do: log food, tick exercises, write to your coach, update your answers. Send a photo of a plate or a label and I log it. I ask you before anything is sent.');
   const ex = st.msgs.length ? [] : examples(name); EXAMPLES = ex;
   const exHtml = ex.length ? '<div class="chips tune-ex">' + ex.map((q, i) => '<button class="chip" onclick="A.tuneExample(' + i + (client ? ",'" + client + "'" : '') + ')">' + esc(q) + '</button>').join('') + '</div>' : '';
   const saved = '<div class="tune-saved mute small">' + I.shield + '<span class="grow">' + t('Saved in your account — only you see this conversation.') + '</span>' + (st.msgs.length ? '<span class="link" onclick="A.tuneClear(this)">' + t('Clear') + '</span>' : '') + '</div>';
   const body = '<div class="chat">' + (st.loaded ? saved : '') + '<div class="msg them">' + esc(intro) + '</div>' + exHtml + st.msgs.map(m => bubble(st, m)).join('') +
     (!st.loaded ? '<div class="msg them mute">' + t('Loading…') + '</div>' : '') + (st.busy ? '<div class="msg them mute">' + t('Tune is thinking…') + '</div>' : '') + '</div>';
   return { title: 'Tune', sub: name ? t('about {name}', { name: firstName(name) }) : t('Your assistant'), tabs: false, body,
-    footer: '<div class="composer"><input id="tq" placeholder="' + esc(t('Write to Tune')) + '" autocomplete="off" maxlength="1000"><button onclick="A.askTune(' + (client ? "'" + client + "'" : '') + ')" aria-label="Send">' + I.send + '</button></div>',
+    footer: composerHtml('tq', { placeholder: t('Write to Tune'), maxlength: 1000, send: 'A.askTune(' + (client ? "'" + client + "'" : '') + ')' }),
     after: async () => {
-      const inp = document.getElementById('tq'); if (inp) { inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.askTune(client); }); if (!st.busy && st.msgs.length && st.focusInput) { inp.focus(); st.focusInput = false; } }
+      const inp = document.getElementById('tq'); if (inp) { inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.askTune(client); }); if (!st.busy && st.msgs.length && st.focusInput) { inp.focus(); st.focusInput = false; } } renderPending('tq');
       const b = document.getElementById('body'); if (b) b.scrollTop = b.scrollHeight;
-      if (!st.loaded && !st.loading) { st.loading = true; try { st.msgs = (await db.tuneHistory(60)).reverse(); } catch (e) { st.msgs = []; } st.loaded = true; st.loading = false; if (cur().name === 'tune') rerender(); }
+      if (!st.loaded && !st.loading) { st.loading = true; try { st.msgs = (await db.tuneHistory(60)).reverse(); await resolveUrls(st.msgs); } catch (e) { st.msgs = []; } st.loaded = true; st.loading = false; if (cur().name === 'tune') rerender(); }
     } };
 };
 
 function summary(done) { return done.map(a => (a.card && a.card.title) || a.name).join(', '); }
 async function saveActions(m) { if (!m.id || String(m.id).startsWith('local')) return; try { await db.setTuneActions(m.id, m.actions); } catch (e) {} }
-async function saveMsg(role, content, actions) { try { return await db.saveTuneMsg(role, content, actions); } catch (e) { return { id: 'local' + Date.now() + Math.random(), role, content, actions: actions || [], created_at: new Date().toISOString() }; } }
+async function saveMsg(role, content, actions, attachments) { try { return await db.saveTuneMsg(role, content, actions, attachments); } catch (e) { return { id: 'local' + Date.now() + Math.random(), role, content, actions: actions || [], attachments: attachments || [], created_at: new Date().toISOString() }; } }
 
 A.askTune = async (client) => {
-  const st = tuneState(); const inp = document.getElementById('tq'); const q = (inp ? inp.value : '').trim(); if (!q || st.busy || !st.loaded) return;
-  inp.value = ''; st.busy = true; st.focusInput = true;
-  st.msgs.push({ id: 'local-q', role: 'user', content: q, actions: [], created_at: new Date().toISOString() }); rerender();
-  const um = await saveMsg('user', q); st.msgs[st.msgs.length - 1] = um;
+  const st = tuneState(); const inp = document.getElementById('tq'); const q = (inp ? inp.value : '').trim(); const files = pending('tq').slice();
+  if ((!q && !files.length) || st.busy || !st.loaded) return;
+  stopVoice(); inp.value = ''; st.busy = true; st.focusInput = true;
+  // what the model gets: the shrunk picture / the PDF itself; what history keeps: the uploaded file
+  let sent = [];
+  try { sent = await Promise.all(files.map(async f => ({ kind: f.type === 'application/pdf' ? 'pdf' : 'image', media_type: f.type, name: f.name, data: (await dataUrlOf(f)).split(',')[1] }))); }
+  catch (e) { st.busy = false; toast(t('Could not read the file'), 'err'); return; }
+  const text = q || (files.length ? (files[0].type === 'application/pdf' ? '📎 ' + files[0].name : '📷 ' + t('Photo')) : '');
+  st.msgs.push({ id: 'local-q', role: 'user', content: text, actions: [], attachments: files.map(f => ({ name: f.name, type: f.type, size: f.size, w: f.w, h: f.h, path: '' })), created_at: new Date().toISOString() }); rerender();
+  let atts = [];
+  try { atts = files.length ? await uploadPending('tq', 'tune/' + S.me.id) : []; clearPending('tq'); renderPending('tq'); await resolveUrls([{ attachments: atts }]); } catch (e) { atts = []; clearPending('tq'); renderPending('tq'); }
+  const um = await saveMsg('user', text, [], atts); st.msgs[st.msgs.length - 1] = um;
   let reply;
   try {
     const D = await loadTuneData(S.me.role === 'coach' ? client : null);
     const ctx = S.me.role === 'coach' ? coachContext(D) : traineeContext(D);
-    const res = await db.askTune({ context: ctx.text, lang: LANG.cur, messages: todaysTurns(st) });
+    const res = await db.askTune({ context: ctx.text, lang: LANG.cur, messages: todaysTurns(st), attachments: sent });
+    if (sent.length) track('attach', { where: 'tune', n: sent.length, kind: sent[0].kind });
     const acts = (res.actions || []).map(a => prepare(a, ctx.refs));
     for (const a of acts) if (a.status === 'auto') { try { await run(a); } catch (e) { a.status = 'failed'; a.err = e.message; } }
     const done = acts.filter(a => a.status === 'auto');

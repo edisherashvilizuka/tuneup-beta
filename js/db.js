@@ -98,14 +98,14 @@ export async function setExerciseDone(traineeId, day, itemId, done) {
   await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', 'exercise').eq('ref', itemId));
   if (done) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind: 'exercise', ref: itemId, value: 1 }));
 }
-const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,carbs_g,fat_g,note,reaction,created_at';
+const LOG_COLS = 'id,trainee_id,day,kind,ref,value,protein_g,carbs_g,fat_g,note,reaction,attachments,created_at';
 export async function addLog(traineeId, day, kind, value, extra) {
   const x = extra || {}; const n = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
   return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, protein_g: n(x.protein_g), carbs_g: n(x.carbs_g), fat_g: n(x.fat_g), note: x.note || '' }).select(LOG_COLS).single());
 }
-export async function setDayLog(traineeId, day, kind, value, note) {    // steps / weight / checkin: one row per day
+export async function setDayLog(traineeId, day, kind, value, note, attachments) {    // steps / weight / checkin: one row per day
   await q(sb.from('logs').delete().eq('trainee_id', traineeId).eq('day', day).eq('kind', kind));
-  if (value != null) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, note: note || '' }).select(LOG_COLS).single());
+  if (value != null) return q(sb.from('logs').insert({ trainee_id: traineeId, day, kind, value, note: note || '', attachments: attachments || [] }).select(LOG_COLS).single());
 }
 export async function deleteLog(id) { return q(sb.from('logs').delete().eq('id', id)); }
 export async function logsForTrainees(ids, from, to) { return q(sb.from('logs').select(LOG_COLS).in('trainee_id', ids).gte('day', from).lte('day', to)); }
@@ -113,15 +113,15 @@ export async function targetsForPairs(ids) { return q(sb.from('targets').select(
 export async function planItemsForPairs(ids) { return q(sb.from('plan_items').select('id,pair_id,day,created_at').in('pair_id', ids)); }
 
 // ---- coach private notes (one per pair)
-export async function getCoachNote(pairId) { return q(sb.from('coach_notes').select('pair_id,text,updated_at').eq('pair_id', pairId).maybeSingle()); }
-export async function saveCoachNote(pairId, text) { return q(sb.from('coach_notes').upsert({ pair_id: pairId, text, updated_at: new Date().toISOString() })); }
+export async function getCoachNote(pairId) { return q(sb.from('coach_notes').select('pair_id,text,attachments,updated_at').eq('pair_id', pairId).maybeSingle()); }
+export async function saveCoachNote(pairId, text, attachments) { return q(sb.from('coach_notes').upsert({ pair_id: pairId, text, attachments: attachments || [], updated_at: new Date().toISOString() })); }
 
 // ---- chat (per pair)
-const MSG_COLS = 'id,pair_id,sender_id,text,created_at';
+const MSG_COLS = 'id,pair_id,sender_id,text,attachments,created_at';
 export async function messages(pairId, limit) { return q(sb.from('messages').select(MSG_COLS).eq('pair_id', pairId).order('created_at', { ascending: false }).limit(limit || 100)); }
 export async function messagesSince(pairId, since) { return q(sb.from('messages').select(MSG_COLS).eq('pair_id', pairId).gt('created_at', since).order('created_at')); }
 export async function recentMessages(pairIds) { return q(sb.from('messages').select(MSG_COLS).in('pair_id', pairIds).order('created_at', { ascending: false }).limit(300)); }
-export async function sendMessage(pairId, uid, text) { return q(sb.from('messages').insert({ pair_id: pairId, sender_id: uid, text }).select(MSG_COLS).single()); }
+export async function sendMessage(pairId, uid, text, attachments) { return q(sb.from('messages').insert({ pair_id: pairId, sender_id: uid, text: text || '', attachments: attachments || [] }).select(MSG_COLS).single()); }
 export async function chatReads(pairIds) { return q(sb.from('chat_reads').select('pair_id,user_id,read_at').in('pair_id', pairIds)); }
 export async function markChatRead(pairId, uid) { return q(sb.from('chat_reads').upsert({ pair_id: pairId, user_id: uid, read_at: new Date().toISOString() })); }
 
@@ -141,15 +141,15 @@ export async function deletePushSub(endpoint) { return q(sb.from('push_subscript
 export async function notifications(uid) { return q(sb.from('notifications').select('id,kind,title,body,data,pair_id,created_at,read_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)); }
 export async function unreadCount(uid) { const { count, error } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).is('read_at', null); if (error) fail(error); return count || 0; }
 export async function markNotificationsRead(uid) { return q(sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null)); }
-export async function sendFeedback(uid, role, screen, text) { return q(sb.from('feedback').insert({ user_id: uid, role, screen, text })); }
+export async function sendFeedback(uid, role, screen, text, attachments) { return q(sb.from('feedback').insert({ user_id: uid, role, screen, text, attachments: attachments || [] })); }
 export async function adminLogsToday(day) { const { count, error } = await sb.from('logs').select('id', { count: 'exact', head: true }).eq('day', day); if (error) fail(error); return count || 0; }
-export async function adminFeedback() { return q(sb.from('feedback').select('id,user_id,role,screen,text,created_at').order('created_at', { ascending: false }).limit(100)); }
+export async function adminFeedback() { return q(sb.from('feedback').select('id,user_id,role,screen,text,attachments,created_at').order('created_at', { ascending: false }).limit(100)); }
 
 // ---- Tune (assistant) — the Edge Function adds the Anthropic key; the browser never sees it
 // saved conversation: own rows only (RLS); only `actions` can be changed afterwards
-const TUNE_COLS = 'id,role,content,actions,created_at';
+const TUNE_COLS = 'id,role,content,actions,attachments,created_at';
 export async function tuneHistory(limit) { return q(sb.from('tune_messages').select(TUNE_COLS).order('created_at', { ascending: false }).limit(limit || 60)); }
-export async function saveTuneMsg(role, content, actions) { return q(sb.from('tune_messages').insert({ role, content: String(content).slice(0, 4000), actions: actions || [] }).select(TUNE_COLS).single()); }
+export async function saveTuneMsg(role, content, actions, attachments) { return q(sb.from('tune_messages').insert({ role, content: String(content).slice(0, 4000), actions: actions || [], attachments: attachments || [] }).select(TUNE_COLS).single()); }
 export async function setTuneActions(id, actions) { return q(sb.from('tune_messages').update({ actions }).eq('id', id)); }
 export async function clearTune(uid) { return q(sb.from('tune_messages').delete().eq('user_id', uid)); }
 // what Tune reads for a coach: every active client's plan, goals, private note (own pairs only, RLS)
@@ -182,4 +182,22 @@ export async function askTune(payload) {
 export function inviteLink(kind, code) {
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');
   return base + '?' + (kind === 'coach' ? 'coach' : 'invite') + '=' + code;
+}
+
+// ---- attachments (private bucket; chat files under <pair_id>/, Tune files under tune/<user_id>/)
+export async function uploadAttachment(path, blob, type) {
+  return q(sb.storage.from('attachments').upload(path, blob, { contentType: type, upsert: false, cacheControl: '3600' }));
+}
+export async function signedUrls(paths) {   // → { path: url } (an hour), missing ones left out
+  if (!paths.length) return {};
+  const rows = await q(sb.storage.from('attachments').createSignedUrls(paths, 3600)); const out = {};
+  (rows || []).forEach(r => { if (r && r.signedUrl && !r.error) out[r.path] = r.signedUrl; }); return out;
+}
+export async function removeAttachment(path) { return q(sb.storage.from('attachments').remove([path])); }
+// voice note → text (Edge Function `transcribe`; audio never stored)
+export async function transcribe(dataUrl, lang) {
+  const { data, error } = await sb.functions.invoke('transcribe', { body: { audio: dataUrl, lang } });
+  if (error) { let msg = error.message || 'transcribe failed'; try { const ctx = error.context; if (ctx && typeof ctx.json === 'function') { const j = await ctx.json(); if (j && j.error) msg = j.error; } } catch (e) {} const err = new Error(msg); err.status = error.context && error.context.status; throw err; }
+  if (data && data.error) throw new Error(data.error);
+  return data || {};
 }

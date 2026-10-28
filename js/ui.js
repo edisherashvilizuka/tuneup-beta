@@ -28,6 +28,10 @@ export const I = {
   spark: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 18l.7 1.8L7.5 20.5l-1.8.7L5 23l-.7-1.8-1.8-.7 1.8-.7z"/></svg>',
   dot: '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>',
   camera: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  clip: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5l-8.2 8.2a5.5 5.5 0 0 1-7.8-7.8l9-9a3.5 3.5 0 0 1 5 5l-9 9a1.5 1.5 0 0 1-2.1-2.1l8.3-8.3"/></svg>',
+  file: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+  stop: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  dots: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   thumb: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 3 2v4h5a2 2 0 0 1 2 2l-1 6a2 2 0 0 1-2 2H7"/></svg>'
 };
@@ -163,7 +167,10 @@ export function field(label, id, value, opts) {
   const inp = opts.textarea
     ? '<textarea class="input" id="' + id + '" placeholder="' + esc(opts.ph || '') + '">' + esc(value || '') + '</textarea>'
     : '<input class="input" id="' + id + '" type="' + (opts.type || 'text') + '" inputmode="' + (opts.inputmode || (opts.type === 'number' ? 'decimal' : 'text')) + '" placeholder="' + esc(opts.ph || '') + '" value="' + esc(value == null ? '' : value) + '"' + (opts.attrs || '') + '>';
-  return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>' + (opts.unit ? '<div class="unit">' + inp + '<span>' + esc(opts.unit) + '</span></div>' : inp) + '</div>';
+  // every free-text field gets a small mic (voice note → words); numbers, dates, e-mail and codes do not
+  const voice = opts.voice !== false && !opts.unit && (opts.textarea || !opts.type || opts.type === 'text');
+  const box = voice ? '<div class="vwrap' + (opts.textarea ? ' ta' : '') + '">' + inp + '<button type="button" class="vmic" id="' + id + '_mic" onclick="A.voice(\'' + id + '\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button></div>' : inp;
+  return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>' + (opts.unit ? '<div class="unit">' + inp + '<span>' + esc(opts.unit) + '</span></div>' : box) + '</div>';
 }
 export function chips(options, selected, onPick, multi) {
   // options: {key: label}; selected: string or array; onPick: name of an A.* action receiving the key

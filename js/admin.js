@@ -3,12 +3,13 @@ import { t, esc, fmtDate, firstName, fmtTime, isoDate } from './i18n.js';
 import { SCREENS, A, I, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { attHtml, resolveUrls } from './attach.js';
 
 export const ADMIN_TABS = [{ id: 'aover', label: 'Overview', ico: 'home' }, { id: 'acoaches', label: 'Coaches', ico: 'shield' }, { id: 'ausers', label: 'Users', ico: 'users' }];
 
 export async function loadAdmin() {
   const [users, pairs, invites, feedback, logsToday] = await Promise.all([db.adminUsers(), db.adminPairs(), db.coachInvites(), db.adminFeedback().catch(() => []), db.adminLogsToday(isoDate()).catch(() => 0)]);
-  S.admin = { users, pairs, invites, feedback, logsToday };
+  S.admin = { users, pairs, invites, feedback, logsToday }; resolveUrls(feedback || []).then(ok => { if (ok) rerender(); }).catch(() => {});
 }
 const ROLE = { trainee: 'Trainee', coach: 'Coach', admin: 'Admin' };
 
@@ -67,5 +68,5 @@ A.userSheet = (id) => {
 A.toggleActive = async (id, active) => { try { await db.setActive(id, active); closeSheet(); await loadAdmin(); rerender(); toast(active ? t('Account un-paused') : t('Account paused')); } catch (e) { toast(t('Could not change — try again'), 'err'); } };
 SCREENS.afeedback = () => {
   const list = (S.admin && S.admin.feedback) || []; const who = id => { const u = (S.admin.users || []).find(x => x.id === id); return u ? (u.name || u.email) : '?'; };
-  return { title: t('Feedback'), sub: t('{n} total', { n: list.length }), body: list.length ? '<div class="card">' + list.map(f => '<div class="lrow"><div class="grow"><div class="t" style="white-space:pre-wrap">' + esc(f.text) + '</div><div class="s">' + esc(who(f.user_id)) + ' · ' + esc(f.role) + ' · ' + esc(f.screen) + ' · ' + fmtDate(f.created_at) + ' ' + fmtTime(f.created_at) + '</div></div></div>').join('') + '</div>' : empty('chat', t('Nothing yet')) };
+  return { title: t('Feedback'), sub: t('{n} total', { n: list.length }), body: list.length ? '<div class="card">' + list.map(f => '<div class="lrow"><div class="grow"><div class="t" style="white-space:pre-wrap">' + esc(f.text) + '</div>' + attHtml(f.attachments) + '<div class="s">' + esc(who(f.user_id)) + ' · ' + esc(f.role) + ' · ' + esc(f.screen) + ' · ' + fmtDate(f.created_at) + ' ' + fmtTime(f.created_at) + '</div></div></div>').join('') + '</div>' : empty('chat', t('Nothing yet')) };
 };

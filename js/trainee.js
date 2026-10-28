@@ -3,6 +3,7 @@ import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDat
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs, bell, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { resolveUrls } from './attach.js';
 import { logCards } from './log.js';
 import { pushCard, pushRow } from './push.js';
 import { guideCard, guideRow } from './guide.js';
@@ -18,7 +19,7 @@ export async function loadTrainee() {
   S.today = { day: isoDate(), logs: [] };
   if (S.pair && S.pair.status === 'active') {
     const [items, targets, goals, logs] = await Promise.all([db.planItems(S.pair.id), db.getTargets(S.pair.id), db.listGoals(S.pair.id), db.logsForDay(S.me.id, S.today.day)]);
-    S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs; S.hist35 = null; loadHistory().then(() => rerender()).catch(() => {});
+    S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs; resolveUrls(logs).then(ok => { if (ok) rerender(); }).catch(() => {}); S.hist35 = null; loadHistory().then(() => rerender()).catch(() => {});
   } else S.plan = null;
   S.cal = null; S.chat = null; S.notifs = null; await Promise.all([loadUnread(), loadChatIndex().catch(() => {})]);
 }

@@ -76,7 +76,7 @@ SCREENS.consent = () => ({ title: t('Before we start'), tabs: false, back: false
   '<div class="card note">' +
   '<p>' + t('Tune Up stores what you and your coach enter: name, e-mail, weight, goals, injuries, food and training logs, check-ins and messages. Some of this is health-related data.') + '</p>' +
   '<p>' + t('It is kept on servers in the EU (Frankfurt) and shown only to you, your coach and the Tune Up team. It is never sold.') + '</p>' +
-  '<p>' + t('When you or your coach use Tune, the in-app assistant, the question and the data needed to answer it (plan, logs, answers, chat messages) are sent to Anthropic in the USA, the AI company that powers it.') + '</p>' +
+  '<p>' + t('When you or your coach use Tune, the in-app assistant, the question and the data needed to answer it (plan, logs, answers, chat messages, photos you attach) are sent to Anthropic in the USA, the AI company that powers it. Voice notes are turned into text by OpenAI in the USA; the recording itself is not kept.') + '</p>' +
   '<p>' + t('Your conversations with Tune are saved in your account so you can come back to them. Only you can see them — not your coach or client — and you can clear them at any time.') + '</p>' +
   '<p>' + t('We also count which screens are used, under an account number without your name or health data, to see what to improve.') + '</p>' +
   '<p>' + t('You can delete your account and all of its data at any time from More → Delete account.') + '</p>' +

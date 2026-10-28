@@ -3,6 +3,7 @@ import { t, esc, fmtDate, fmtTime, fmtDay, firstName, isoDate } from './i18n.js'
 import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, stopVoice, attachBlock, saveAttachments } from './attach.js';
 
 // ---- pairs this person can chat in
 function myPairs() {
@@ -24,6 +25,7 @@ export async function loadChatIndex() {        // last message + unread per pair
     S.chat.index[p.id] = { last: list[0] || null, unread: list.filter(m => m.sender_id !== S.me.id && m.created_at > since).length };
   });
 }
+function preview(m) { return m.text || ((m.attachments || []).length ? ((m.attachments[0].type || '').startsWith('image/') ? '📷 ' + t('Photo') : '📎 ' + (m.attachments[0].name || t('File'))) : ''); }
 export function chatUnread() { return Object.values((S.chat && S.chat.index) || {}).reduce((a, x) => a + x.unread, 0); }
 
 // ---- list of chats (coach) / straight into the thread (trainee)
@@ -32,7 +34,7 @@ SCREENS.chat = () => {
   if (!pairs.length) return { title: t('Chat'), body: empty('chat', S.me.role === 'coach' ? t('No clients yet') : t('No coach yet')) };
   if (S.me.role !== 'coach') { const v = SCREENS.thread({ id: pairs[0].id }); v.tabs = true; return v; }   // the trainee has one chat: the tab is the thread
   const idx = (S.chat && S.chat.index) || {};
-  return { title: t('Chat'), body: '<div class="card">' + pairs.map(p => { const x = idx[p.id] || {}; return '<div class="lrow" style="cursor:pointer" onclick="A.go(\'thread\',{id:\'' + p.id + '\'})">' + avatar(p.name, p.uid) + '<div class="grow"><div class="t">' + esc(p.name) + (x.unread ? ' <span class="pill-num" style="background:var(--a-accent);color:#fff">' + x.unread + '</span>' : '') + '</div><div class="s">' + (x.last ? esc((x.last.sender_id === S.me.id ? t('You') + ': ' : '') + x.last.text).slice(0, 70) : t('No messages yet')) + '</div></div>' + (x.last ? '<div class="r mute small">' + fmtDate(x.last.created_at, 'dm') + '</div>' : '') + '</div>'; }).join('') + '</div>',
+  return { title: t('Chat'), body: '<div class="card">' + pairs.map(p => { const x = idx[p.id] || {}; return '<div class="lrow" style="cursor:pointer" onclick="A.go(\'thread\',{id:\'' + p.id + '\'})">' + avatar(p.name, p.uid) + '<div class="grow"><div class="t">' + esc(p.name) + (x.unread ? ' <span class="pill-num" style="background:var(--a-accent);color:#fff">' + x.unread + '</span>' : '') + '</div><div class="s">' + (x.last ? esc((x.last.sender_id === S.me.id ? t('You') + ': ' : '') + preview(x.last)).slice(0, 70) : t('No messages yet')) + '</div></div>' + (x.last ? '<div class="r mute small">' + fmtDate(x.last.created_at, 'dm') + '</div>' : '') + '</div>'; }).join('') + '</div>',
     after: async () => { if (S.chat && Date.now() - (S.chat.indexAt || 0) < 5000) return; try { await loadChatIndex(); if (cur().name === 'chat') rerender(); } catch (e) {} } };   // refresh at most every 5 s (rerender runs after() again)
 };
 
@@ -41,11 +43,11 @@ let pollT = null;
 SCREENS.thread = ({ id }) => {
   const p = myPairs().find(x => x.id === id); if (!p) return { title: t('Chat'), body: empty('chat', t('Not found')) };
   const th = (S.chat && S.chat.threads && S.chat.threads[id]) || null;
-  const body = !th ? '<div class="mute">' + t('Loading…') + '</div>' : (th.list.length ? '<div class="chat">' + th.list.map((m, i) => { const day = isoDate(new Date(m.created_at)); const prev = i ? isoDate(new Date(th.list[i - 1].created_at)) : null; return (day !== prev ? '<div class="msg sys">' + fmtDate(m.created_at) + '</div>' : '') + '<div class="msg ' + (m.sender_id === S.me.id ? 'me' : 'them') + '">' + linkify(m.text) + '<span class="tm">' + fmtTime(m.created_at) + '</span></div>'; }).join('') + '</div>' : '<div class="card soft"><div class="h3">' + t('Say hi') + '</div><div class="mute">' + t('Questions, how a session went, a link to a form-check clip — it all goes here.') + '</div></div>');
+  const body = !th ? '<div class="mute">' + t('Loading…') + '</div>' : (th.list.length ? '<div class="chat">' + th.list.map((m, i) => { const day = isoDate(new Date(m.created_at)); const prev = i ? isoDate(new Date(th.list[i - 1].created_at)) : null; return (day !== prev ? '<div class="msg sys">' + fmtDate(m.created_at) + '</div>' : '') + '<div class="msg ' + (m.sender_id === S.me.id ? 'me' : 'them') + '">' + attHtml(m.attachments) + linkify(m.text) + '<span class="tm">' + fmtTime(m.created_at) + '</span></div>'; }).join('') + '</div>' : '<div class="card soft"><div class="h3">' + t('Say hi') + '</div><div class="mute">' + t('Questions, how a session went, a photo or a clip of your form — it all goes here.') + '</div></div>');
   return { title: p.name, sub: S.me.role === 'coach' ? t('Client') : t('Your coach'), tabs: false, body,
-    footer: '<div class="composer"><input id="msg" placeholder="' + esc(t('Write a message')) + '" autocomplete="off" maxlength="2000"><button onclick="A.sendMsg(\'' + id + '\')" aria-label="Send">' + I.send + '</button></div>',
+    footer: composerHtml('msg', { placeholder: t('Write a message'), send: "A.sendMsg('" + id + "')" }),
     after: async () => {
-      const inp = document.getElementById('msg'); if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.sendMsg(id); });
+      const inp = document.getElementById('msg'); if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.sendMsg(id); }); renderPending('msg');
       if (!th) { try { await loadThread(id); } catch (e) { toast(t('Could not load — try again'), 'err'); return; } if (onThread()) rerender(); return; }
       scrollChat();
       clearInterval(pollT); pollT = setInterval(() => { if (!onThread()) { clearInterval(pollT); return; } pollThread(id); }, 8000);
@@ -54,19 +56,27 @@ SCREENS.thread = ({ id }) => {
 const onThread = () => cur().name === 'thread' || cur().name === 'chat';
 function scrollChat() { const b = document.getElementById('body'); if (b) b.scrollTop = b.scrollHeight; }
 async function loadThread(id) {
-  const list = (await db.messages(id)).reverse();
+  const list = (await db.messages(id)).reverse(); await resolveUrls(list);
   S.chat = S.chat || {}; S.chat.threads = S.chat.threads || {}; S.chat.threads[id] = { list };
   await db.markChatRead(id, S.me.id).catch(() => {}); if (S.chat.index && S.chat.index[id]) S.chat.index[id].unread = 0;
 }
 async function pollThread(id) {
   const th = S.chat.threads[id]; const last = th.list.length ? th.list[th.list.length - 1].created_at : '1970-01-01';
-  try { const fresh = await db.messagesSince(id, last); if (fresh.length) { fresh.forEach(m => { if (!th.list.find(x => x.id === m.id)) th.list.push(m); }); if (S.chat.index && S.chat.index[id]) S.chat.index[id].last = th.list[th.list.length - 1]; const keep = document.getElementById('msg') ? document.getElementById('msg').value : ''; rerender(); const inp = document.getElementById('msg'); if (inp) inp.value = keep; scrollChat(); db.markChatRead(id, S.me.id).catch(() => {}); } } catch (e) {}
+  try { const fresh = await db.messagesSince(id, last); if (fresh.length) { await resolveUrls(fresh); fresh.forEach(m => { if (!th.list.find(x => x.id === m.id)) th.list.push(m); }); if (S.chat.index && S.chat.index[id]) S.chat.index[id].last = th.list[th.list.length - 1]; const keep = document.getElementById('msg') ? document.getElementById('msg').value : ''; rerender(); const inp = document.getElementById('msg'); if (inp) inp.value = keep; scrollChat(); db.markChatRead(id, S.me.id).catch(() => {}); } } catch (e) {}
 }
+let sending = false;
 A.sendMsg = async (id) => {
-  const inp = document.getElementById('msg'); const text = (inp ? inp.value : '').trim(); if (!text) return;
-  inp.value = '';
-  try { const m = await db.sendMessage(id, S.me.id, text); S.chat.threads[id].list.push(m); if (S.chat.index && S.chat.index[id]) S.chat.index[id].last = m; rerender(); scrollChat(); const i2 = document.getElementById('msg'); if (i2) i2.focus(); }
-  catch (e) { inp.value = text; toast(t('Could not send — try again'), 'err'); }
+  const inp = document.getElementById('msg'); const text = (inp ? inp.value : '').trim(); const files = pending('msg');
+  if ((!text && !files.length) || sending) return;
+  sending = true; stopVoice(); inp.value = ''; const btn = inp && inp.parentElement && inp.parentElement.querySelector('button:last-child'); if (btn) btn.disabled = true;
+  try {
+    const atts = files.length ? await uploadPending('msg', id) : [];
+    const m = await db.sendMessage(id, S.me.id, text, atts); clearPending('msg'); await resolveUrls([m]);
+    S.chat.threads[id].list.push(m); if (S.chat.index && S.chat.index[id]) S.chat.index[id].last = m; rerender(); scrollChat(); const i2 = document.getElementById('msg'); if (i2) i2.focus();
+    if (atts.length) track('attach', { where: 'chat', n: atts.length, kind: atts[0].type });
+  }
+  catch (e) { inp.value = text; renderPending('msg'); toast(e.message && /10 MB|only/.test(e.message) ? e.message : t('Could not send — try again'), 'err'); }
+  finally { sending = false; if (btn) btn.disabled = false; }
 };
 
 // ---- bell
@@ -89,10 +99,10 @@ SCREENS.notifs = () => {
 A.openPairChat = (pairId) => { S.notifs = null; root('chat'); if (S.me.role === 'coach') go('thread', { id: pairId }); };
 
 // ---- feedback (any screen → More)
-A.feedbackSheet = () => sheet('<div class="h2">' + t('Tell us what you think') + '</div><div class="mute">' + t('What is confusing, missing or great? We read every note.') + '</div>' + field('', 'fb_text', '', { textarea: true, ph: t('Your note…') }) + '<button class="btn" onclick="A.sendFeedback()">' + t('Send feedback') + '</button>');
+A.feedbackSheet = () => sheet('<div class="h2">' + t('Tell us what you think') + '</div><div class="mute">' + t('What is confusing, missing or great? We read every note.') + '</div>' + field('', 'fb_text', '', { textarea: true, ph: t('Your note…') }) + attachBlock('fb_att', []) + '<button class="btn" onclick="A.sendFeedback()">' + t('Send feedback') + '</button>');
 A.sendFeedback = async () => {
   const text = val('fb_text'); if (!text) { toast(t('Write a few words first.'), 'err'); return; } busy(true);
-  try { await db.sendFeedback(S.me.id, S.me.role || '', cur().name, text); closeSheet(); toast(t('Thank you!')); track('feedback'); }
+  try { const atts = await saveAttachments('fb_att', 'tune/' + S.me.id + '/feedback'); await db.sendFeedback(S.me.id, S.me.role || '', cur().name, text, atts); closeSheet(); toast(t('Thank you!')); track('feedback', { photos: atts.length }); }
   catch (e) { busy(false); toast(t('Could not send — try again'), 'err'); }
 };
 // usage stats (no personal data): screen names + role only, and only when a PostHog key is set in config.js
