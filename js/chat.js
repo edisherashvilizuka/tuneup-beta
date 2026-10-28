@@ -3,7 +3,7 @@ import { t, esc, fmtDate, fmtTime, fmtDay, firstName, isoDate } from './i18n.js'
 import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
-import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, stopVoice, attachBlock, saveAttachments } from './attach.js';
+import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, stopVoice, attachBlock, saveAttachments, scopePending } from './attach.js';
 
 // ---- pairs this person can chat in
 function myPairs() {
@@ -41,7 +41,7 @@ SCREENS.chat = () => {
 // ---- one thread
 let pollT = null;
 SCREENS.thread = ({ id }) => {
-  const p = myPairs().find(x => x.id === id); if (!p) return { title: t('Chat'), body: empty('chat', t('Not found')) };
+  const p = myPairs().find(x => x.id === id); if (!p) return { title: t('Chat'), body: empty('chat', t('Not found')) }; scopePending('msg', id);   // a photo picked in one client's chat never moves to another chat
   const th = (S.chat && S.chat.threads && S.chat.threads[id]) || null;
   const body = !th ? '<div class="mute">' + t('Loading…') + '</div>' : (th.list.length ? '<div class="chat">' + th.list.map((m, i) => { const day = isoDate(new Date(m.created_at)); const prev = i ? isoDate(new Date(th.list[i - 1].created_at)) : null; return (day !== prev ? '<div class="msg sys">' + fmtDate(m.created_at) + '</div>' : '') + '<div class="msg ' + (m.sender_id === S.me.id ? 'me' : 'them') + '">' + attHtml(m.attachments) + linkify(m.text) + '<span class="tm">' + fmtTime(m.created_at) + '</span></div>'; }).join('') + '</div>' : '<div class="card soft"><div class="h3">' + t('Say hi') + '</div><div class="mute">' + t('Questions, how a session went, a photo or a clip of your form — it all goes here.') + '</div></div>');
   return { title: p.name, sub: S.me.role === 'coach' ? t('Client') : t('Your coach'), tabs: false, body,

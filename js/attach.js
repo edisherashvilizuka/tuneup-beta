@@ -9,10 +9,13 @@ import { A, I, toast, track } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 
-export const MAX_FILES = 4, MAX_BYTES = 10 * 1024 * 1024, IMG_MAX = 1600, IMG_Q = 0.82;
+export const MAX_FILES = 4, MAX_BYTES = 10 * 1024 * 1024, TUNE_PDF_BYTES = 5 * 1024 * 1024, IMG_MAX = 1600, IMG_Q = 0.82;
 const PEND = {};                                   // composer id → pending files
 export const pending = id => (PEND[id] = PEND[id] || []);
 export function clearPending(id) { PEND[id] = []; }
+// pending files belong to one conversation (one client's chat, Tune about one client): a new conversation starts empty
+const SCOPE = {};
+export function scopePending(id, key) { if (SCOPE[id] !== key) { if (SCOPE[id] !== undefined) PEND[id] = []; SCOPE[id] = key; } }
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
 const isImg = type => /^image\//.test(type || '');
 const extOf = (type, name) => isImg(type) ? (type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : type === 'image/gif' ? 'gif' : 'jpg') : (String(name || '').split('.').pop() || 'bin').toLowerCase().slice(0, 5);
@@ -28,12 +31,12 @@ A.attPick = async (id, input) => {
   const list = pending(id);
   for (const f of files) {
     if (list.length >= MAX_FILES) { toast(t('Up to {n} files per message', { n: MAX_FILES }), 'err'); break; }
-    try { list.push(await prepare(f)); } catch (e) { toast(e.message || t('Could not read the file'), 'err'); }
+    try { list.push(await prepare(f, id)); } catch (e) { toast(e.message || t('Could not read the file'), 'err'); }
   }
   renderPending(id); A.attChanged && A.attChanged(id);
 };
 A.attDrop = (id, i) => { pending(id).splice(i, 1); renderPending(id); A.attChanged && A.attChanged(id); };
-async function prepare(file) {
+async function prepare(file, id) {
   const type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : '');
   if (!isImg(type) && type !== 'application/pdf') throw new Error(t('Photos and PDF files only'));
   if (isImg(type)) {
@@ -41,6 +44,7 @@ async function prepare(file) {
     return { id: uid(), blob: r.blob, type: 'image/jpeg', name: (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', size: r.blob.size, w: r.w, h: r.h, preview: r.dataUrl };
   }
   if (file.size > MAX_BYTES) throw new Error(t('Files up to 10 MB'));
+  if (id === 'tq' && file.size > TUNE_PDF_BYTES) throw new Error(t('Tune reads PDF files up to 5 MB'));   // the Tune function refuses bigger ones
   return { id: uid(), blob: file, type: 'application/pdf', name: file.name || 'file.pdf', size: file.size, w: 0, h: 0, preview: '' };
 }
 // a picture → JPEG at most `max` px on the long side (the phone does this; nothing big ever leaves it)
@@ -137,7 +141,7 @@ A.voice = async (id) => {
         if (r.text) { putText(id, r.text.trim()); track('voice', { where: id, len: r.text.length }); } else toast(t('Could not hear that — try again or type it.'), 'err');
       } catch (e) {
         if (e.status === 503 && SR) { toast(t('Voice notes are not switched on yet — using the phone’s own speech instead.')); listenSR(id); }
-        else toast(e.message || t('Could not transcribe — try again or type it.'), 'err');
+        else toast(e.status === 429 ? t('Too many voice notes — try again in a few minutes.') : t('Could not transcribe — try again or type it.'), 'err');   // the server's words are English; say it in the app's language
       } finally { const b2 = micBtn(id); if (b2) { b2.classList.remove('busy'); if (!sr) b2.innerHTML = I.mic; } }
       void kind;
     };
@@ -162,10 +166,13 @@ export function stopVoice() {
 A.stopVoice = stopVoice;
 
 // ---- a photo block inside a form (check-in, private notes, feedback): the saved pictures, the pending ones, "Add photo"
-const KEEP = {};                                   // form id → saved attachments still kept (the rest were removed)
+const KEEP = {}, KEEPKEY = {};                     // form id → saved attachments still kept (the rest were removed)
+// opts.keep: a key for the record on a SCREEN (e.g. the client's id for private notes). A redraw of the same record keeps
+// what was picked or removed but not saved yet; a new record or freshly saved attachments start over. Sheets omit it.
 export function attachBlock(id, existing, opts) {
-  KEEP[id] = (existing || []).slice(); clearPending(id);
-  return '<div class="attblock" id="' + id + '_att">' + attachInner(id) + '</div>' + pickHtml(id, Object.assign({ accept: 'image/*' }, opts || {}));
+  const o = opts || {}; const key = o.keep ? o.keep + '|' + (existing || []).map(a => a.path).join(',') : null;
+  if (!key || KEEPKEY[id] !== key) { KEEP[id] = (existing || []).slice(); clearPending(id); KEEPKEY[id] = key; }
+  return '<div class="attblock" id="' + id + '_att">' + attachInner(id) + '</div>' + pickHtml(id, Object.assign({ accept: 'image/*' }, o));
 }
 function attachInner(id) {
   const kept = KEEP[id] || [];

@@ -34,7 +34,13 @@ export async function loadProfile(uid) {
 }
 export async function updateProfile(uid, patch) { return q(sb.from('profiles').update(patch).eq('id', uid)); }
 export async function acceptConsent(lang) { return q(sb.rpc('accept_consent', { p_lang: lang })); }
-export async function deleteAccount() { return q(sb.rpc('delete_my_account')); }
+// deleting the account: the person's own files go first, through the Storage service (SQL may not delete them;
+// the service also removes the stored bytes), then the account itself (migration 0014)
+export async function myAttachmentPaths() { return (await q(sb.rpc('my_attachment_paths'))) || []; }
+async function removePaths(paths) { for (let i = 0; i < paths.length; i += 100) await q(sb.storage.from('attachments').remove(paths.slice(i, i + 100))); }
+export async function deleteAccount() { await removePaths(await myAttachmentPaths()); return q(sb.rpc('delete_my_account')); }
+// Tune "Clear": the conversation's own pictures and files (tune/<uid>/<file>; notes and feedback folders stay)
+export async function removeTuneFiles(uid) { const re = new RegExp('^tune/' + uid + '/[^/]+$'); await removePaths((await myAttachmentPaths()).filter(p => re.test(p))); }
 
 // ---- invites + pairing
 export async function inviteInfo(code) { return q(sb.rpc('invite_info', { p_code: code })); }

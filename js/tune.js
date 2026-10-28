@@ -9,7 +9,7 @@ import { S } from './state.js';
 import { track } from './chat.js';
 import { loadTuneData, traineeContext, coachContext } from './tunectx.js';
 import { prepare, run } from './tuneact.js';
-import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, dataUrlOf, stopVoice } from './attach.js';
+import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, dataUrlOf, stopVoice, scopePending } from './attach.js';
 
 const STALE_MS = 2 * 3600 * 1000;           // a proposal older than this (or followed by a newer question) can no longer be confirmed
 function tuneState() { S.tune = S.tune || { msgs: [], busy: false, loaded: false }; return S.tune; }
@@ -68,7 +68,7 @@ function bubble(st, m) {
     (pend > 1 ? '<button class="btn sm tc-all" onclick="A.tuneYesAll(\'' + m.id + '\',this)">' + t('Yes to all ({n})', { n: pend }) + '</button>' : '');
 }
 SCREENS.tune = (params) => {
-  const st = tuneState(); const client = params && params.client; const name = client ? clientName(client) : '';
+  const st = tuneState(); const client = params && params.client; const name = client ? clientName(client) : ''; scopePending('tq', client || 'self');   // a picture picked while asking about one client never moves to another
   const intro = S.me.role === 'coach' ? t('Ask how your clients are doing — or tell me what to do: message a client, plan or move sessions, build a plan, set targets and goals. I ask you before anything reaches a client.') : t('Ask about your plan and your day — or tell me what to do: log food, tick exercises, write to your coach, update your answers. Send a photo of a plate or a label and I log it. I ask you before anything is sent.');
   const ex = st.msgs.length ? [] : examples(name); EXAMPLES = ex;
   const exHtml = ex.length ? '<div class="chips tune-ex">' + ex.map((q, i) => '<button class="chip" onclick="A.tuneExample(' + i + (client ? ",'" + client + "'" : '') + ')">' + esc(q) + '</button>').join('') + '</div>' : '';
@@ -139,6 +139,6 @@ A.tuneYesAll = async (id, el) => {
 A.tuneNo = async (id, i) => { const f = findAct(id, i); if (!f || f.a.status !== 'pending') return; f.a.status = 'declined'; await saveActions(f.m); rerender(); };
 A.tuneClear = async (el) => {
   if (el && !el.dataset.armed) { el.dataset.armed = '1'; el.textContent = t('Tap again to clear'); setTimeout(() => { if (el.isConnected) { delete el.dataset.armed; el.textContent = t('Clear'); } }, 4000); return; }
-  try { await db.clearTune(S.me.id); const st = tuneState(); st.msgs = []; rerender(); toast(t('Conversation cleared')); } catch (e) { toast(t('Could not clear — try again'), 'err'); }
+  try { await db.clearTune(S.me.id); db.removeTuneFiles(S.me.id).catch(() => {}); const st = tuneState(); st.msgs = []; rerender(); toast(t('Conversation cleared')); } catch (e) { toast(t('Could not clear — try again'), 'err'); }
 };
 export function tuneButton(client) { return '<button class="act" onclick="A.go(\'tune\'' + (client ? ",{client:'" + client + "'}" : '') + ')" aria-label="Tune">' + I.spark + '</button>'; }

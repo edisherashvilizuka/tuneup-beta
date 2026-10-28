@@ -93,7 +93,7 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
     (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '');
   const notes = (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Private notes') + '</span><span class="mute small">' + t('only you see these') + '</span></div><div class="card">' +
-    (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<div class="vwrap ta"><textarea class="input" id="cnote" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(note.text || '') + '</textarea><button type="button" class="vmic" id="cnote_mic" onclick="A.voice(\'cnote\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button></div>' + attachBlock('cn_att', note.attachments || []) + '<button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
+    (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<div class="vwrap ta"><textarea class="input" id="cnote" oninput="A.noteDraft(\'' + c.id + '\',this.value)" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(noteDraft(c.id, note.text)) + '</textarea><button type="button" class="vmic" id="cnote_mic" onclick="A.voice(\'cnote\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button></div>' + attachBlock('cn_att', note.attachments || [], { keep: c.id }) + '<button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
   return part === 'overview' ? overview : part === 'notes' ? notes : overview + notes;
 }
 // 7 days × 4 macros; a cell is green within 85–115 % of the target, amber 60–85 / 115–135, red beyond, grey when nothing was logged that day
@@ -121,11 +121,13 @@ function spark(ws) {
   return '<svg class="sparkline" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="var(--a-accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/>' + pts.map(p => '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3" fill="var(--a-accent)"/>').join('') + '</svg>' +
     '<div class="row between mute small"><span>' + fmtDay(ws[0].day, 'dm') + ' · ' + vals[0] + '</span><span>' + min + '–' + max + ' ' + unit('kg') + '</span><span>' + fmtDay(ws[ws.length - 1].day, 'dm') + ' · ' + vals[vals.length - 1] + '</span></div>';
 }
+// a private note being typed survives redraws and tab switches until it is saved (the screen is rebuilt on many taps)
+const DRAFT = {}; const noteDraft = (id, saved) => DRAFT[id] != null ? DRAFT[id] : (saved || ''); A.noteDraft = (id, v) => { DRAFT[id] = v; };
 export async function loadClientExtras(c) {       // the private note, fetched when the client screen opens
   const note = await db.getCoachNote(c.id); S.mon.notes[c.id] = note || { text: '', attachments: [] }; await resolveUrls([note || {}]);
 }
 A.saveCoachNote = async (pairId) => {
   const text = val('cnote'); busy(true);
-  try { const atts = await saveAttachments('cn_att', 'tune/' + S.me.id + '/notes'); await db.saveCoachNote(pairId, text, atts); S.mon.notes[pairId] = { text, attachments: atts }; toast(t('Saved')); busy(false); rerender(); }
+  try { const atts = await saveAttachments('cn_att', 'tune/' + S.me.id + '/notes'); await db.saveCoachNote(pairId, text, atts); S.mon.notes[pairId] = { text, attachments: atts }; delete DRAFT[pairId]; toast(t('Saved')); busy(false); rerender(); }
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };
