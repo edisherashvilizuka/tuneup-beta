@@ -2,6 +2,7 @@
 // Flow per question: save the question → rebuild what Tune knows (tunectx.js) → the `tune` Edge Function → each
 // returned action is prepared (tuneact.js); INSTANT ones run at once, the rest wait on a card with Yes / No → the
 // reply and the action states are saved. The conversation is kept in `tune_messages` (only its owner can read it).
+import { thinking } from './motion.js';
 import { t, esc, LANG, firstName, isoDate } from './i18n.js';
 import { SCREENS, A, I, rerender, toast, cur } from './ui.js';
 import * as db from './db.js';
@@ -64,7 +65,7 @@ function bubble(st, m) {
   const acts = (m.actions || []).map((a, i) => card(st, m, a, i)).join('');
   const pend = (m.actions || []).filter((a, i) => liveCard(st, m, a)).length;
   const hasAtt = (m.attachments || []).length > 0; const txt = m.content === '…' ? '' : (m.content || '');
-  return ((txt || hasAtt) && !(!txt && !hasAtt && (m.actions || []).length) ? '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '">' + (m.role === 'user' ? attHtml(m.attachments) + esc(txt).replace(/\n/g, '<br>') : plain(txt)) + '</div>' : '') + acts +
+  return ((txt || hasAtt) && !(!txt && !hasAtt && (m.actions || []).length) ? '<div class="msg ' + (m.role === 'user' ? 'me' : 'them') + '"' + (m.role === 'user' ? '' : ' data-mid="' + esc(String(m.id || '')) + '"') + '>' + (m.role === 'user' ? attHtml(m.attachments) + esc(txt).replace(/\n/g, '<br>') : plain(txt)) + '</div>' : '') + acts +
     (pend > 1 ? '<button class="btn sm tc-all" onclick="A.tuneYesAll(\'' + m.id + '\',this)">' + t('Yes to all ({n})', { n: pend }) + '</button>' : '');
 }
 SCREENS.tune = (params) => {
@@ -74,7 +75,7 @@ SCREENS.tune = (params) => {
   const exHtml = ex.length ? '<div class="chips tune-ex">' + ex.map((q, i) => '<button class="chip" onclick="A.tuneExample(' + i + (client ? ",'" + client + "'" : '') + ')">' + esc(q) + '</button>').join('') + '</div>' : '';
   const saved = '<div class="tune-saved mute small">' + I.shield + '<span class="grow">' + t('Saved in your account — only you see this conversation.') + '</span>' + (st.msgs.length ? '<span class="link" onclick="A.tuneClear(this)">' + t('Clear') + '</span>' : '') + '</div>';
   const body = '<div class="chat">' + (st.loaded ? saved : '') + '<div class="msg them">' + esc(intro) + '</div>' + exHtml + st.msgs.map(m => bubble(st, m)).join('') +
-    (!st.loaded ? '<div class="msg them mute">' + t('Loading…') + '</div>' : '') + (st.busy ? '<div class="msg them mute">' + t('Tune is thinking…') + '</div>' : '') + '</div>';
+    (!st.loaded ? thinking(t('Loading…')) : '') + (st.busy ? thinking(t('Tune is thinking…')) : '') + '</div>';
   return { title: 'Tune', sub: name ? t('about {name}', { name: firstName(name) }) : t('Your assistant'), tabs: false, body,
     footer: composerHtml('tq', { placeholder: t('Write to Tune'), maxlength: 1000, send: 'A.askTune(' + (client ? "'" + client + "'" : '') + ')' }),
     after: async () => {
@@ -141,4 +142,4 @@ A.tuneClear = async (el) => {
   if (el && !el.dataset.armed) { el.dataset.armed = '1'; el.textContent = t('Tap again to clear'); setTimeout(() => { if (el.isConnected) { delete el.dataset.armed; el.textContent = t('Clear'); } }, 4000); return; }
   try { await db.clearTune(S.me.id); db.removeTuneFiles(S.me.id).catch(() => {}); const st = tuneState(); st.msgs = []; rerender(); toast(t('Conversation cleared')); } catch (e) { toast(t('Could not clear — try again'), 'err'); }
 };
-export function tuneButton(client) { return '<button class="act" onclick="A.go(\'tune\'' + (client ? ",{client:'" + client + "'}" : '') + ')" aria-label="Tune">' + I.spark + '</button>'; }
+export function tuneButton(client) { return '<button class="act tune" onclick="A.go(\'tune\'' + (client ? ",{client:'" + client + "'}" : '') + ')" aria-label="Tune">' + I.spark + '</button>'; }

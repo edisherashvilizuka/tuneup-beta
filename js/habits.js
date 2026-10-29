@@ -1,5 +1,6 @@
 // Tune Up beta — food round C, trainee side: protein streak, the Monday weekly recap, the reminders switch
 // and the grocery list from saved meals. Pure reads over logs the app already has.
+import { streakBars } from './theme.js';
 import { t, esc, unit, isoDate, addDays, weekOf, fmtDay, LANG } from './i18n.js';
 import { A, I, rerender, toast, sheet, closeSheet, busy, track } from './ui.js';
 import * as db from './db.js';
@@ -30,7 +31,7 @@ export function proteinStreak() {
 }
 export function streakChip() {
   const n = proteinStreak(); if (n < 2) return '';
-  return '<span class="chip sm soft" title="' + esc(t('Days in a row at your protein target')) + '">' + I.spark + ' ' + esc(t('{n}-day protein streak', { n })) + '</span>';
+  return '<span class="streak" data-ev="streak" data-v="' + n + '" title="' + esc(t('Days in a row at your protein target')) + '">' + streakBars() + esc(t('{n}-day protein streak', { n })) + '</span>';
 }
 
 // ---- weekly recap: shown Monday and Tuesday for last week (Mon–Sun), dismissable

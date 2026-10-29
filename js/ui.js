@@ -1,6 +1,7 @@
 // Tune Up beta — screens, router, overlays. Screens are functions returning {title, sub, body, footer, header, tabs, center, actions, after}.
 import { t, esc, LANG } from './i18n.js';
 import { S } from './state.js';
+import { playMotion, fxLayer } from './motion.js';
 
 export const I = {
   back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
@@ -24,6 +25,7 @@ export const I = {
   link: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>',
   mail: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+  play: '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.8v10.4l8.4-5.2z" fill="currentColor"/></svg>',
   video: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg>',
   spark: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM5 18l.7 1.8L7.5 20.5l-1.8.7L5 23l-.7-1.8-1.8-.7 1.8-.7z"/></svg>',
   dot: '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>',
@@ -85,7 +87,7 @@ export function render(anim) {
   let hdr = '';
   if (v.header !== false) {
     hdr = '<div class="hdr">' + (v.back !== false && NAV.stack.length > 1 ? '<button class="back" onclick="A.back()" aria-label="Back">' + I.back + '</button>' : '') +
-      '<div class="grow"><div class="title">' + esc(v.title || '') + '</div>' + (v.sub ? '<div class="sub">' + esc(v.sub) + '</div>' : '') + '</div>' + (v.actions || '') + (v.bell !== false && NAV.tabs.length && NAV.stack.length === 1 ? bell() : '') + '</div>';
+      (v.lead || '') + '<div class="grow"><div class="title">' + esc(v.title || '') + '</div>' + (v.sub ? '<div class="sub">' + esc(v.sub) + '</div>' : '') + '</div>' + (v.actions || '') + (v.bell !== false && NAV.tabs.length && NAV.stack.length === 1 ? bell() : '') + '</div>';
   }
   const tabs = v.tabs !== false && NAV.tabs.length ? tabbar() : '';
   const html = '<div class="status"><span>' + nowHM() + '</span><span class="sig">' + I.dot + I.dot + I.dot + '</span></div>' +
@@ -93,6 +95,7 @@ export function render(anim) {
   if (keep && keep.overlay) { [...app.children].forEach(c => { if (c !== keep.overlay) c.remove(); }); keep.overlay.insertAdjacentHTML('beforebegin', html); }   // the open sheet stays as it is
   else app.innerHTML = html + '<div id="overlay"></div>';
   if (keep) restoreView(keep);
+  try { playMotion(c.name, !!anim, toast); } catch (e) { console.warn('motion', e); }
   if (v.after) v.after();
 }
 
@@ -144,6 +147,9 @@ function holdHeight(sh) {
 export function closeSheet() {
   const o = document.getElementById('overlay'); if (!o) return;
   const f = document.activeElement; if (f && o.contains(f) && f.blur) f.blur();   // let the phone keyboard go down first
+  // the panel glides down: a copy slides out on top while the real overlay is already empty (a new sheet can open at once)
+  const bg = o.querySelector('.sheet-bg'); const reduce = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return true; } })();
+  if (bg && !reduce) { const g = bg.cloneNode(true); g.classList.add('closing'); g.removeAttribute('onclick'); g.setAttribute('aria-hidden', 'true'); g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); const sh = bg.querySelector('.sheet'); const gs = g.querySelector('.sheet'); (fxLayer() || o.parentNode).appendChild(g); if (sh && gs) { gs.style.transform = sh.style.transform; gs.scrollTop = sh.scrollTop; } setTimeout(() => g.remove(), 260); }
   o.innerHTML = '';
 }
 A.closeSheet = closeSheet;
@@ -159,7 +165,7 @@ export function toast(msg, kind) {
 export function empty(icon, text) { return '<div class="empty"><div class="ico">' + (I[icon] || I.home) + '</div><div>' + esc(text) + '</div></div>'; }
 export function avatar(name, id, cls) { return '<div class="avatar ' + (cls || '') + '" style="background:' + hueOf(id) + '">' + esc(initialsOf(name)) + '</div>'; }
 function initialsOf(n) { return String(n || '?').trim().split(' ').map(x => x[0] || '').slice(0, 2).join('').toUpperCase() || '?'; }
-function hueOf(id) { const H = ['#9C3B08', '#4A6B8A', '#4F7A4A', '#C2960E', '#7A2E06', '#6F6B64']; let h = 0; for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return H[h % H.length]; }
+function hueOf(id) { const H = ['#E8632B', '#2A9A90', '#8E6FD6', '#D9A520', '#D9456A', '#7E8A2E']; let h = 0; for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return H[h % H.length]; }
 
 // small form helpers — values live in a draft object the screen owns
 export function field(label, id, value, opts) {
@@ -179,6 +185,16 @@ export function chips(options, selected, onPick, multi) {
 }
 export function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 export function busy(on) { document.querySelectorAll('.btn').forEach(b => { b.disabled = !!on; }); }
+export const THEME = { cur: 'light' };
+try { if (localStorage.getItem('tuneup-theme') === 'dark') THEME.cur = 'dark'; } catch (e) {}
+export function setTheme(v) {
+  THEME.cur = v === 'dark' ? 'dark' : 'light';
+  try { localStorage.setItem('tuneup-theme', THEME.cur); } catch (e) {}
+  document.documentElement.setAttribute('data-theme', THEME.cur);
+}
+export function themeToggle(action) {
+  return '<div class="segc" style="width:132px"><button class="' + (THEME.cur === 'light' ? 'on' : '') + '" onclick="A.' + action + '(\'light\')">' + esc(t('Light')) + '</button><button class="' + (THEME.cur === 'dark' ? 'on' : '') + '" onclick="A.' + action + '(\'dark\')">' + esc(t('Dark')) + '</button></div>';
+}
 export function langToggle(action) {
-  return '<div class="segc" style="width:110px;background:var(--a-card);border:1px solid var(--a-line)"><button class="' + (LANG.cur === 'en' ? 'on' : '') + '" onclick="A.' + action + '(\'en\')">EN</button><button class="' + (LANG.cur === 'ka' ? 'on' : '') + '" onclick="A.' + action + '(\'ka\')">ქარ</button></div>';
+  return '<div class="segc" style="width:110px"><button class="' + (LANG.cur === 'en' ? 'on' : '') + '" onclick="A.' + action + '(\'en\')">EN</button><button class="' + (LANG.cur === 'ka' ? 'on' : '') + '" onclick="A.' + action + '(\'ka\')">ქარ</button></div>';
 }

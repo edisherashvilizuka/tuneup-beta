@@ -1,5 +1,6 @@
 // Tune Up beta — coach monitoring: Today tab (needs your eye + everyone today), per-client 7-day stats,
 // weight trend, check-in notes and the coach's private notes.
+import { loader, rollNum } from './motion.js';
 import { t, esc, unit, isoDate, addDays, weekdayOf, fmtDay, firstName, mood, fmtDate, macroShort } from './i18n.js';
 import { SCREENS, A, I, rerender, toast, val, busy, avatar } from './ui.js';
 import * as db from './db.js';
@@ -63,11 +64,14 @@ SCREENS.ctoday = () => {
   const eye = rows.filter(r => r.flags.length);
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? '' : 'red') + '">' + esc(f.label) + (f.k !== 'note' && f.sub ? ' · ' + esc(f.sub) : '') + '</span>';   // details visible on phones too (no hover)
   const todayLine = r => { const d = r.st.today; const bits = [d.planned ? t('workout') + ' ' + d.done + '/' + d.planned : t('rest day'), d.kcal ? n0(d.kcal) + ' ' + unit('kcal') : '', d.water ? (d.water / 1000) + ' ' + unit('L') : '', d.steps ? n0(d.steps.value) + ' ' + t('steps') : '', d.ci ? mood(d.ci.value) : ''].filter(Boolean); return bits.join(' · '); };
-  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: (guideCard() || pushCard()) +
+  const logged = rows.filter(r => r.st.today.L.length).length, wk = rows.reduce((a, r) => a + r.st.today.done, 0), wkp = rows.reduce((a, r) => a + r.st.today.planned, 0);
+  const kpis = '<div class="kpis"><div class="kpi"><span class="eyebrow" style="color:var(--c-kcal)">' + t('Clients') + '</span><span class="num">' + rollNum(rows.length, 'i', null, true) + '</span><small>' + (eye.length ? t('{n} need your eye', { n: eye.length }) : t('All quiet')) + '</small></div>' +
+    '<div class="kpi"><span class="eyebrow" style="color:var(--c-water)">' + t('Logged today') + '</span><span class="num">' + rollNum(logged, 'i', null, true) + '<small style="font-family:var(--font-body)"> / ' + rows.length + '</small></span><small>' + (wkp ? t('{n} of {m} exercises ticked', { n: wk, m: wkp }) : t('rest day for everyone')) + '</small></div></div>';
+  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: (guideCard() || pushCard()) + kpis +
     '<div class="section-title"><span class="eyebrow">' + t('Needs your eye') + '</span></div>' +
     (eye.length ? eye.map(r => '<div class="card tap" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})"><div class="row">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="chips" style="margin-top:4px">' + r.flags.map(chip).join('') + '</div>' + (r.flags.find(f => f.k === 'note') ? '<div class="mute small" style="margin-top:4px">“' + esc(r.flags.find(f => f.k === 'note').sub) + '”</div>' : '') + '</div>' + I.chev + '</div></div>').join('') : '<div class="card flat mute">' + t('All quiet — nobody needs attention right now.') + '</div>') +
     '<div class="section-title"><span class="eyebrow">' + t('Everyone today') + '</span></div><div class="card">' +
-    rows.map(r => '<div class="lrow" style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="s">' + esc(todayLine(r) || t('Nothing logged yet')) + '</div></div>' + I.chev + '</div>').join('') + '</div>' +
+    rows.map(r => { return '<div class="lrow" style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="s">' + esc(todayLine(r) || t('Nothing logged yet')) + '</div></div>' + I.chev + '</div>'; }).join('') + '</div>' +
     '<div class="row" style="justify-content:center"><button class="btn sec sm" onclick="A.refreshMon()">' + t('Refresh') + '</button></div>' };
 };
 A.refreshMon = async () => { try { await loadMonitor(); rerender(); toast(t('Updated')); } catch (e) { toast(t('Could not refresh'), 'err'); } };
@@ -93,11 +97,11 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
     (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '');
   const notes = (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Private notes') + '</span><span class="mute small">' + t('only you see these') + '</span></div><div class="card">' +
-    (note == null ? '<div class="mute">' + t('Loading…') + '</div>' : '<div class="vwrap ta"><textarea class="input" id="cnote" oninput="A.noteDraft(\'' + c.id + '\',this.value)" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(noteDraft(c.id, note.text)) + '</textarea><button type="button" class="vmic" id="cnote_mic" onclick="A.voice(\'cnote\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button></div>' + attachBlock('cn_att', note.attachments || [], { keep: c.id }) + '<button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
+    (note == null ? loader(t('Loading…'), 2) : '<div class="vwrap ta"><textarea class="input" id="cnote" oninput="A.noteDraft(\'' + c.id + '\',this.value)" placeholder="' + esc(t('e.g. knee — avoid deep squats; check weight weekly')) + '">' + esc(noteDraft(c.id, note.text)) + '</textarea><button type="button" class="vmic" id="cnote_mic" onclick="A.voice(\'cnote\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button></div>' + attachBlock('cn_att', note.attachments || [], { keep: c.id }) + '<button class="btn sec sm" onclick="A.saveCoachNote(\'' + c.id + '\')">' + t('Save note') + '</button>') + '</div>';
   return part === 'overview' ? overview : part === 'notes' ? notes : overview + notes;
 }
 // 7 days × 4 macros; a cell is green within 85–115 % of the target, amber 60–85 / 115–135, red beyond, grey when nothing was logged that day
-function heatmap(st, tg) {
+export function heatmap(st, tg) {
   const rows = [['kcal', 'Calories'], ['prot', 'Protein'], ['carbs', 'Carbs'], ['fat', 'Fats']].map(([k, label]) => { const T = tg[{ kcal: 'kcal', prot: 'protein_g', carbs: 'carbs_g', fat: 'fat_g' }[k]]; if (!T) return '';
     return '<div class="lab">' + esc(k === 'kcal' ? unit('kcal') : macroShort(label)) + '</div>' + st.byDay.map(x => { if (!x.kcal || ((k === 'carbs' || k === 'fat') && !x.hasMacros)) return '<div class="c" title="' + esc(fmtDay(x.day, 'dm')) + '"></div>'; const r = x[k] / T; let cls = r >= 0.85 && r <= 1.15 ? 'g' : (r >= 0.6 && r <= 1.35) ? 'a' : 'r'; if (x === st.today && r < 0.85) cls = 'p';   // today is still in progress: not judged until it is on target or over
       return '<div class="c ' + cls + '" role="button" tabindex="0" onclick="A.heatTip(this)" title="' + esc(fmtDay(x.day, 'dm') + ' · ' + t(label) + ' ' + n0(x[k]) + ' / ' + T) + '"></div>'; }).join(''); }).join('');

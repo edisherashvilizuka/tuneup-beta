@@ -1,6 +1,6 @@
 // Tune Up beta — welcome, sign-in by e-mail code, consent, "no invite" and "paused" screens.
 import { t, esc, LANG, setLang, firstName } from './i18n.js';
-import { SCREENS, A, I, go, replace, root, rerender, toast, busy, val, field, langToggle, sheet, closeSheet } from './ui.js';
+import { SCREENS, A, I, go, replace, root, rerender, toast, busy, val, field, langToggle, sheet, closeSheet , setTheme } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 
@@ -8,6 +8,7 @@ let afterSignIn = () => {};
 export function onSignedIn(fn) { afterSignIn = fn; }
 
 A.lang = (l) => { setLang(l); rerender(); };
+A.setTheme = (v) => { setTheme(v); rerender(); };
 
 SCREENS.setup = () => ({ header: false, tabs: false, center: true, body:
   '<div class="brandline">tune up<span class="dot">.</span></div><p class="lead">' + t('The beta is not switched on yet. Check back soon.') + '</p>' });
@@ -23,7 +24,8 @@ SCREENS.welcome = () => {
   return { header: false, tabs: false, center: true, body:
     '<div class="row" style="position:absolute;top:14px;right:14px;gap:8px">' + langToggle('lang') + '</div>' +
     '<div class="eyebrow" style="margin-bottom:26px">' + t('Tbilisi') + ' · ' + t('closed beta') + '</div>' +
-    '<div class="brandline">tune up<span class="dot">.</span></div>' +
+'<div class="hero-logo" style="margin:0 auto 14px;width:72px;height:72px"><svg width="52" height="52" viewBox="0 0 512 512" aria-hidden="true"><rect x="72" y="169" width="46" height="174" rx="23" fill="#F3EBDC"/><rect x="138" y="118" width="46" height="276" rx="23" fill="#F3EBDC"/><rect x="328" y="118" width="46" height="276" rx="23" fill="#F3EBDC"/><rect x="394" y="169" width="46" height="174" rx="23" fill="#F3EBDC"/><rect x="184" y="236" width="144" height="40" rx="20" fill="#16130F"/></svg></div>' +
+        '<div class="brandline">tune up<span class="dot">.</span></div>' +
     '<p class="lead" style="max-width:260px">' + t('Your coach, in your pocket every day.') + '</p>' +
     '<div style="height:18px"></div>' +
     '<div class="col" style="width:100%;gap:10px">' + invCard +

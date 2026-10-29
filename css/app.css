@@ -1,18 +1,30 @@
 /* Tune Up beta — Restrained design system (ported from the prototype shell). Tokens first, then components. */
 :root{
-  --pg-bg:#CFCCC5; --pg-ink:#1D1C19; --pg-mute:#6F6B64; --pg-line:#B9B5AD; --pg-card:#E9E7E2;
-  --a-bg:#E9E7E2; --a-card:#F5F4F0; --a-ink:#1D1C19; --a-ink2:#45423C; --a-mute:#6F6B64; --a-line:#D7D4CD; --a-line2:#E2DFD9;
-  --a-accent:#9C3B08; --a-accent-ink:#7A2E06; --a-accent-soft:#F0E2D8; --a-accent-soft2:#E1C6B4;
-  --a-amber:#C2960E; --a-amber-soft:#F1E8CF; --a-amber-ink:#7A5C03; --a-red:#B0473F; --a-red-soft:#F0DDDA; --a-blue:#4A6B8A; --a-blue-soft:#DEE4EA;
-  --a-green:#4F7A4A; --a-green-soft:#DFE8DA; --a-beacon:#2F8F5B; --a-carb:#2F6F6B; --a-fat:#8A6A1F;
-  --a-shadow:0 8px 24px rgba(29,28,25,.08);
-  --font-body:"Hanken Grotesk","Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
-  --font-display:"Hanken Grotesk","Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,sans-serif;
-  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --r:12px; --r-sm:8px; --r-lg:16px;
+  /* Tune Up — the chosen look (2026-10-28): warm cream by default, warm black as the toggle. Colours carry meaning:
+     orange = energy/calories + the brand, coral = protein (muscle), mustard = carbs (grain) + the primary button,
+     olive = fats (oil/avocado), teal = water + "done/on track", lilac = Tune (the assistant), red = danger only. */
+  --c-kcal:#E8632B; --c-protein:#D9456A; --c-carbs:#D9A520; --c-fat:#7E8A2E; --c-water:#2A9A90; --c-tune:#8E6FD6; --c-bad:#C8352F;
+  --pg-bg:#E9DFCB; --pg-ink:#16130F; --pg-mute:#7A6F5E; --pg-line:#D8CCB4; --pg-card:#F3EBDC;
+  --a-bg:#F3EBDC; --a-card:#FBF6EC; --a-ink:#16130F; --a-ink2:#4A4336; --a-mute:#7A6F5E; --a-line:#E2D7C2; --a-line2:#EADFCB;
+  --a-accent:#E8632B; --a-accent-ink:#B8471A; --a-accent-soft:#FBE3D5; --a-accent-soft2:#F3C2A6;
+  --a-amber:#D9A520; --a-amber-soft:#F7E8BF; --a-amber-ink:#8A6508; --a-red:#C8352F; --a-red-soft:#F6DAD6; --a-blue:#5A6E82; --a-blue-soft:#E3E8EC;
+  --a-green:#2A9A90; --a-green-soft:#D6ECE9; --a-beacon:#2A9A90; --a-carb:#D9A520; --a-fat:#7E8A2E;
+  --a-shadow:0 8px 24px rgba(22,19,15,.08);
+  --font-body:"Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --font-display:"Archivo Black","Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --font-mono:"Noto Sans Georgian","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --r:20px; --r-sm:12px; --r-lg:24px;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg-bg:#151513;--pg-ink:#EDEBE6;--pg-mute:#9A968E;--pg-line:#2C2B28;--pg-card:#1E1D1A}}
-:root[data-theme="dark"]{--pg-bg:#151513;--pg-ink:#EDEBE6;--pg-mute:#9A968E;--pg-line:#2C2B28;--pg-card:#1E1D1A}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --c-protein:#E0546E; --c-carbs:#E4B330; --c-fat:#B5BE55; --c-water:#3FB3A9; --c-tune:#A98DE6; --c-bad:#E5837A;
+  --pg-bg:#0F0D0A; --pg-ink:#F3EBDC; --pg-mute:#B8AE9E; --pg-line:#2E2922; --pg-card:#16130F;
+  --a-bg:#16130F; --a-card:#221E18; --a-ink:#F3EBDC; --a-ink2:#D9CFBD; --a-mute:#B8AE9E; --a-line:#332D25; --a-line2:#2A251E;
+  --a-accent:#E8632B; --a-accent-ink:#F3A06F; --a-accent-soft:#3A2416; --a-accent-soft2:#5A3620;
+  --a-amber:#E4B330; --a-amber-soft:#3A3014; --a-amber-ink:#EAC75C; --a-red:#E5837A; --a-red-soft:#3A1F1C; --a-blue:#A3B3C2; --a-blue-soft:#1F2A33;
+  --a-green:#3FB3A9; --a-green-soft:#163230; --a-beacon:#3FB3A9; --a-carb:#E4B330; --a-fat:#B5BE55;
+  --a-shadow:0 8px 24px rgba(0,0,0,.4);
+}
 *{box-sizing:border-box}
 button,.chip,.task,.card.tap,.lrow,.slot,.tile{touch-action:manipulation}
 html,body{margin:0;padding:0}

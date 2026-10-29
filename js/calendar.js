@@ -1,5 +1,7 @@
 // Tune Up beta — sessions: trainee list (Join button for video), coach month grid + new / move / cancel.
 // Weekly sessions are one row + exceptions (a moved or cancelled occurrence); occurrences are expanded here.
+function gigDate(dayNum, mon, cls) { return '<div class="gig' + (cls ? ' ' + cls : '') + '"><b>' + dayNum + '</b><span>' + esc(mon) + '</span></div>'; }
+import { loader } from './motion.js';
 import { t, esc, fmtDate, fmtTime, firstName, isoDate, addDays, dayName, weekdayOf, fmtDay } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
@@ -34,8 +36,10 @@ export function occurrences(from, to) {
 }
 function whereLine(s) { return s.where_kind === 'video' ? t('Video call') : (s.place || t('In person')); }
 function joinBtn(o) { return o.s.where_kind === 'video' && /^https?:\/\//.test(o.s.place) && !o.cancelled && o.at.getTime() + o.s.minutes * 60000 > Date.now() ? '<a class="btn xs" href="' + esc(o.s.place) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + t('Join') + '</a>' : ''; }
-function occRow(o, withName, tap) {
-  return '<div class="sess" ' + (tap ? 'style="cursor:pointer" onclick="' + tap + '"' : '') + '><div class="time">' + fmtTime(o.at) + '<span class="mute small">' + o.s.minutes + ' ' + t('min') + '</span></div><div class="grow"><div class="t" style="font-weight:500' + (o.cancelled ? ';text-decoration:line-through' : '') + '">' + (withName ? esc(pairName(o.s.pair_id)) + ' · ' : '') + esc(whereLine(o.s)) + '</div><div class="s mute small">' + (o.cancelled ? '<span class="tag bad">' + t('Cancelled') + '</span> ' : o.moved ? '<span class="tag warn">' + t('Moved') + '</span> ' : '') + [o.s.repeat === 'weekly' ? t('every {day}', { day: dayName(weekdayOf(new Date(o.s.starts_at))) }) : '', esc(o.note || o.s.note || '')].filter(Boolean).join(' · ') + '</div></div>' + joinBtn(o) + (withName || o.cancelled || o.at.getTime() < Date.now() ? '' : calBtn(o)) + '</div>';
+function occRow(o, withName, tap, gig) {
+  const d = o.at; const mon = fmtDate(d, 'dm').split(' ').slice(1).join(' ');
+  const tile = gig ? gigDate(d.getDate(), mon, o.cancelled ? 'off' : '') : '';
+  return '<div class="sess" ' + (tap ? 'style="cursor:pointer" onclick="' + tap + '"' : '') + '>' + tile + '<div class="time">' + fmtTime(o.at) + '<span class="mute small">' + o.s.minutes + ' ' + t('min') + '</span></div><div class="grow"><div class="t" style="font-weight:500' + (o.cancelled ? ';text-decoration:line-through' : '') + '">' + (withName ? esc(pairName(o.s.pair_id)) + ' · ' : '') + esc(whereLine(o.s)) + '</div><div class="s mute small">' + (o.cancelled ? '<span class="tag bad">' + t('Cancelled') + '</span> ' : o.moved ? '<span class="tag warn">' + t('Moved') + '</span> ' : '') + [o.s.repeat === 'weekly' ? t('every {day}', { day: dayName(weekdayOf(new Date(o.s.starts_at))) }) : '', esc(o.note || o.s.note || '')].filter(Boolean).join(' · ') + '</div></div>' + joinBtn(o) + (withName || o.cancelled || o.at.getTime() < Date.now() ? '' : calBtn(o)) + '</div>';
 }
 // ---- add one session to the phone's calendar (Apple: .ics file, Google: their "new event" page)
 const CALS = {};
@@ -50,15 +54,37 @@ A.calIcs = (k) => { const o = CALS[k]; if (!o) return; const c = calText(o); con
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tune Up//beta//EN', 'BEGIN:VEVENT', 'UID:' + o.s.id + '-' + stamp(c.start) + '@tuneup', 'DTSTAMP:' + stamp(new Date()), 'DTSTART:' + stamp(c.start), 'DTEND:' + stamp(c.end), 'SUMMARY:' + e(c.title), c.place ? 'LOCATION:' + e(c.place) : '', c.note ? 'DESCRIPTION:' + e(c.note) : '', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
   closeSheet(); location.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); };
 
-// ---- trainee: upcoming sessions
+// ---- trainee: upcoming sessions (29 Oct redesign: the next one as a hero card, then a list)
+function srow(o) {
+  const up = o.at.getTime() + o.s.minutes * 60000 > Date.now();
+  const pill = o.cancelled ? '<span class="pill bad">' + t('Cancelled') + '</span>' : o.moved ? '<span class="pill warn">' + t('Moved') + '</span>' : '';
+  const sub = [o.s.repeat === 'weekly' && !o.cancelled ? t('every {day}', { day: dayName(weekdayOf(new Date(o.s.starts_at))) }) : '', o.note || o.s.note || ''].filter(Boolean).join(' · ');
+  return '<div class="srow' + (o.cancelled ? ' off' : '') + '"><div class="sdate"><b>' + esc(dayName(weekdayOf(o.at), true)) + '</b><span>' + o.at.getDate() + '</span></div><div class="grow" style="min-width:0"><div class="t"' + (o.cancelled ? ' style="text-decoration:line-through"' : '') + '>' + fmtTime(o.at) + ' · ' + esc(whereLine(o.s)) + '</div>' + (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div>' + pill + (up && !o.cancelled ? joinBtn(o) || calBtn(o) : '') + '</div>';
+}
+function heroCard(o, today) {
+  const tom = addDays(today, 1); const when = o.date === today ? t('Today') : o.date === tom ? t('Tomorrow') : fmtDay(o.date);
+  const end = new Date(o.at.getTime() + o.s.minutes * 60000); const video = o.s.where_kind === 'video';
+  const maps = !video && o.s.place ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(o.s.place) : '';
+  const main = joinBtn(o) ? '<a class="btn" href="' + esc(o.s.place) + '" target="_blank" rel="noopener">' + t('Join') + '</a>' : maps ? '<a class="btn" href="' + esc(maps) + '" target="_blank" rel="noopener">' + I.pin + ' ' + t('Directions') + '</a>' : '';
+  const mins = (o.at.getTime() - Date.now()) / 60000; const soon = !o.cancelled && mins > -o.s.minutes && mins < 24 * 60;
+  const time = '<div class="big">' + fmtTime(o.at) + ' <span>– ' + fmtTime(end) + '</span></div>';
+  return '<div class="card nexts' + (video ? ' video' : '') + (soon && o.date === today ? ' soon' : '') + '"><div class="eyebrow">' + t('Next session · {when}', { when }) + '</div>' +
+    (soon ? '<div class="row cdrow"><svg class="cdring" viewBox="0 0 54 54" width="54" height="54" aria-hidden="true"><circle cx="27" cy="27" r="23" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="5"/><circle data-cdring cx="27" cy="27" r="23" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 144.5" transform="rotate(-90 27 27)"/></svg><div class="grow">' + time + '<div class="cdin" data-cd="' + o.at.toISOString() + '"></div></div></div>' : time) +
+    '<div class="where">' + (video ? I.video : I.pin) + ' ' + esc(whereLine(o.s)) + (o.moved ? ' · <span class="tag warn">' + t('Moved') + '</span>' : '') + '</div>' + (o.note || o.s.note ? '<div class="mute small">' + esc(o.note || o.s.note) + '</div>' : '') +
+    '<div class="btn-row">' + main + '<button class="btn sec" onclick="A.setTab(\'chat\')">' + t('Ask to move') + '</button>' + calBtn(o) + '</div></div>';
+}
 SCREENS.sessions = () => {
   const today = isoDate(); const list = occurrences(today, addDays(today, 27)).filter(o => !(o.cancelled && o.date < today));
   const cp = S.pair && S.pair.coach && S.pair.coach.coach_profiles; const av = cp && (Array.isArray(cp) ? cp[0] : cp); const avail = av && av.availability_text;
   let html = '';
-  if (!S.cal) html = '<div class="mute">' + t('Loading…') + '</div>';
+  if (!S.cal) html = loader(t('Loading…'));
   else if (!list.length) html = empty('cal', t('No sessions planned yet — your coach adds them here.'));
-  else { let last = ''; list.forEach(o => { if (o.date !== last) { html += '<div class="section-title"><span class="eyebrow">' + (o.date === today ? t('Today') + ' · ' : '') + esc(fmtDay(o.date)) + '</span></div>'; last = o.date; } html += occRow(o, false); }); }
-  return { title: t('Sessions'), sub: t('next 4 weeks'), body: html + (avail ? '<div class="card flat mute small">' + I.cal + ' ' + t('{name} is usually available: {when}', { name: firstName((S.pair.coach || {}).name), when: esc(avail) }) + '</div>' : ''),
+  else {
+    const next = list.find(o => !o.cancelled && o.at.getTime() + o.s.minutes * 60000 > Date.now());
+    const rest = list.filter(o => o !== next);
+    html = (next ? heroCard(next, today) : '') + (rest.length ? '<div class="section-title"><span class="eyebrow">' + t('Coming up') + '</span></div><div class="slist">' + rest.map(srow).join('') + '</div>' : '');
+  }
+  return { title: t('Sessions'), sub: S.pair && S.pair.coach ? t('With {name}', { name: firstName(S.pair.coach.name) }) : t('next 4 weeks'), body: html + (avail ? '<div class="card flat mute small">' + I.cal + ' ' + t('{name} is usually available: {when}', { name: firstName((S.pair.coach || {}).name), when: esc(avail) }) + '</div>' : ''),
     after: async () => { if (!S.cal) { try { await loadSessions(); } catch (e) {} rerender(); } } };
 };
 
@@ -75,11 +101,11 @@ SCREENS.ccal = () => {
   grid += '</div>';
   const dayList = occ.filter(o => o.date === S.calView.sel);
   const monthName = fmtDate(first, 'dm').split(' ')[1] + ' ' + y;
-  return { title: t('Calendar'), sub: S.clients && S.clients.length ? t('{n} active', { n: pairs().length }) : '', actions: '<button class="act" onclick="A.newSession()" aria-label="New session">' + I.plus + '</button>', body:
+  return { title: t('Calendar'), sub: S.clients && S.clients.length ? t('{n} active', { n: pairs().length }) : '', actions: '<button class="act add" onclick="A.newSession()" aria-label="New session">' + I.plus + '</button>', body:
     '<div class="row between"><button class="act" onclick="A.calMonth(-1)" aria-label="Previous">' + I.back + '</button><div class="h3">' + esc(monthName) + '</div><button class="act" onclick="A.calMonth(1)" aria-label="Next" style="transform:rotate(180deg)">' + I.back + '</button></div>' +
     '<div class="card">' + grid + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + esc(fmtDay(S.calView.sel)) + '</span><span class="link" onclick="A.newSession(\'' + S.calView.sel + '\')">' + t('Add') + '</span></div>' +
-    (!S.cal ? '<div class="mute">' + t('Loading…') + '</div>' : dayList.length ? dayList.map(o => occRow(o, true, 'A.sessionSheet(\'' + o.s.id + '\',\'' + (o.origDate || o.date) + '\')')).join('') : '<div class="card flat mute">' + t('Nothing planned') + '</div>'),
+    (!S.cal ? loader(t('Loading…')) : dayList.length ? dayList.map(o => occRow(o, true, 'A.sessionSheet(\'' + o.s.id + '\',\'' + (o.origDate || o.date) + '\')')).join('') : '<div class="card flat mute">' + t('Nothing planned') + '</div>'),
     after: async () => { if (!S.cal) { try { await loadSessions(); } catch (e) {} rerender(); } } };
 };
 A.calSel = (iso) => { S.calView.sel = iso; rerender(); };

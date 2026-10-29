@@ -1,4 +1,5 @@
 // Tune Up beta — trainee daily logging (food, water, steps, weight, evening check-in) + the week view.
+import { recordStack, rollNum, rippleNow, moodNow, buzz, loader, playMotion } from './motion.js';
 import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS, exName, addDays, LANG, macroShort } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
@@ -6,6 +7,7 @@ import { S } from './state.js';
 import { voiceAvailable, attachBlock, saveAttachments, attHtml, resolveUrls } from './attach.js';
 import { effectiveTargets } from './plan.js';
 import { loadMeals } from './food.js';
+import { heatmap } from './monitor.js';
 
 // ---- helpers over S.today.logs (today) or any list of logs
 export function sumDay(logs, kind, key) { return logs.filter(l => l.kind === kind).reduce((a, l) => a + (Number(l[key || 'value']) || 0), 0); }
@@ -32,7 +34,7 @@ async function lastWeight() {
 }
 
 // ---- today's log cards (shown on the Today tab under the workout)
-const MAC = [['kcal', 'kcal', 'Calories', 'var(--a-ink)'], ['protein_g', 'g', 'Protein', 'var(--a-accent)'], ['carbs_g', 'g', 'Carbs', 'var(--a-carb)'], ['fat_g', 'g', 'Fats', 'var(--a-fat)']];
+const MAC = [['kcal', 'kcal', 'Calories', 'var(--c-kcal)'], ['protein_g', 'g', 'Protein', 'var(--c-protein)'], ['carbs_g', 'g', 'Carbs', 'var(--c-carbs)'], ['fat_g', 'g', 'Fats', 'var(--c-fat)']];
 export function macroTotals(L) { const F = L.filter(l => l.kind === 'food'); const sum = k => F.reduce((a, l) => a + (Number(l[k]) || 0), 0); return { kcal: sum('value'), protein_g: sum('protein_g'), carbs_g: sum('carbs_g'), fat_g: sum('fat_g') }; }
 // the fuel gauge: one ring per macro; a ring fills towards the coach's target and shows what is left inside
 function ring(key, uni, label, color, v, max) {
@@ -47,28 +49,55 @@ function ring(key, uni, label, color, v, max) {
 const I_CHECK = '✓';
 export function fuelGauge(L) {
   const m = macroTotals(L); const any = MAC.some(x => tg(x[0]));
-  return '<div class="fuel">' + MAC.map(x => ring(x[0], x[1], x[2], x[3], m[x[0]], tg(x[0]))).join('') + '</div>' +
-    '<div class="mute small" style="text-align:center">' + (any ? t('Tap a ring to see the best foods for it') : t('Your coach has not set daily targets yet.')) + '</div>';
+  const rows = MAC.map(x => ({ key: x[0], label: x[2], color: x[3], v: m[x[0]], max: tg(x[0]), unit: x[1] }));
+  const kcal = rows[0], prot = rows[1];
+  const done = !!(kcal.max && prot.max && kcal.v >= kcal.max && kcal.v <= kcal.max * 1.05 && prot.v >= prot.max);
+  const legend = '<div class="fuel leg">' + rows.map(r => {
+    const left = r.max ? Math.round(r.max - r.v) : null; const over = r.max && r.key !== 'protein_g' && r.v > r.max * 1.05;
+    const tail = r.max == null ? '' : over ? '<span style="color:var(--a-red)">+' + Math.round(r.v - r.max) + ' ' + esc(t('over')) + '</span>' : left > 0 ? left + ' ' + esc(t('to go')) : '✓ ' + esc(t('done'));
+    return '<div class="f1" role="button" tabindex="0" onclick="A.openFoods(\'' + r.key + '\')" onkeydown="if(event.key===\'Enter\')this.click()" aria-label="' + esc(t(r.label)) + ' ' + n0(r.v) + (r.max ? ' / ' + r.max : '') + ' ' + esc(unit(r.unit)) + '">' +
+      '<span class="dot" style="background:' + r.color + '"></span><div style="min-width:0"><div class="lb">' + esc(t(r.label)) + (tail ? ' · ' + tail : '') + '</div><div class="val">' + rollNum(n0(r.v), 'i', 'leg:' + r.key, true) + (r.max ? ' <small>/ ' + r.max + ' ' + esc(unit(r.unit)) + '</small>' : ' <small>' + esc(unit(r.unit)) + '</small>') + '</div></div></div>';
+  }).join('') + '</div>';
+  const left = kcal.max ? Math.round(kcal.max - kcal.v) : null;
+  return '<div class="rec-row">' + recordStack(rows, esc(rows.map(m => t(m.label) + (m.max ? ' ' + Math.round(Math.min(1, m.v / m.max) * 100) + '%' : '')).join(', '))) + legend + '</div>' +
+    (kcal.max ? '<div class="big">' + (left > 0 ? rollNum(left, 'i', 'kleft') : left < -Math.max(50, kcal.max * .05) ? '+' + (-left) : '✓') + ' <span>' + esc(left > 0 ? t('kcal left today') : left < -Math.max(50, kcal.max * .05) ? t('over') : t('done')) + '</span></div>' : '') +
+    '<div class="mute small">' + (any ? t('Tap a macro to see the best foods for it') : t('Your coach has not set daily targets yet.')) + '</div>';
 }
 function macroLine(f, sep) { return [f.protein_g != null && f.protein_g !== '' ? t('P') + ' ' + n0(f.protein_g) : '', f.carbs_g != null && f.carbs_g !== '' ? t('C') + ' ' + n0(f.carbs_g) : '', f.fat_g != null && f.fat_g !== '' ? t('F') + ' ' + n0(f.fat_g) : ''].filter(Boolean).join(sep || ' · '); }
-export function logCards() {
-  const L = S.today.logs || [];
-  const water = sumDay(L, 'water');
-  const steps = oneOf(L, 'steps'), weight = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
-  const foods = L.filter(l => l.kind === 'food');
-  const food = '<div class="card"><div class="row between"><div class="h3">' + t('Food') + '</div><span class="mute small">' + (foods.length ? (foods.length === 1 ? t('1 entry') : t('{n} entries', { n: foods.length })) : '') + '</span></div>' + fuelGauge(L) +
-    (foods.length ? '<div>' + foods.map(f => '<div class="food"><div><div class="n">' + esc(f.note || t('Meal')) + (f.reaction === 'up' ? ' <span title="' + esc(t('Your coach liked this')) + '">👍</span>' : '') + '</div><div class="m">' + esc(macroLine(f)) + (macroLine(f) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(f.value) + '</div><button class="act" style="width:36px;height:36px;border:0" onclick="A.delLog(\'' + f.id + '\',this)" aria-label="' + t('Remove') + '">' + I.x + '</button></div>').join('') + '</div>' : '') +
-    '<button class="btn sec sm" onclick="A.foodSheet()">' + I.plus + ' ' + t('Add food') + '</button></div>';
-  const wat = '<div class="card"><div class="row between"><div class="h3">' + t('Water') + '</div><span class="mute small">' + (water / 1000).toFixed(water % 1000 ? 2 : 1).replace(/\.?0+$/, '') + (tg('water_ml') ? ' / ' + (tg('water_ml') / 1000) : '') + ' ' + unit('L') + '</span></div>' + (tg('water_ml') ? bar(water, tg('water_ml'), 'blue') : '') +
-    '<div class="btn-row"><button class="btn sec sm" onclick="A.addWater(250)">+ 250 ' + unit('ml') + '</button><button class="btn sec sm" onclick="A.addWater(500)">+ 500 ' + unit('ml') + '</button>' + (water ? '<button class="btn sec sm" onclick="A.undoWater()" aria-label="Undo">' + I.x + '</button>' : '') + '</div></div>';
-  const tiles = '<div class="grid2"><div class="tile" role="button" tabindex="0" style="cursor:pointer" onclick="A.numSheet(\'steps\')" onkeydown="if(event.key===\'Enter\')this.click()"><div class="stat"><div class="v">' + (steps ? n0(steps.value) : '—') + '</div><div class="k">' + t('steps') + (tg('steps') ? ' · ' + t('goal') + ' ' + tg('steps') : '') + '</div></div>' + (tg('steps') && steps ? bar(steps.value, tg('steps'), 'amb') : '') + '</div>' +
-    '<div class="tile" role="button" tabindex="0" style="cursor:pointer" onclick="A.numSheet(\'weight\')" onkeydown="if(event.key===\'Enter\')this.click()"><div class="stat"><div class="v">' + (weight ? Number(weight.value) : '—') + '</div><div class="k">' + unit('kg') + ' · ' + t('weigh-in') + '</div></div></div></div>';
-  // evening check-in: the moods sit on the card, one tap saves; the line for the coach is optional, after
-  const moods = '<div class="chips mood-row">' + Object.keys(MOODS).map(k => '<button class="chip ' + (ci && Number(ci.value) === Number(k) ? 'on' : '') + '" onclick="A.quickMood(' + k + ')" aria-pressed="' + (ci && Number(ci.value) === Number(k) ? 'true' : 'false') + '">' + esc(t(MOODS[k])) + '</button>').join('') + '</div>';
-  const chk = '<div class="card soft"><div class="h3">' + t('Evening check-in') + '</div>' + (ci ? '' : '<div class="mute">' + t('How was your day? Tap one.') + '</div>') + moods +
-    (ci ? (ci.note || (ci.attachments || []).length ? '<div class="row between" style="gap:10px;align-items:flex-start"><span class="mute grow">' + esc(ci.note) + attHtml(ci.attachments) + '</span><span class="link" onclick="A.checkinSheet()">' + t('Edit') + '</span></div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + t('Add a line for your coach') + '</span>') : '') + '</div>';
-  return '<div class="section-title"><span class="eyebrow">' + t('Today\'s log') + '</span><span class="link" onclick="A.go(\'week\')">' + t('This week') + ' ›</span></div>' + food + wat + tiles + chk;
+// ---- Today, redesigned (29 Oct): one hero food card, three tiles, a mood card. trainee.js puts them in order.
+export function foodCard(headLeft) {
+  const L = S.today.logs || []; const foods = L.filter(l => l.kind === 'food');
+  const list = foods.length ? '<div class="logged"><div class="eyebrow">' + (foods.length === 1 ? t('1 entry') : t('{n} entries', { n: foods.length })) + '</div>' +
+    foods.map(f => '<div class="food" data-fid="' + esc(f.id) + '"><div class="grow" style="min-width:0"><div class="n">' + esc(f.note || t('Meal')) + (f.reaction === 'up' ? ' <span title="' + esc(t('Your coach liked this')) + '">👍</span>' : '') + '</div><div class="m">' + esc(macroLine(f)) + (macroLine(f) ? ' ' + unit('g') : '') + '</div></div><div class="kc">' + n0(f.value) + '</div><button class="act sm" onclick="A.delLog(\'' + f.id + '\',this)" aria-label="' + t('Remove') + '">' + I.x + '</button></div>').join('') + '</div>' : '';
+  const m = macroTotals(L); const T = { k: tg('kcal'), p: tg('protein_g') };
+  const tuned = !!(T.k && T.p && m.kcal >= T.k * 0.95 && m.kcal <= T.k * 1.05 && m.protein_g >= T.p);
+  return '<div class="card hero" data-fids="1" data-ev="tuned" data-v="' + (tuned ? 1 : 0) + '" data-day="' + S.today.day + '">' + '<div class="row between">' + (headLeft || '<span class="eyebrow">' + t('Food') + '</span>') + '<span class="link small" onclick="A.go(\'week\')">' + t('This week') + ' ›</span></div>' + fuelGauge(L) +
+    '<div class="btn-row"><button class="btn" onclick="A.foodSheet()">' + t('Add food') + '</button><button class="btn sec" onclick="A.openFoods(\'protein_g\')">' + t('Browse foods') + '</button></div>' + list + '</div>';
 }
+function weightDelta() {
+  const H = (S.hist35 || []).filter(l => l.kind === 'weight' && l.day >= addDays(S.today.day, -10) && l.day <= addDays(S.today.day, -5)).sort((a, b) => a.day < b.day ? -1 : 1);
+  const now = oneOf(S.today.logs || [], 'weight') || (S.hist35 || []).filter(l => l.kind === 'weight' && l.day > addDays(S.today.day, -5)).sort((a, b) => a.day < b.day ? 1 : -1)[0];
+  if (!H.length || !now) return '';
+  const d = Math.round((Number(now.value) - Number(H[0].value)) * 10) / 10; if (!d) return '';
+  return '<small class="delta">' + (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + t('this week') + '</small>';
+}
+export function dayTiles() {
+  const L = S.today.logs || []; const water = sumDay(L, 'water'); const steps = oneOf(L, 'steps'), weight = oneOf(L, 'weight');
+  const lastW = weight ? null : (S.hist35 || []).filter(l => l.kind === 'weight').sort((a, b) => a.day < b.day ? 1 : -1)[0];
+  return '<div class="dtiles">' +
+    '<div class="dtile" role="button" tabindex="0" onclick="A.addWater(250)" onkeydown="if(event.key===\'Enter\')this.click()" aria-label="' + esc(t('Add a glass of water (250 ml)')) + '"><span class="eyebrow">' + t('Water') + '</span>' + (tg('water_ml') ? '<span class="liquid" aria-hidden="true" data-fill="water" data-dim="h" data-to="' + Math.min(1, water / tg('water_ml')).toFixed(3) + '" style="height:' + Math.min(100, water / tg('water_ml') * 100).toFixed(1) + '%"><svg viewBox="0 0 200 10" preserveAspectRatio="none"><path d="M0 5Q12.5 0 25 5T50 5T75 5T100 5T125 5T150 5T175 5T200 5V10H0Z"/></svg></span>' : '') + '<span class="num">' + rollNum(water / 1000, 'L', 'water') + (tg('water_ml') ? ' <small>/ ' + (tg('water_ml') / 1000) + ' ' + unit('L') + '</small>' : ' <small>' + unit('L') + '</small>') + '</span>' + '<small class="hint">+ 250 ' + unit('ml') + '</small>' +
+      (water ? '<button class="undo" onclick="event.stopPropagation();A.undoWater()" aria-label="' + esc(t('Undo')) + '">−</button>' : '') + '</div>' +
+    '<div class="dtile" data-ev="steps" data-v="' + (tg('steps') && steps && Number(steps.value) >= tg('steps') ? 1 : 0) + '" role="button" tabindex="0" onclick="A.numSheet(\'steps\')" onkeydown="if(event.key===\'Enter\')this.click()"><span class="eyebrow">' + t('Steps') + '</span><span class="num">' + (steps ? rollNum(n0(steps.value), 's', 'steps') : '—') + '</span>' + (tg('steps') ? bar(steps ? steps.value : 0, tg('steps'), 'steps') + '<small class="hint">' + t('goal') + ' ' + Number(tg('steps')).toLocaleString('en-US') + '</small>' : '') + '</div>' +
+    '<div class="dtile" role="button" tabindex="0" onclick="A.numSheet(\'weight\')" onkeydown="if(event.key===\'Enter\')this.click()"><span class="eyebrow">' + t('Weight') + '</span><span class="num">' + (weight || lastW ? Number((weight || lastW).value) + ' <small>' + unit('kg') + '</small>' : '—') + '</span>' + (weightDelta() || '<small class="hint">' + t('weigh-in') + '</small>') + '</div></div>';
+}
+const MOOD_COL = ['--c-protein', '--c-kcal', '--c-carbs', '--c-water', '--c-tune'];
+function moodDots(sel, action) { return '<div class="moodgrid">' + Object.keys(MOODS).map(k => '<button class="md' + (sel === Number(k) ? ' on' : '') + '" onclick="A.' + action + '(' + k + ')" aria-pressed="' + (sel === Number(k) ? 'true' : 'false') + '"><i style="background:var(' + MOOD_COL[Number(k) - 1] + ')"></i>' + esc(t(MOODS[k])) + '</button>').join('') + '</div>'; }
+export function checkinCard() {
+  const ci = oneOf(S.today.logs || [], 'checkin');
+  return '<div class="card moodcard" data-ev="mood" data-v="' + (ci ? Number(ci.value) : 0) + '"><div class="row between"><div class="h3">' + t('How was today?') + '</div>' + (ci ? '<span class="link small" onclick="A.checkinSheet()">' + t('Edit') + '</span>' : '') + '</div>' + moodDots(ci ? Number(ci.value) : 0, 'quickMood') +
+    (ci ? (ci.note || (ci.attachments || []).length ? '<div class="mute">' + esc(ci.note) + attHtml(ci.attachments) + '</div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + t('Add a line for your coach') + '</span>') : '<div class="mute small">' + t('One tap saves it — your coach sees it.') + '</div>') + '</div>';
+}
+export function logCards() { return foodCard() + dayTiles() + checkinCard(); }
 
 // ---- food: smart entry. The trainee types what they ate; the estimator (built-in table first, AI for the rest)
 // fills calories, protein, carbs and fats per food with a portion they can adjust; one tap logs it all.
@@ -77,12 +106,12 @@ const r1 = v => Math.round(Number(v) * 10) / 10;
 const r3 = v => Math.round(Number(v) * 1000) / 1000;   // per-gram values keep more precision
 function fmtQty(q) { return String(Math.round(q * 100) / 100); }
 function itemTotals(it) { const q = Number(it.qty) || 0; const m = {}; ['kcal', 'protein_g', 'carbs_g', 'fat_g'].forEach(k => { m[k] = r1((Number(it.per[k]) || 0) * q); }); return m; }
-function sourceChip(src) { return src === 'table' ? '<span class="chip sm grn">' + t('from table') + '</span>' : src === 'recent' ? '<span class="chip sm">' + t('logged before') + '</span>' : '<span class="chip sm amb">' + t('estimate') + '</span>'; }
+function sourceChip(src) { return src === 'table' ? '<span class="chip sm grn">' + t('from table') + '</span>' : src === 'recent' ? '<span class="chip sm">' + t('logged before') + '</span>' : '<span class="chip sm" style="background:var(--c-tune);color:#fff">' + t('estimate') + '</span>'; }
 A.foodSheet = () => {
   S.draft.food = { items: [], state: 'idle', text: '', recents: null };
   sheet('<div class="h2">' + t('Add food') + '</div>' +
     '<div class="row" style="gap:8px;align-items:flex-end">' + field(t('What did you eat?'), 'fd_text', '', { ph: t('e.g. 5 khinkali, chicken with rice, coffee with milk'), attrs: ' autocomplete="off" enterkeyhint="done" oninput="A.foodTyped()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();A.foodTyped(true)}"' }).replace('<div class="field">', '<div class="field grow">') +
-    (voiceAvailable() ? '<button class="act camera" id="fd_text_mic" onclick="A.voice(\'fd_text\')" aria-label="' + esc(t('Say what you ate')) + '">' + I.mic + '</button>' : '') +
+    (voiceAvailable() ? '<button class="act camera mic" id="fd_text_mic" onclick="A.voice(\'fd_text\')" aria-label="' + esc(t('Say what you ate')) + '">' + I.mic + '</button>' : '') +
     '<button class="act camera" onclick="document.getElementById(\'fd_photo\').click()" aria-label="' + esc(t('Photo of your plate or a nutrition label')) + '">' + I.camera + '</button><input type="file" id="fd_photo" accept="image/*" capture="environment" style="display:none" onchange="A.foodPhoto(this)"></div>' +
     '<div class="mute small">' + t('Type it, say it, or photograph the plate or the nutrition label — the numbers fill in by themselves.') + '</div>' +
     '<div id="fd_sug"></div><div id="fd_recent"></div>' +
@@ -154,7 +183,7 @@ function itemCard(it, i) {
   const mac = (k, uni, label, color) => '<div class="mac"><div class="v" style="color:' + color + '">' + (m[k] == null || (it.per[k] == null && k !== 'kcal') ? '—' : n0(m[k])) + '<span>' + (k === 'kcal' ? '' : ' ' + esc(unit('g'))) + '</span></div><div class="k">' + esc(macroShort(k)) + '</div></div>';
   return '<div class="card fcard"><div class="row between" style="align-items:flex-start;gap:8px"><div class="grow"><div class="h3">' + esc(it.name) + '</div><div class="mute small">' + esc(fmtQty(it.qty) + ' ' + it.unit) + (it.unit_kind === 'count' && it.grams ? ' · ' + t('about {g} g', { g: Math.round(it.grams * it.qty) }) : '') + '</div></div>' + sourceChip(it.source) + '</div>' +
     '<div class="row between"><div class="chips" style="gap:6px">' + gramsToggle + '</div><div class="stepper"><button type="button" aria-label="' + t('Less') + '" onclick="A.foodStep(' + i + ',-' + stepBig + ')">−</button><input class="input" inputmode="decimal" value="' + esc(fmtQty(it.qty)) + '" onchange="A.foodQty(' + i + ',this.value)" aria-label="' + t('Amount') + '"><span class="mute small">' + esc(it.unit) + '</span><button type="button" aria-label="' + t('More') + '" onclick="A.foodStep(' + i + ',' + stepBig + ')">+</button></div></div>' +
-    '<div class="macs">' + mac('kcal', 'kcal', 'kcal', 'var(--a-ink)') + mac('protein_g', 'g', 'protein', 'var(--a-accent)') + mac('carbs_g', 'g', 'carbs', 'var(--a-carb)') + mac('fat_g', 'g', 'fats', 'var(--a-fat)') + '</div>' +
+    '<div class="macs">' + mac('kcal', 'kcal', 'kcal', 'var(--c-kcal)') + mac('protein_g', 'g', 'protein', 'var(--c-protein)') + mac('carbs_g', 'g', 'carbs', 'var(--c-carbs)') + mac('fat_g', 'g', 'fats', 'var(--c-fat)') + '</div>' +
     '<div class="row between"><span class="link" onclick="A.foodEditItem(' + i + ')">' + t('Edit numbers') + '</span><span class="link" style="color:var(--a-mute)" onclick="A.foodDrop(' + i + ')">' + t('Remove') + '</span></div></div>';
 }
 function renderSug() {
@@ -208,7 +237,7 @@ A.saveFood = async () => {
 A.delLog = async (id, el) => { if (el && !armed(el, t('Remove?'))) return; try { await db.deleteLog(id); await reloadToday(); } catch (e) { fail(e); } };
 
 // ---- water
-A.addWater = async (ml) => { try { await db.addLog(S.me.id, S.today.day, 'water', ml); track('log', { kind: 'water' }); await reloadToday(); } catch (e) { fail(e); } };
+A.addWater = async (ml) => { rippleNow('.dtile'); try { await db.addLog(S.me.id, S.today.day, 'water', ml); track('log', { kind: 'water' }); await reloadToday(); } catch (e) { fail(e); } };
 A.undoWater = async () => { const w = (S.today.logs || []).filter(l => l.kind === 'water').pop(); if (!w) return; try { await db.deleteLog(w.id); await reloadToday(); } catch (e) { fail(e); } };
 
 // ---- steps / weight (one value per day)
@@ -242,18 +271,17 @@ A.saveNum = async (kind, clear) => {
 // ---- evening check-in (mood 1–5 + note)
 A.checkinSheet = () => {
   const cur = oneOf(S.today.logs || [], 'checkin'); S.draft.mood = cur ? Number(cur.value) : 0;
-  sheet('<div class="h2">' + t('Evening check-in') + '</div><div class="field"><label>' + t('How was your day?') + '</label><div class="chips" id="moods">' + moodChips() + '</div></div>' +
+  sheet('<div class="h2">' + t('Evening check-in') + '</div><div class="field"><label>' + t('How was your day?') + '</label><div id="moods">' + moodDots(S.draft.mood, 'pickMood') + '</div></div>' +
     field(t('A line for your coach (optional)'), 'ci_note', cur ? cur.note : '', { textarea: true, ph: t('e.g. slept badly, knee felt fine') }) +
     attachBlock('ci_att', cur ? cur.attachments : []) +
     '<button class="btn" onclick="A.saveCheckin()">' + t('Save') + '</button>');
 };
-function moodChips() { return Object.keys(MOODS).map(k => '<button class="chip ' + (S.draft.mood === Number(k) ? 'on' : '') + '" onclick="A.pickMood(' + k + ')">' + esc(t(MOODS[k])) + '</button>').join(''); }
 A.quickMood = async (k) => {
-  const cur = oneOf(S.today.logs || [], 'checkin'); const first = !cur;
+  const cur = oneOf(S.today.logs || [], 'checkin'); const first = !cur; moodNow(k);
   try { await db.setDayLog(S.me.id, S.today.day, 'checkin', k, cur ? cur.note : '', cur ? cur.attachments : []); track('log', { kind: 'checkin' }); await reloadToday(); toast(t('Saved')); }
-  catch (e) { fail(e); }
+  catch (e) { rerender(); fail(e); }
 };
-A.pickMood = (k) => { S.draft.mood = k; const el = document.getElementById('moods'); if (el) el.innerHTML = moodChips(); };
+A.pickMood = (k) => { S.draft.mood = k; const el = document.getElementById('moods'); if (el) { el.innerHTML = moodDots(k, 'pickMood'); const on = el.querySelector('.md.on'); if (on) on.classList.add('burst'); buzz(); } };
 A.saveCheckin = async () => {
   if (!S.draft.mood) { toast(t('Pick how your day was.'), 'err'); return; }
   busy(true);
@@ -261,19 +289,30 @@ A.saveCheckin = async () => {
   catch (e) { busy(false); fail(e); }
 };
 
-// ---- this week
-SCREENS.week = () => ({ title: t('This week'), sub: t('Mon–Sun'), body: '<div class="card" id="weekbody"><div class="mute">' + t('Loading…') + '</div></div>',
+// ---- this week (29 Oct redesign: four KPI tiles, the food heat-map, then the days)
+SCREENS.week = () => ({ title: t('This week'), sub: t('Mon–Sun'), body: '<div id="weekbody"><div class="card">' + loader(t('Loading…')) + '</div></div>',
   after: async () => {
-    const days = weekOf(S.today.day); const items = (S.plan && S.plan.items) || [];
+    const days = weekOf(S.today.day); const items = (S.plan && S.plan.items) || []; const T = (S.plan && effectiveTargets(S.plan.targets)) || {};
     try {
       const logs = await db.logsBetween(S.me.id, days[0], days[6]);
+      const byDay = days.map((d, i) => { const L = logs.filter(l => l.day === d); const planned = items.filter(x => x.day === i + 1 && (!x.created_at || x.created_at.slice(0, 10) <= d)).length;
+        return { day: d, L, planned, done: L.filter(l => l.kind === 'exercise').length, kcal: sumDay(L, 'food'), prot: sumDay(L, 'food', 'protein_g'), carbs: sumDay(L, 'food', 'carbs_g'), fat: sumDay(L, 'food', 'fat_g'), hasMacros: L.some(l => l.kind === 'food' && l.carbs_g != null), water: sumDay(L, 'water') }; });
+      const past = byDay.filter(x => x.day <= S.today.day); const food = past.filter(x => x.kcal); const wat = past.filter(x => x.water);
+      const protHit = T.protein_g ? past.filter(x => x.prot >= T.protein_g * 0.9).length : null;
+      const pl = past.filter(x => x.planned), dn = pl.filter(x => x.done >= x.planned);
+      const kpi = (c, k, v, s2) => '<div class="kpi"><span class="eyebrow" style="color:var(' + c + ')">' + k + '</span><span class="num">' + v + '</span>' + (s2 ? '<small>' + s2 + '</small>' : '') + '</div>';
+      const tiles = '<div class="kpis">' + kpi('--c-protein', t('Protein days'), protHit == null ? '—' : rollNum(protHit, 'i', null, true), protHit == null ? '' : t('of {n}', { n: past.length })) +
+        kpi('--c-kcal', t('Avg calories'), food.length ? rollNum(n0(food.reduce((a, x) => a + x.kcal, 0) / food.length), 's', null, true) : '—', T.kcal ? t('of {n}', { n: Number(T.kcal).toLocaleString('en-US') }) : '') +
+        kpi('--c-carbs', t('Workouts'), rollNum(dn.length, 'i', null, true), t('of {n}', { n: pl.length })) +
+        kpi('--c-water', t('Avg water'), wat.length ? rollNum(wat.reduce((a, x) => a + x.water, 0) / wat.length / 1000, 'd1', null, true) : '—', unit('L')) + '</div>';
+      const today = byDay.find(x => x.day === S.today.day);
+      const heat = T.kcal || T.protein_g ? '<div class="card"><div class="h3">' + t('Food vs targets') + '</div>' + heatmap({ byDay, today }, T) + '</div>' : '';
       const rows = days.map((d, i) => {
-        if (d > S.today.day) { const pl = items.filter(x => x.day === i + 1).length; return '<div class="lrow" style="opacity:.6"><div class="grow"><div class="t">' + esc(dayName(i + 1)) + '</div><div class="s">' + esc(pl ? (pl === 1 ? t('1 exercise planned') : t('{n} exercises planned', { n: pl })) : t('rest')) + '</div></div></div>'; }
-        const L = logs.filter(l => l.day === d); const planned = items.filter(x => x.day === i + 1 && (!x.created_at || x.created_at.slice(0, 10) <= d)).length, done = L.filter(l => l.kind === 'exercise').length;
-        const kcal = sumDay(L, 'food'), prot = sumDay(L, 'food', 'protein_g'), water = sumDay(L, 'water'), st = oneOf(L, 'steps'), w = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
-        const bits = [planned ? t('workout') + ' ' + done + '/' + planned : t('rest'), kcal ? n0(kcal) + ' ' + unit('kcal') : '', prot ? n0(prot) + ' ' + unit('g') : '', water ? (water / 1000) + ' ' + unit('L') : '', st ? n0(st.value) + ' ' + t('steps') : '', w ? Number(w.value) + ' ' + unit('kg') : ''].filter(Boolean).join(' · ');
+        if (d > S.today.day) { const pl2 = items.filter(x => x.day === i + 1).length; return '<div class="lrow" style="opacity:.6"><div class="grow"><div class="t">' + esc(dayName(i + 1)) + '</div><div class="s">' + esc(pl2 ? (pl2 === 1 ? t('1 exercise planned') : t('{n} exercises planned', { n: pl2 })) : t('rest')) + '</div></div></div>'; }
+        const x = byDay[i]; const L = x.L; const st = oneOf(L, 'steps'), w = oneOf(L, 'weight'), ci = oneOf(L, 'checkin');
+        const bits = [x.planned ? t('workout') + ' ' + x.done + '/' + x.planned : t('rest'), x.kcal ? n0(x.kcal) + ' ' + unit('kcal') : '', x.prot ? n0(x.prot) + ' ' + unit('g') : '', x.water ? (x.water / 1000) + ' ' + unit('L') : '', st ? n0(st.value) + ' ' + t('steps') : '', w ? Number(w.value) + ' ' + unit('kg') : ''].filter(Boolean).join(' · ');
         return '<div class="lrow"><div class="grow"><div class="t">' + esc(dayName(i + 1)) + (d === S.today.day ? ' · ' + t('today') : '') + '</div><div class="s">' + esc(bits || t('Nothing logged')) + (ci ? ' · ' + esc(mood(ci.value)) : '') + '</div>' + (ci && ci.note ? '<div class="s">' + esc(ci.note) + '</div>' : '') + '</div></div>';
       }).join('');
-      const el = document.getElementById('weekbody'); if (el) el.innerHTML = rows;
-    } catch (e) { const el = document.getElementById('weekbody'); if (el) el.innerHTML = '<div class="err">' + t('Could not load — try again') + '</div>'; }
+      const el = document.getElementById('weekbody'); if (el) { el.innerHTML = tiles + heat + '<div class="card">' + rows + '</div>'; playMotion('week', true); }
+    } catch (e) { const el = document.getElementById('weekbody'); if (el) el.innerHTML = '<div class="card"><div class="err">' + t('Could not load — try again') + '</div></div>'; }
   } });

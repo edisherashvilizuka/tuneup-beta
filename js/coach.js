@@ -1,10 +1,11 @@
 // Tune Up beta — coach screens: clients, client view (monitoring + plan), invite links, More. Today tab lives in monitor.js.
+import { loader } from './motion.js';
 import { t, esc, opt, fmtDate, firstName, OPTS, unit } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { planCard, loadPlan } from './plan.js';
-import { loadMonitor, monitorCards, loadClientExtras } from './monitor.js';
+import { loadMonitor, monitorCards, loadClientExtras, statsFor, flagsFor } from './monitor.js';
 import { loadUnread, loadChatIndex } from './chat.js';
 import { pushRow } from './push.js';
 import { guideRow } from './guide.js';
@@ -20,20 +21,30 @@ export async function loadCoach() {
 }
 function tp(c) { const p = c.trainee && c.trainee.trainee_profiles; return (Array.isArray(p) ? p[0] : p) || {}; }
 
+A.clientFilter = (k) => { S.clientFilter = k; rerender(); };
 SCREENS.clients = () => {
   const active = S.clients.filter(c => c.status === 'active'), ended = S.clients.filter(c => c.status !== 'active');
-  const row = c => c.gone ? '<div class="lrow">' + avatar(c.trainee.name, c.id) + '<div class="grow"><div class="t">' + esc(c.trainee.name) + '</div><div class="s">' + esc([c.ended_at ? t('Ended') + ' ' + fmtDate(new Date(c.ended_at)) : '', c.end_note || ''].filter(Boolean).join(' · ')) + '</div></div></div>' : '<div class="lrow" style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + c.id + '\'})">' + avatar(c.trainee.name, c.trainee.id) + '<div class="grow"><div class="t">' + esc(c.trainee.name) + '</div><div class="s">' + esc([opt('goal', tp(c).goal), opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div>' + I.chev + '</div>';
+  const flags = c => { try { return S.mon ? flagsFor(c, statsFor(c)) : []; } catch (e) { return []; } };
+  const needs = active.filter(c => flags(c).length), ok = active.filter(c => !flags(c).length);
+  const f = S.clientFilter || 'all'; const list = f === 'eye' ? needs : f === 'ok' ? ok : f === 'ended' ? ended : active;
+  const chip = (k, label, n) => '<button class="chip ' + (f === k ? 'on' : '') + '" onclick="A.clientFilter(\'' + k + '\')">' + esc(t(label)) + ' · ' + n + '</button>';
+  const row = c => { const p = tp(c); const fl = c.status === 'active' ? flags(c) : [];
+    const sub = c.status === 'active' ? [opt('goal', p.goal), lastKg(c, p) ? lastKg(c, p) + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ') : [c.ended_at ? t('Ended') + ' ' + fmtDate(new Date(c.ended_at)) : '', c.end_note || ''].filter(Boolean).join(' · ');
+    const pill = c.status !== 'active' ? '' : fl.length ? '<span class="pill bad">' + fl.length + '</span>' : '<span class="pill ok">' + I.check + '</span>';
+    return '<div class="srow' + (c.status !== 'active' ? ' off' : '') + '"' + (c.gone ? '' : ' style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + c.id + '\'})"') + '>' + avatar(c.trainee.name, c.gone ? c.id : c.trainee.id) + '<div class="grow" style="min-width:0"><div class="t">' + esc(c.trainee.name) + '</div><div class="s wrap">' + esc(sub) + '</div></div>' + pill + (c.gone ? '' : I.chev) + '</div>'; };
   return { title: t('Clients'), sub: t('{n} active', { n: active.length }), body:
-    (active.length ? '<div class="card">' + active.map(row).join('') + '</div>' : '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Create an invite link and send it to a client. They sign up through it and land here.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>') +
-    (ended.length ? '<div class="section-title"><span class="eyebrow">' + t('Ended') + '</span></div><div class="card" style="opacity:.75">' + ended.map(row).join('') + '</div>' : ''),
-    actions: '<button class="act" onclick="A.newInvite()" aria-label="Invite">' + I.plus + '</button>' };
+    (active.length || ended.length ? '<div class="chips hs">' + chip('all', 'All', active.length) + chip('eye', 'Needs your eye', needs.length) + chip('ok', 'On track', ok.length) + '</div>' : '') +
+    (list.length ? '<div class="slist">' + list.map(row).join('') + '</div>' : active.length || f !== 'all' ? '<div class="card flat mute">' + t('Nobody here right now.') + '</div>' : '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Create an invite link and send it to a client. They sign up through it and land here.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>') +
+    (f === 'all' && ended.length ? '<div class="section-title"><span class="eyebrow">' + t('Ended') + '</span></div><div class="slist">' + ended.map(row).join('') + '</div>' : ''),
+    actions: '<button class="act add" onclick="A.newInvite()" aria-label="Invite">' + I.plus + '</button>',
+    after: async () => { if (!S.mon) { try { await loadMonitor(); rerender(); } catch (e) {} } } };
 };
 
 function lastKg(c, p) { const w = S.mon ? S.mon.logs.filter(l => l.trainee_id === c.trainee.id && l.kind === 'weight').sort((a, b) => a.day < b.day ? -1 : 1).pop() : null; return w ? Number(w.value) : p.weight_kg; }
 // the client page is split in three: what is happening, the plan, and notes (it was four phone screens long)
 function clientTabs(c) {
   const tab = S.clientTab || 'overview'; const tb = (k, label) => '<button class="' + (tab === k ? 'on' : '') + '" role="tab" aria-selected="' + (tab === k) + '" onclick="A.clientTab(\'' + k + '\')">' + t(label) + '</button>';
-  const plan = S.plan && S.plan.pairId === c.id ? planCard(c.id) : '<div class="card flat mute">' + t('Loading the plan…') + '</div>';
+  const plan = S.plan && S.plan.pairId === c.id ? planCard(c.id) : '<div class="card flat">' + loader(t('Loading the plan…'), 2) + '</div>';
   return '<div class="segc" role="tablist">' + tb('overview', 'Overview') + tb('plan', 'Plan') + tb('notes', 'Notes') + '</div>' +
     (tab === 'plan' ? plan : monitorCards(c, tab));
 }
@@ -42,8 +53,8 @@ SCREENS.client = ({ id }) => {
   const c = S.clients.find(x => x.id === id); if (!c) return { title: '', body: empty('users', t('Not found')) };
   if (S.clientTabFor !== id) { S.clientTabFor = id; S.clientTab = 'overview'; }
   const p = tp(c); const u = c.trainee;
-  return { title: u.name, sub: c.status === 'active' ? t('Together since {date}', { date: fmtDate(c.started_at, 'dm') }) : t('Ended {date}', { date: fmtDate(c.ended_at, 'dm') }), body:
-    '<div class="row">' + avatar(u.name, u.id, 'lg') + '<div class="grow"><div class="h2">' + esc(u.name) + '</div><div class="mute">' + esc([opt('goal', p.goal), lastKg(c, p) ? lastKg(c, p) + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ')) + '</div></div></div>' +
+  return { title: '', body:
+    '<div class="tophead" style="margin-top:0">' + avatar(u.name, u.id, 'lg') + '<div class="grow" style="min-width:0"><div class="h1 sm">' + esc(u.name) + '</div><div class="eyebrow">' + esc([opt('goal', p.goal), lastKg(c, p) ? lastKg(c, p) + ' ' + unit('kg') : '', opt('format', c.format)].filter(Boolean).join(' · ')) + '</div><div class="mute small">' + esc(c.status === 'active' ? t('Together since {date}', { date: fmtDate(c.started_at, 'dm') }) : t('Ended {date}', { date: fmtDate(c.ended_at, 'dm') })) + '</div></div></div>' +
     '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'clientAnswers\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Their answers') + '</div><div class="s">' + esc([opt('experience', p.experience), p.injuries ? t('Injuries') + ': ' + p.injuries : ''].filter(Boolean).join(' · ') || t('Weight, goal, injuries, diet')) + '</div></div>' + I.chev + '</div>' +
     (c.status === 'active' ? '<div class="lrow" style="cursor:pointer" onclick="A.go(\'thread\',{id:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Chat') + '</div><div class="s">' + t('Messages with {name}', { name: firstName(u.name) }) + '</div></div>' + I.chev + '</div>' + '<div class="lrow" style="cursor:pointer" onclick="A.go(\'tune\',{client:\'' + c.id + '\'})"><div class="grow"><div class="t">' + t('Ask Tune about {name}', { name: firstName(u.name) }) + '</div><div class="s">' + t('Ask, or tell Tune what to do') + '</div></div>' + I.chev + '</div>' : '') + '</div>' +
     (c.status === 'active' ? clientTabs(c) +
@@ -91,16 +102,15 @@ A.copyText = async (s) => { try { await navigator.clipboard.writeText(s); toast(
 A.shareText = async (s) => { try { await navigator.share({ text: s }); } catch (e) {} };
 
 // ---- more
+function dotted(html, c) { return html.split('<div class="lrow"').join('<div class="lrow" style="--dot:var(' + c + ')"'); }
 SCREENS.cmore = () => {
-  const cp = S.coachProfile || {};
-  return { title: t('More'), body:
-    '<div class="card"><div class="lrow">' + avatar(S.me.name, S.me.id) + '<div class="grow"><div class="t">' + esc(S.me.name) + '</div><div class="s">' + esc((S.session.user && S.session.user.email) || '') + '</div></div></div>' +
-    '<div class="lrow" style="cursor:pointer" onclick="A.go(\'coachEdit\')"><div class="grow"><div class="t">' + t('Coach profile') + '</div><div class="s">' + esc([cp.gym, cp.district].filter(Boolean).join(' · ') || t('Gym, district, what you coach')) + '</div></div>' + I.chev + '</div>' +
-    '<div class="lrow" style="cursor:pointer" onclick="A.go(\'myExercises\')"><div class="grow"><div class="t">' + t('My exercises') + '</div><div class="s">' + t('Your own moves and video links') + '</div></div>' + I.chev + '</div>' +
-    '<div class="lrow" style="cursor:pointer" onclick="A.go(\'invites\')"><div class="grow"><div class="t">' + t('Invite links') + '</div><div class="s">' + t('One link per client') + '</div></div>' + I.chev + '</div>' +
-    '<div class="lrow" style="cursor:pointer" onclick="A.feedbackSheet()"><div class="grow"><div class="t">' + t('Send feedback') + '</div><div class="s">' + t('What is confusing, missing or great?') + '</div></div>' + I.chev + '</div>' +
-    '<div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + pushRow() + guideRow() + '</div>' +
-    '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
+  const cp = S.coachProfile || {}; const n = (S.clients || []).filter(c => c.status === 'active').length;
+  const row = (c2, on, title, sub) => '<div class="lrow" style="--dot:var(' + c2 + ');cursor:pointer" onclick="' + on + '"><div class="grow"><div class="t">' + title + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>' + I.chev + '</div>';
+  const head = '<div class="tophead">' + avatar(S.me.name, S.me.id, 'lg') + '<div class="grow" style="min-width:0"><div class="h1 sm">' + esc(S.me.name) + '</div><div class="eyebrow">' + esc([cp.gym, cp.district, t('{n} active', { n })].filter(Boolean).join(' · ')) + '</div></div></div>';
+  return { title: '', header: false, body: head +
+    '<div class="eyebrow grp">' + t('Coaching') + '</div><div class="card menu">' + row('--c-kcal', "A.go('coachEdit')", t('Coach profile'), esc([cp.gym, cp.district].filter(Boolean).join(' · ') || t('Gym, district, what you coach'))) + row('--c-carbs', "A.go('myExercises')", t('My exercises'), t('Your own moves and video links')) + row('--c-water', "A.go('invites')", t('Invite links'), t('One link per client')) + '</div>' +
+    '<div class="eyebrow grp">' + t('App') + '</div><div class="card menu">' + dotted(pushRow(), '--c-tune') + '<div class="lrow" style="--dot:var(--c-kcal)"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + dotted(guideRow(), '--a-mute') + row('--a-mute', 'A.feedbackSheet()', t('Send feedback'), t('What is confusing, missing or great?')) + '</div>' +
+    '<div class="card menu plain"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
     '<div class="mute small" style="text-align:center">Tune Up · ' + t('closed beta') + '</div>' };
 };

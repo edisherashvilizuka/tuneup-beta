@@ -1,4 +1,5 @@
 // Tune Up beta — admin screens (week 1: coach invites, users, pairs).
+import { rollNum } from './motion.js';
 import { t, esc, fmtDate, firstName, fmtTime, isoDate } from './i18n.js';
 import { SCREENS, A, I, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
@@ -17,9 +18,10 @@ SCREENS.aover = () => {
   const a = S.admin || { users: [], pairs: [], invites: [] };
   const coaches = a.users.filter(u => u.role === 'coach').length, trainees = a.users.filter(u => u.role === 'trainee').length, pending = a.users.filter(u => !u.role).length;
   const active = a.pairs.filter(p => p.status === 'active').length;
-  const stat = (v, k) => '<div class="tile"><div class="stat"><div class="v">' + v + '</div><div class="k">' + esc(k) + '</div></div></div>';
+  const COLS = ['--c-kcal', '--c-water', '--c-carbs', '--c-tune', '--c-protein', '--c-fat']; let ci = 0;
+  const stat = (v, k) => '<div class="kpi"><span class="eyebrow" style="color:var(' + COLS[(ci++) % COLS.length] + ')">' + esc(k) + '</span><span class="num">' + rollNum(v, 'i', null, true) + '</span></div>';
   return { title: t('Overview'), sub: 'Tune Up · ' + t('closed beta'), body:
-    '<div class="grid2">' + stat(active, t('Active pairs')) + stat(coaches, t('Coaches')) + stat(trainees, t('Trainees')) + stat(pending, t('Signed in, no role')) + stat(a.logsToday || 0, t('Logs today')) + stat((a.feedback || []).length, t('Feedback notes')) + '</div>' +
+    '<div class="kpis">' + stat(active, t('Active pairs')) + stat(coaches, t('Coaches')) + stat(trainees, t('Trainees')) + stat(pending, t('Signed in, no role')) + stat(a.logsToday || 0, t('Logs today')) + stat((a.feedback || []).length, t('Feedback notes')) + '</div>' +
     '<div class="card"><div class="lrow" style="cursor:pointer" onclick="A.go(\'afeedback\')"><div class="grow"><div class="t">' + t('Feedback') + '</div><div class="s">' + ((a.feedback || [])[0] ? esc(a.feedback[0].text).slice(0, 60) : t('Nothing yet')) + '</div></div>' + I.chev + '</div></div>' +
     '<div class="card soft"><div class="h3">' + t('Next step') + '</div><div class="mute">' + t('Create a coach invite, send the link to a vetted coach, then let them invite their clients.') + '</div><button class="btn sm" onclick="A.newCoachInvite()">' + I.plus + ' ' + t('New coach invite') + '</button></div>' +
     '<div class="card"><div class="lrow"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div><div class="lrow" style="cursor:pointer" onclick="A.reloadAdmin()"><div class="grow"><div class="t">' + t('Refresh') + '</div></div></div><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div></div>' };

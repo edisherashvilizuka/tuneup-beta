@@ -9,7 +9,9 @@ import { KA7 } from './ka7.js';
 import { KA8 } from './ka8.js';
 import { KA9 } from './ka9.js';
 import { KA10 } from './ka10.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10);
+import { KA11 } from './ka11.js';
+import { KA12 } from './ka12.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10, KA11, KA12);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}
@@ -44,7 +46,7 @@ export function fmtDate(ts, opt) {
 export function fmtTime(ts) { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 export function firstName(n) { return String(n || '').trim().split(' ')[0]; }
 export function initials(n) { return String(n || '?').trim().split(' ').map(x => x[0] || '').slice(0, 2).join('').toUpperCase() || '?'; }
-const HUES = ['#9C3B08', '#4A6B8A', '#4F7A4A', '#C2960E', '#7A2E06', '#6F6B64'];
+const HUES = ['#E8632B', '#2A9A90', '#8E6FD6', '#D9A520', '#D9456A', '#7E8A2E'];
 export function hue(id) { let h = 0; for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return HUES[h % HUES.length]; }
 
 // weekdays 1..7 (Monday first) and local dates

@@ -154,7 +154,9 @@ A.tgSum = () => {
   const n = id => { const v = parseInt(val(id), 10); return isNaN(v) ? 0 : v; };
   const k = n('tg_kcal'), p = n('tg_protein'), sum = p * 4 + n('tg_carbs') * 4 + n('tg_fat') * 9;
   if (k && p * 4 > k) { el.innerHTML = '<span style="color:var(--a-red)">' + esc(t('Protein alone is {k} kcal — more than the calorie target.', { k: p * 4 })) + '</span>'; return; }
-  el.textContent = sum && k ? t('Protein, carbs and fats add up to {k} kcal (target {t}).', { k: sum, t: k }) : '';
+  const pk = p * 4, ck = n('tg_carbs') * 4, fk = n('tg_fat') * 9;
+  const bar = sum ? '<div class="mixbar" aria-hidden="true"><i style="flex:' + pk + ';background:var(--c-protein)"></i><i style="flex:' + ck + ';background:var(--c-carbs)"></i><i style="flex:' + fk + ';background:var(--c-fat)"></i></div>' : '';
+  el.innerHTML = bar + (sum && k ? esc(t('Protein, carbs and fats add up to {k} kcal (target {t}).', { k: sum, t: k })) : '');
 };
 A.tgCustom = () => { if (S.draft.split !== 'custom') { S.draft.split = 'custom'; const el = document.getElementById('tg_split'); if (el) el.innerHTML = splitButtons(); } A.tgSum(); };
 A.saveTargets = async () => {

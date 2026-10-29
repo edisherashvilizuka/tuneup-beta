@@ -69,7 +69,7 @@ const EX = () => (S.explore = S.explore || { macro: 'protein_g', filters: [] });
 export function trayItems() { S.meal = S.meal || { items: [] }; return S.meal.items; }
 SCREENS.foods = ({ macro }) => {
   const E = EX(); if (macro) E.macro = macro;
-  const list = ranked(E.macro, E.filters, recentIds()).slice(0, 40); const best = list.length ? score(list[0], E.macro) : 1;
+  const mine = recentIds() || new Set(); const list = ranked(E.macro, E.filters, mine).slice(0, 40); const best = list.length ? score(list[0], E.macro) : 1;
   const left = leftToday(trayItems());
   const CAP = { protein_g: 'Protein', carbs_g: 'Carbs', fat_g: 'Fats', kcal: 'Light' };
   const seg = '<div class="segc" style="margin-bottom:10px">' + ['protein_g', 'carbs_g', 'fat_g', 'kcal'].map(k => '<button class="' + (E.macro === k ? 'on' : '') + '" onclick="A.exMacro(\'' + k + '\')">' + esc(macroShort(CAP[k])) + '</button>').join('') + '</div>';
@@ -78,8 +78,9 @@ SCREENS.foods = ({ macro }) => {
   const rows = list.map((f, i) => {
     const it = servingOf(f); const m = itemMacros(it); const v = E.macro === 'kcal' ? f.k : f[MACROS[E.macro]]; const pct = E.macro === 'kcal' ? Math.max(6, Math.round(100 - Math.min(100, f.k / 4))) : Math.max(6, Math.round(score(f, E.macro) / best * 100));
     const inTray = trayItems().some(x => x.id === f.id);
-    return '<div class="frow"><div class="rank">' + (i + 1) + '</div><div class="grow" style="min-width:0"><div class="row between"><div class="t">' + esc(foodName(f)) + '</div><div class="mono small" style="color:var(--a-accent)">' + (E.macro === 'kcal' ? n0(f.k) + ' ' + unit('kcal') + ' / 100 ' + unit('g') : r1(score(f, E.macro)) + ' ' + unit('g') + ' / 100 ' + unit('kcal')) + '</div></div>' +
-      '<div class="bar" style="height:5px;margin-top:5px"><i style="width:' + pct + '%"></i></div>' +
+    const mcol = E.macro === 'kcal' ? 'var(--c-kcal)' : E.macro === 'protein_g' ? 'var(--c-protein)' : E.macro === 'carbs_g' ? 'var(--c-carbs)' : 'var(--c-fat)';
+    return '<div class="frow"><div class="rank">' + (i + 1) + '</div><div class="grow" style="min-width:0"><div class="row between"><div class="t">' + esc(foodName(f)) + '</div><div class="mono small" style="font-weight:700;color:' + mcol + '">' + (E.macro === 'kcal' ? n0(f.k) + ' ' + unit('kcal') + ' / 100 ' + unit('g') : r1(score(f, E.macro)) + ' ' + unit('g') + ' / 100 ' + unit('kcal')) + '</div></div>' +
+      '<div class="bar" style="height:5px;margin-top:5px"><i style="width:' + pct + '%;background:' + mcol + '"></i></div>' +
       '<div class="mute small" style="margin-top:4px">' + esc(fmtServing(it)) + ' · ' + n0(m.protein_g) + ' ' + unit('g') + ' ' + t('P') + ' · ' + n0(m.kcal) + ' ' + unit('kcal') + (f.tags.includes('nocook') ? ' · ' + t('no cooking') : '') + '</div></div>' +
       '<button class="act" aria-label="' + esc(t('Add to meal')) + '" onclick="A.exAdd(\'' + f.id + '\')" style="' + (inTray ? 'background:var(--a-accent);color:#fff;border-color:var(--a-accent)' : '') + '">' + (inTray ? I.check : I.plus) + '</button></div>';
   }).join('');
@@ -103,7 +104,7 @@ A.exAdd = (id) => {
 SCREENS.meal = () => {
   const items = trayItems(); const T = targets(); const eaten = macroTotals(S.today ? S.today.logs || [] : []); const add = sumItems(items);
   const bars = ['kcal', 'protein_g', 'carbs_g', 'fat_g'].map(k => {
-    const tg = T[k]; const col = k === 'kcal' ? 'var(--a-ink)' : k === 'protein_g' ? 'var(--a-accent)' : k === 'carbs_g' ? 'var(--a-carb)' : 'var(--a-fat)';
+    const tg = T[k]; const col = k === 'kcal' ? 'var(--c-kcal)' : k === 'protein_g' ? 'var(--c-protein)' : k === 'carbs_g' ? 'var(--c-carbs)' : 'var(--c-fat)';
     const pe = tg ? Math.min(100, eaten[k] / tg * 100) : 0, pa = tg ? Math.min(100 - pe, add[k] / tg * 100) : 0; const left = tg ? n0(tg - eaten[k] - add[k]) : null;
     const u = k === 'kcal' ? unit('kcal') : unit('g');
     return '<div class="gauge2"><div class="row between small"><span style="font-weight:700;color:' + col + '">' + esc(macroShort({ kcal: 'Calories', protein_g: 'Protein', carbs_g: 'Carbs', fat_g: 'Fats' }[k])) + '</span><span class="mono mute">+' + n0(add[k]) + ' ' + u + (tg ? ' · <b style="color:var(--a-ink)">' + (left >= 0 ? left + ' ' + u + ' ' + t('left') : t('{n} over', { n: -left + ' ' + u })) + '</b>' : '') + '</span></div>' +
