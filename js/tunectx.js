@@ -108,7 +108,12 @@ export function coachContext(D) {
   const sess = occurrences(today, addDays(today, 21)).filter(o => !o.cancelled && o.at.getTime() > Date.now() - 3600000).map(o => { const r = 'S' + (++sN); const c = active.find(x => x.id === o.s.pair_id); R[r] = { type: 'session', o, c }; const cref = Object.keys(R).find(k => R[k].type === 'client' && R[k].c === c);
     return '[' + r + '] ' + isoDate(o.at) + ' ' + dayName(weekdayOf(o.at), true) + ' ' + fmtTime(o.at) + ', ' + o.s.minutes + ' min, ' + (c ? c.trainee.name + ' [' + cref + ']' : '?') + ', ' + (o.s.where_kind === 'video' ? 'video call' : (o.s.place || 'in person')) + (o.s.repeat === 'weekly' ? ', weekly (moving/cancelling changes only this week)' : '') + (o.moved ? ', moved' : ''); });
   let xN = 0;
-  const lib = (S.exercises || []).slice().sort((a, b) => (a.owner_id ? 0 : 1) - (b.owner_id ? 0 : 1) || a.name.localeCompare(b.name)).map(x => { const r = 'X' + (++xN); R[r] = { type: 'exercise', x }; return '[' + r + '] ' + x.name + (LANG.cur === 'ka' && x.name_ka ? ' / ' + x.name_ka : '') + (x.muscle ? ' — ' + x.muscle : '') + (x.owner_id ? ' (own' + (x.video_url ? ', video' : '') + ')' : ''); });
+  // the library by muscle group (one line per part), the coach's own exercises first
+  const xr = x => { const r = 'X' + (++xN); R[r] = { type: 'exercise', x }; return '[' + r + '] ' + x.name + (LANG.cur === 'ka' && x.name_ka ? ' / ' + x.name_ka : ''); };
+  const own = (S.exercises || []).filter(x => x.owner_id).sort((a, b) => a.name.localeCompare(b.name)).map(x => xr(x) + (x.grp ? ' — ' + x.grp + (x.sub ? '/' + x.sub : '') : x.muscle ? ' — ' + x.muscle : '') + ' (own' + (x.video_url ? ', video' : '') + ')');
+  const glob = (S.exercises || []).filter(x => !x.owner_id); const parts = {};
+  glob.slice().sort((a, b) => (a.pos || 999) - (b.pos || 999) || a.name.localeCompare(b.name)).forEach(x => { const k = x.grp ? x.grp + '/' + x.sub : (x.muscle || 'other'); (parts[k] = parts[k] || []).push(xr(x)); });
+  const lib = own.concat(Object.keys(parts).map(k => k + ': ' + parts[k].join(', ')));
   const cp = S.coachProfile || {};
   const text = [
     'Coach: ' + S.me.name + '. Today: ' + todayLine() + '. Active clients: ' + active.length + '.' + (D.focus ? '' : ' No client is open; if a request could mean more than one client, ask which.'),

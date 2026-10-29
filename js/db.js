@@ -78,9 +78,9 @@ export async function createCoachInvite(uid, note) { return q(sb.from('coach_inv
 export async function setActive(uid, active) { return q(sb.rpc('admin_set_active', { p_user: uid, p_active: !!active })); }
 
 // ---- exercises (global library + the coach's own)
-const EX_COLS = 'id,owner_id,name,name_ka,muscle,muscle_ka,video_url,note';
+const EX_COLS = 'id,owner_id,name,name_ka,muscle,muscle_ka,video_url,note,grp,sub,equip,kind,pop,also,tags,pos';
 export async function listExercises() { return q(sb.from('exercises').select(EX_COLS).order('name')); }
-export async function addExercise(uid, x) { return q(sb.from('exercises').insert({ owner_id: uid, name: x.name, muscle: x.muscle || '', video_url: x.video_url || '', note: x.note || '' }).select(EX_COLS).single()); }
+export async function addExercise(uid, x) { return q(sb.from('exercises').insert({ owner_id: uid, name: x.name, muscle: x.muscle || '', video_url: x.video_url || '', note: x.note || '', grp: x.grp || '', sub: x.sub || '', equip: x.equip || '', kind: x.kind || '' }).select(EX_COLS).single()); }
 export async function updateExercise(id, patch) { return q(sb.from('exercises').update(patch).eq('id', id)); }
 export async function deleteExercise(id) { return q(sb.from('exercises').delete().eq('id', id)); }
 

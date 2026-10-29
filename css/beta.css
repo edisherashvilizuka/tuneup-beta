@@ -462,3 +462,77 @@ body{font-size:16px}
 .nexts .btn-row{flex-wrap:nowrap}
 .nexts .btn-row>.btn{flex:1 1 0;min-width:0;padding:0 10px;white-space:normal;line-height:1.15}
 .avatar.geo{font-family:var(--font-body);font-weight:800}
+/* ---- exercise picker by muscle group (29 Oct 2026). Muscles are coral = protein = muscle; the rest of the figure is
+   the warm sand of the page. Picked rows use the same orange tick as the Foods tray. */
+.fig{display:block;height:auto}
+.fig .mz,.fig .nz{stroke:var(--a-card);stroke-width:.7;stroke-linejoin:round}
+.fig .nz{fill:#DCCEB4}
+.fig .mz{fill:#E8DDC8;transition:fill .3s ease}
+.fig .mz.l1{fill:#F2BCC8}
+.fig .mz.l2{fill:var(--c-protein)}
+.fig .jz{fill:var(--a-blue)}
+.fig .hz{fill:var(--c-kcal)}
+@media (prefers-reduced-motion:reduce){.fig .mz{transition:none}}
+.xsearch{display:flex;align-items:center;gap:8px;background:var(--a-card);border-radius:16px;padding:0 14px;min-height:52px;margin-bottom:14px;color:var(--a-mute)}
+.xsearch .input{border:0;background:transparent;padding:0;min-height:50px;flex:1;min-width:0;font-size:16px;box-shadow:none}
+.xsearch .input:focus{outline:none}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.mtile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--a-card);border-radius:20px;padding:12px 14px 13px;text-align:left;min-height:150px;transition:transform .12s}
+.mtile:active{transform:scale(.97)}
+.mtile .mt-fig{display:flex;gap:2px;height:92px;align-items:flex-end;margin-bottom:6px}
+.mtile .mt-fig .fig{width:36px}
+.mtile .mt-fig.own{width:56px;height:56px;margin:18px 0 24px;border-radius:50%;background:var(--a-bg);display:grid;place-items:center;color:var(--a-mute)}
+.mtile .mt-fig.own svg{width:26px;height:26px}
+.mtile .mt-name{font-weight:800;font-size:16px;line-height:1.2}
+.mtile .mt-n{font-size:12.5px;color:var(--a-mute);font-weight:600}
+.mtile .mt-on,.mtile .mt-pick{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:800;border-radius:999px;padding:3px 8px 3px 6px}
+.mtile .mt-on{background:var(--a-green-soft);color:var(--a-green)}
+.mtile .mt-on svg{width:12px;height:12px}
+.mtile .mt-pick{background:var(--a-accent);color:#fff;padding:3px 9px;min-width:24px;justify-content:center}
+.mtile.own{border:1.5px dashed var(--a-line);background:transparent}
+.xlist{display:flex;flex-direction:column;gap:6px}
+.xrow{display:flex;align-items:center;gap:12px;background:var(--a-card);border-radius:18px;padding:11px 12px 11px 12px;min-height:62px;cursor:pointer;transition:background .15s,transform .12s}
+.xrow:active{transform:scale(.985)}
+.xrow .t{font-weight:700;font-size:15px;line-height:1.25}
+.xrow .s{font-size:12.5px;color:var(--a-mute);margin-top:2px}
+.xeq{width:38px;height:38px;border-radius:12px;background:var(--a-bg);display:grid;place-items:center;color:var(--a-ink2);flex:none}
+.xsel{width:40px;height:40px;border-radius:50%;background:var(--a-bg);display:grid;place-items:center;flex:none;color:var(--a-ink);transition:background .15s,color .15s}
+.xrow.on{background:color-mix(in srgb,var(--a-accent) 9%,var(--a-card))}
+.xrow.on .xsel{background:var(--a-accent);color:#fff}
+.xrow .vdot{flex:none}
+.xbadges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.xbadge{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px}
+.xbadge.pop{background:var(--a-blue-soft);color:var(--a-blue)}
+.xbadge.in{background:var(--a-green-soft);color:var(--a-green)}
+.xbadge svg{width:11px;height:11px}
+.xtray{display:flex;align-items:center;gap:12px;margin:0 16px 10px;padding:12px 12px 12px 16px;cursor:pointer}
+.xtray-g{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mhero{display:flex;align-items:center;gap:14px;background:var(--a-card);border-radius:22px;padding:14px 16px;margin-bottom:12px}
+.mh-figs{display:flex;gap:6px;flex:none}
+.mh-figs .fig{width:62px}
+.mh-side{min-width:0;flex:1}
+.mh-part{font-weight:800;font-size:17px;line-height:1.25;margin:2px 0 4px}
+.chips.hs .chip b{font-weight:800;opacity:.55;margin-left:3px}
+.chips .chip svg{width:16px;height:16px;margin-right:5px;vertical-align:-3px}
+.eqchips{margin:8px -20px 14px}
+.eqchips:empty{display:none}
+#mh_subs{margin-top:0}
+.rvlist{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.rvrow{background:var(--a-bg);border-radius:16px;padding:10px 12px}
+.rvrow .t{font-weight:700;font-size:15px}
+.rvrow .s{font-size:12.5px;color:var(--a-mute)}
+.rvrow .xeq{background:var(--a-card);width:34px;height:34px}
+.rvrow .act.rx{width:36px;height:36px;border-radius:50%;background:var(--a-card);border:0}
+.rvx{display:grid;grid-template-columns:64px auto 84px minmax(0,1fr);align-items:center;gap:6px;margin-top:8px}
+.rvx>span{font-weight:800;color:var(--a-mute);text-align:center}
+.rvx .input{min-height:44px;padding:8px 10px;font-size:16px;text-align:center;background:var(--a-card)}
+.rvx .input:last-child{text-align:left}
+.dayhero{flex-direction:row;align-items:center;gap:14px;margin-bottom:12px}
+.dayhero .dh-figs{display:flex;gap:4px;flex:none}
+.dayhero .dh-figs .fig{width:44px}
+.dayhero .h3{margin:2px 0 3px;line-height:1.25}
+.task>.xeq{width:36px;height:36px}
+.chips.hs .chip{flex:none}
+.mtile .mt-fig .fig{width:40px}
+.body>.chips.hs,.body>.mhero,.body>.mgrid,.body>.xsearch,.body>#exlist,.body>#xlist{flex-shrink:0}
+.eqchips .chip.sm,.sheet .chips .chip.sm{min-height:40px;padding:8px 12px;font-size:13px}

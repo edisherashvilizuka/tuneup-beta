@@ -3,6 +3,7 @@ import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDat
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs, bell, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { howUrl } from './exlib.js';
 import { resolveUrls } from './attach.js';
 import { foodCard, dayTiles, checkinCard } from './log.js';
 import { pushCard, pushRow } from './push.js';
@@ -28,7 +29,7 @@ function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day =
 function doneSet() { return new Set((S.today.logs || []).filter(l => l.kind === 'exercise').map(l => l.ref)); }
 function itemLine(i) { return [i.sets + ' × ' + i.reps, i.load].filter(Boolean).join(' · '); }
 function videoBtn(x) { return x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''; }
-function videoDot(x) { return x && x.video_url ? '<a class="vdot" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="' + esc(t('Video')) + '">' + I.play + '</a>' : ''; }
+function videoDot(x) { const u = howUrl(x); return u ? '<a class="vdot" href="' + esc(u) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="' + esc(x.video_url ? t('Video') : t('How to do it')) + '">' + I.play + '</a>' : ''; }
 function trkRow(i, done, tickable) {
   return '<div class="trow' + (done ? ' done' : '') + '"' + (tickable ? ' data-id="' + esc(i.id) + '"' : '') + (tickable ? ' role="button" tabindex="0" onclick="A.tick(\'' + i.id + '\')" onkeydown="if(event.key===\'Enter\')this.click()"' : '') + '>' +
     (tickable ? '<span class="check ' + (done ? 'on' : '') + '">' + (done ? I.check : '') + '</span>' : '') +
