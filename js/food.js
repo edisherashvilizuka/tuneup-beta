@@ -84,7 +84,7 @@ SCREENS.foods = ({ macro }) => {
       '<div class="mute small" style="margin-top:4px">' + esc(fmtServing(it)) + ' · ' + n0(m.protein_g) + ' ' + unit('g') + ' ' + t('P') + ' · ' + n0(m.kcal) + ' ' + unit('kcal') + (f.tags.includes('nocook') ? ' · ' + t('no cooking') : '') + '</div></div>' +
       '<button class="act" aria-label="' + esc(t('Add to meal')) + '" onclick="A.exAdd(\'' + f.id + '\')" style="' + (inTray ? 'background:var(--a-accent);color:#fff;border-color:var(--a-accent)' : '') + '">' + (inTray ? I.check : I.plus) + '</button></div>';
   }).join('');
-  const tray = trayItems().length ? '<div class="tray" onclick="A.go(\'meal\')"><div class="grow"><div class="small" style="color:#C9C5BC">' + (trayItems().length === 1 ? t('Your meal · 1 food') : t('Your meal · {n} foods', { n: trayItems().length })) + '</div><div style="font-weight:700;font-size:14px">' + leftLine(left) + '</div></div><span class="btn sm" style="width:auto">' + t('Build a meal') + '</span></div>' : '';
+  const tray = trayItems().length ? '<div class="tray" onclick="A.go(\'meal\')"><div class="grow"><div class="small" style="color:#C9C5BC">' + (trayItems().length === 1 ? t('Your meal · 1 food') : t('Your meal · {n} foods', { n: trayItems().length })) + '</div><div class="tray-t">' + leftLine(left) + '</div></div><span class="btn sm" style="width:auto">' + t('Build a meal') + '</span></div>' : '';
   return { title: t('Foods'), sub, body: seg + chipsHtml + '<div class="col" style="gap:6px;margin-top:10px">' + (rows || '<div class="card flat mute">' + t('Nothing matches these filters.') + '</div>') + '</div>', footer: tray };
 };
 function leftLine(left) {

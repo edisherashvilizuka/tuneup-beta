@@ -536,3 +536,22 @@ body{font-size:16px}
 .mtile .mt-fig .fig{width:40px}
 .body>.chips.hs,.body>.mhero,.body>.mgrid,.body>.xsearch,.body>#exlist,.body>#xlist{flex-shrink:0}
 .eqchips .chip.sm,.sheet .chips .chip.sm{min-height:40px;padding:8px 12px;font-size:13px}
+/* ---- one type scale for the whole app (29 Oct 2026, Zuka: "fix texts beautifully in the whole app"). Every text role has
+   ONE look wherever it appears, in English and Georgian alike. Archivo Black only for the one big headline per screen.
+   row title .t 15/700 · sub-line .s 13/400 mute · section/tile label .eyebrow 13/700 · link 14/700 (13 in a section
+   header) · goal text 15/700 · notification title 15/600, unread 15/700. */
+.app .t{font-size:15px;font-weight:700;line-height:1.3;letter-spacing:0}
+.app .s{font-size:13px;font-weight:400;line-height:1.35;color:var(--a-mute);letter-spacing:0;font-family:var(--font-body)}
+.app .eyebrow,.app[lang="ka"] .eyebrow,.app .kpi .eyebrow,.app .dtile .eyebrow{font-family:var(--font-body);font-size:13px;font-weight:700;letter-spacing:.01em;text-transform:none}
+.app .link{font-size:14px;font-weight:700}
+.app .section-title .link,.app .link.small{font-size:13px}
+.app .goal,.app .goal .grow,.app .gtx{font-size:15px;font-weight:700;line-height:1.35}
+.app .notif .t{font-weight:600}
+.app .notif.unread .t{font-weight:700}
+.app .tc-h{font-size:15px;font-weight:700}
+.app .tray-t{font-weight:700;font-size:14px}
+.app .card.tap>.row>.grow>.t{margin-bottom:2px}
+/* small print that sits inside a fixed shape keeps its own size */
+.app .fuel .s{font-size:11px}
+.app .att.file .s{font-size:11px}
+.app .srow .s,.app .trow .s{font-size:13px}
