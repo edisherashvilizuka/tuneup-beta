@@ -368,7 +368,7 @@ body{font-size:16px}
 @keyframes mfly{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
 /* water: the tile fills like a glass; the surface waves only while it is rising */
 .dtile{overflow:hidden;isolation:isolate}
-.dtile>*:not(.liquid):not(.ripple){position:relative;z-index:2}
+.dtile>*:not(.liquid):not(.ripple):not(.undo){position:relative;z-index:2}
 .dtile .undo{position:absolute;z-index:3}
 .liquid{position:absolute;left:0;right:0;bottom:0;z-index:1;background:color-mix(in srgb,var(--c-water) 20%,transparent);pointer-events:none}
 .liquid svg{position:absolute;left:0;top:-7px;width:200%;height:8px;display:block}
@@ -446,3 +446,19 @@ body{font-size:16px}
 @media (max-width:760px){.phone>.fxlayer{border-radius:0}}
 /* an effect carried over a redraw continues from where it was */
 .trow.burst .check,.trow.burst .check::after,.md.burst i,.md.burst i::after,.food.land,.discs .plate.pop,.donebar.in,.wd i.pulse,.streak.dance,.streak.dance .sbars b,.dtile.goal,.discs.drop .plate{animation-delay:var(--ad,0ms)}
+/* QA 29 Oct: two buttons side by side share the row evenly; a long Georgian label wraps instead of pushing past the card edge */
+.btn-row>.btn{flex:1 1 0;min-width:0;white-space:normal}
+/* QA 29 Oct (live): long e-mails wrap inside their card; the heat-map key shows the on-target colour; one segmented style
+   everywhere (mustard = chosen); a client's name in a chat header stays on one line; tappable plan rows show a chevron */
+.grow>.t{overflow-wrap:anywhere}
+.heatkey{display:inline-flex;align-items:center;gap:6px}
+.heatkey .sw{width:10px;height:10px;border-radius:3px;background:#BFE2DD;display:inline-block}
+.segc button.on{background:var(--a-amber);color:#16130F}
+.hdr:has(.avatar) .title{font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task>svg:last-child{color:var(--a-mute);flex:none}
+/* the next-session card: "add to my calendar" sits next to the heading, so the two main buttons share one row */
+.nexts .nx-top{align-items:center}
+.nexts .nx-top .btn.xs{width:40px;min-height:40px;height:40px;border-radius:50%;padding:0;background:var(--a-card);flex:none}
+.nexts .btn-row{flex-wrap:nowrap}
+.nexts .btn-row>.btn{flex:1 1 0;min-width:0;padding:0 10px;white-space:normal;line-height:1.15}
+.avatar.geo{font-family:var(--font-body);font-weight:800}

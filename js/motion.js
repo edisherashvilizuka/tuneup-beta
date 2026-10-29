@@ -71,7 +71,7 @@ export function recordStack(rows, label, opts) {
   const plates = rows.slice(0, 4).map((m, i) => {
     const y = YS[i]; const has = !!m.max; const frac = has ? Math.max(0, m.v / m.max) : 1;
     const over = has && m.key !== 'protein_g' && frac > 1.05; const col = over ? darker(HEX[m.color] || '#16130F') : m.color;
-    const w = (4 + 120 * Math.min(1, frac)).toFixed(1);
+    const w = (120 * Math.min(1, frac)).toFixed(1);   // nothing eaten = an empty plate (no sliver of colour)
     return '<g class="plate" data-plate="' + m.key + '"><ellipse cx="64" cy="' + y + '" rx="60" ry="15" fill="#E6DCC8"/>' +
       '<clipPath id="' + id + i + '"><rect x="4" y="' + (y - 18) + '" width="' + w + '" height="36" data-fill="disc:' + m.key + '" data-to="' + (has ? Math.min(1.2, frac).toFixed(3) : 1) + '" data-dim="disc"/></clipPath>' +
       '<ellipse cx="64" cy="' + y + '" rx="60" ry="15" fill="' + col + '" clip-path="url(#' + id + i + ')"/>' +
@@ -184,7 +184,7 @@ export function playMotion(screen, entered, toastFn) {
     const plate = dim === 'disc' ? el.closest('svg').querySelector('.plate[data-plate="' + key.slice(5) + '"]') : null;
     const glint = plate && plate.querySelector('.glint');
     const set = (f) => {
-      if (dim === 'disc') { const w = 4 + 120 * Math.min(1, f); el.setAttribute('width', w.toFixed(1)); if (glint) { glint.setAttribute('x', Math.min(122, w - 2).toFixed(1)); } }
+      if (dim === 'disc') { const w = 120 * Math.min(1, f); el.setAttribute('width', w.toFixed(1)); if (glint) { glint.setAttribute('x', Math.min(122, w + 2).toFixed(1)); } }
       else if (dim === 'h') el.style.height = (Math.min(1, f) * 100).toFixed(1) + '%';
       else el.style.width = (Math.min(1, f) * 100).toFixed(1) + '%';
     };

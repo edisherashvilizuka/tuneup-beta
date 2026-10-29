@@ -44,4 +44,10 @@ export const KA12 = {
   'in {h} h {m} min': '{h} სთ {m} წთ-ში',
   'in {m} min': '{m} წთ-ში',
   'starting now': 'იწყება ახლა',
+  'All': 'ყველა',
+  'On track': 'გეგმის მიხედვით',
+  'on target': 'მიზანშია',
+  'One weigh-in so far: {kg} kg on {day}. The trend shows from the second one.': 'ჯერ ერთი აწონვაა: {kg} კგ, {day}. ტენდენცია მეორე აწონვიდან გამოჩნდება.',
+  'Your coach has not set up your plan yet': 'მწვრთნელს გეგმა ჯერ არ შეუდგენია',
+  'Your weekly plan will appear here as soon as your coach sets it up.': 'კვირის გეგმა აქ გამოჩნდება, როგორც კი მწვრთნელი შეადგენს.',
 };

@@ -68,10 +68,10 @@ function heroCard(o, today) {
   const main = joinBtn(o) ? '<a class="btn" href="' + esc(o.s.place) + '" target="_blank" rel="noopener">' + t('Join') + '</a>' : maps ? '<a class="btn" href="' + esc(maps) + '" target="_blank" rel="noopener">' + I.pin + ' ' + t('Directions') + '</a>' : '';
   const mins = (o.at.getTime() - Date.now()) / 60000; const soon = !o.cancelled && mins > -o.s.minutes && mins < 24 * 60;
   const time = '<div class="big">' + fmtTime(o.at) + ' <span>– ' + fmtTime(end) + '</span></div>';
-  return '<div class="card nexts' + (video ? ' video' : '') + (soon && o.date === today ? ' soon' : '') + '"><div class="eyebrow">' + t('Next session · {when}', { when }) + '</div>' +
+  return '<div class="card nexts' + (video ? ' video' : '') + (soon && o.date === today ? ' soon' : '') + '"><div class="row between nx-top"><div class="eyebrow">' + t('Next session · {when}', { when }) + '</div>' + calBtn(o) + '</div>' +
     (soon ? '<div class="row cdrow"><svg class="cdring" viewBox="0 0 54 54" width="54" height="54" aria-hidden="true"><circle cx="27" cy="27" r="23" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="5"/><circle data-cdring cx="27" cy="27" r="23" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 144.5" transform="rotate(-90 27 27)"/></svg><div class="grow">' + time + '<div class="cdin" data-cd="' + o.at.toISOString() + '"></div></div></div>' : time) +
     '<div class="where">' + (video ? I.video : I.pin) + ' ' + esc(whereLine(o.s)) + (o.moved ? ' · <span class="tag warn">' + t('Moved') + '</span>' : '') + '</div>' + (o.note || o.s.note ? '<div class="mute small">' + esc(o.note || o.s.note) + '</div>' : '') +
-    '<div class="btn-row">' + main + '<button class="btn sec" onclick="A.setTab(\'chat\')">' + t('Ask to move') + '</button>' + calBtn(o) + '</div></div>';
+    '<div class="btn-row">' + main + '<button class="btn sec" onclick="A.setTab(\'chat\')">' + t('Ask to move') + '</button></div></div>';
 }
 SCREENS.sessions = () => {
   const today = isoDate(); const list = occurrences(today, addDays(today, 27)).filter(o => !(o.cancelled && o.date < today));

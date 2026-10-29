@@ -92,7 +92,7 @@ export function monitorCards(c, part) {   // part: 'overview' | 'notes' | undefi
   const overview = (flags.length || streak >= 2 ? '<div class="chips">' + flags.map(chip).join('') + (streak >= 2 ? '<span class="chip sm soft">' + I.spark + ' ' + esc(t('{n}-day protein streak', { n: streak >= 7 ? '7+' : streak })) + '</span>' : '') + '</div>' : '') +
     '<div class="section-title"><span class="eyebrow">' + t('Today') + '</span></div><div class="card"><div class="lead">' + esc(todayBits || t('Nothing logged yet')) + '</div>' + (d.ci && d.ci.note ? '<div class="mute">“' + esc(d.ci.note) + '”</div>' : '') + '</div>' +
     '<div class="section-title"><span class="eyebrow">' + t('Last 7 days') + '</span></div>' + week + '<div class="card">' + dots + '</div>' +
-    (tg.kcal || tg.protein_g ? '<div class="section-title"><span class="eyebrow">' + t('Food vs targets') + '</span><span class="mute small">' + t('green = on target') + '</span></div><div class="card">' + heatmap(st, tg) + '</div>' : '') +
+    (tg.kcal || tg.protein_g ? '<div class="section-title"><span class="eyebrow">' + t('Food vs targets') + '</span><span class="mute small heatkey"><i class="sw g"></i>' + t('on target') + '</span></div><div class="card">' + heatmap(st, tg) + '</div>' : '') +
     foodList(c, st) +
     (st.weights.length ? '<div class="section-title"><span class="eyebrow">' + t('Weight') + '</span><span class="mute small">' + Number(st.lastWeight.value) + ' ' + unit('kg') + ' · ' + fmtDay(st.lastWeight.day, 'dm') + '</span></div><div class="card">' + spark(st.weights) + '</div>' : '');
   const notes = (ciList ? '<div class="section-title"><span class="eyebrow">' + t('Check-ins') + '</span></div><div class="card">' + ciList + '</div>' : '') +
@@ -120,6 +120,7 @@ A.reactLog = async (id, on) => {
   catch (e) { toast(t('Could not save — try again'), 'err'); }
 };
 function spark(ws) {
+  if (ws.length < 2) return '<div class="mute">' + t('One weigh-in so far: {kg} kg on {day}. The trend shows from the second one.', { kg: Number(ws[0].value), day: fmtDay(ws[0].day, 'dm') }) + '</div>';
   const vals = ws.map(w => Number(w.value)); const min = Math.min(...vals), max = Math.max(...vals); const span = (max - min) || 1;
   const W = 300, H = 70, pad = 6; const pts = vals.map((v, i) => [pad + (vals.length > 1 ? i / (vals.length - 1) : 0.5) * (W - 2 * pad), H - pad - (v - min) / span * (H - 2 * pad)]);
   return '<svg class="sparkline" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="var(--a-accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/>' + pts.map(p => '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3" fill="var(--a-accent)"/>').join('') + '</svg>' +

@@ -77,6 +77,7 @@ A.tickAll = async () => {
 };
 SCREENS.plan = () => {
   if (!S.plan) return { title: t('Plan'), body: empty('plan', t('No plan yet')) };
+  if (!(S.plan.items || []).length) return { title: t('Weekly plan'), sub: t('Your coach has not set up your plan yet'), body: empty('plan', t('Your weekly plan will appear here as soon as your coach sets it up.')) + goalsCard() };
   const td = weekdayOf(); const sel = S.planDay || td; const days = weekOf(S.today.day); const done = doneSet();
   const hist = S.hist35 || [];
   const dayDone = (d) => { const its = itemsFor(d); if (!its.length) return false; const iso = days[d - 1]; const L = iso === S.today.day ? (S.today.logs || []) : hist.filter(l => l.day === iso); const refs = new Set(L.filter(l => l.kind === 'exercise').map(l => l.ref)); return its.every(i => refs.has(i.id)); };

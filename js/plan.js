@@ -32,7 +32,7 @@ export function planCard(pairId) {
 // ---- one day of the plan
 SCREENS.planDay = ({ day }) => {
   const items = itemsFor(day);
-  const body = (items.length ? '<div class="col" style="gap:8px">' + items.map(i => '<div class="task" onclick="A.editItem(\'' + i.id + '\')"><div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div><div class="s">' + esc(itemLine(i)) + (i.note ? ' · ' + esc(i.note) : '') + '</div></div>' + videoBtn(i.exercise) + '</div>').join('') + '</div>' : empty('plan', t('Rest day — add an exercise to make it a training day'))) +
+  const body = (items.length ? '<div class="col" style="gap:8px">' + items.map(i => '<div class="task" onclick="A.editItem(\'' + i.id + '\')"><div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div><div class="s">' + esc(itemLine(i)) + (i.note ? ' · ' + esc(i.note) : '') + '</div></div>' + videoBtn(i.exercise) + I.chev + '</div>').join('') + '</div>' : empty('plan', t('Rest day — add an exercise to make it a training day'))) +
     '<button class="btn" onclick="A.go(\'pickExercise\',{day:' + day + '})">' + I.plus + ' ' + t('Add exercise') + '</button>';
   return { title: dayName(day), sub: nEx(items.length), body };
 };

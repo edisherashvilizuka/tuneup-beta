@@ -303,7 +303,7 @@ SCREENS.week = () => ({ title: t('This week'), sub: t('Mon–Sun'), body: '<div 
       const kpi = (c, k, v, s2) => '<div class="kpi"><span class="eyebrow" style="color:var(' + c + ')">' + k + '</span><span class="num">' + v + '</span>' + (s2 ? '<small>' + s2 + '</small>' : '') + '</div>';
       const tiles = '<div class="kpis">' + kpi('--c-protein', t('Protein days'), protHit == null ? '—' : rollNum(protHit, 'i', null, true), protHit == null ? '' : t('of {n}', { n: past.length })) +
         kpi('--c-kcal', t('Avg calories'), food.length ? rollNum(n0(food.reduce((a, x) => a + x.kcal, 0) / food.length), 's', null, true) : '—', T.kcal ? t('of {n}', { n: Number(T.kcal).toLocaleString('en-US') }) : '') +
-        kpi('--c-carbs', t('Workouts'), rollNum(dn.length, 'i', null, true), t('of {n}', { n: pl.length })) +
+        kpi('--c-carbs', t('Workouts'), pl.length ? rollNum(dn.length, 'i', null, true) : '—', pl.length ? t('of {n}', { n: pl.length }) : '') +
         kpi('--c-water', t('Avg water'), wat.length ? rollNum(wat.reduce((a, x) => a + x.water, 0) / wat.length / 1000, 'd1', null, true) : '—', unit('L')) + '</div>';
       const today = byDay.find(x => x.day === S.today.day);
       const heat = T.kcal || T.protein_g ? '<div class="card"><div class="h3">' + t('Food vs targets') + '</div>' + heatmap({ byDay, today }, T) + '</div>' : '';

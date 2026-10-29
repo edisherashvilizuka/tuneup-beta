@@ -163,8 +163,9 @@ export function toast(msg, kind) {
   app.appendChild(el); clearTimeout(toastT); toastT = setTimeout(() => el.remove(), kind === 'err' ? 3600 : 2200);
 }
 export function empty(icon, text) { return '<div class="empty"><div class="ico">' + (I[icon] || I.home) + '</div><div>' + esc(text) + '</div></div>'; }
-export function avatar(name, id, cls) { return '<div class="avatar ' + (cls || '') + '" style="background:' + hueOf(id) + '">' + esc(initialsOf(name)) + '</div>'; }
-function initialsOf(n) { return String(n || '?').trim().split(' ').map(x => x[0] || '').slice(0, 2).join('').toUpperCase() || '?'; }
+export function avatar(name, id, cls) { return '<div class="avatar ' + (cls || '') + (/[\u10A0-\u10FF]/.test(initialsOf(name)) ? ' geo' : '') + '" style="background:' + hueOf(id) + '">' + esc(initialsOf(name)) + '</div>'; }
+// Georgian letters have no capitals: toUpperCase() would turn them into Mtavruli (ᲘᲛ), so they stay as written
+function initialsOf(n) { return String(n || '?').trim().split(/\s+/).map(x => x[0] || '').slice(0, 2).map(c => /[\u10A0-\u10FF]/.test(c) ? c : c.toUpperCase()).join('') || '?'; }
 function hueOf(id) { const H = ['#E8632B', '#2A9A90', '#8E6FD6', '#D9A520', '#D9456A', '#7E8A2E']; let h = 0; for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return H[h % H.length]; }
 
 // small form helpers — values live in a draft object the screen owns
