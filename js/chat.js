@@ -3,13 +3,13 @@ import { loader } from './motion.js';
 import { t, esc, fmtDate, fmtTime, fmtDay, firstName, isoDate } from './i18n.js';
 import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur, track } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair } from './state.js';
 import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, stopVoice, attachBlock, saveAttachments, scopePending } from './attach.js';
 
 // ---- pairs this person can chat in
 function myPairs() {
-  if (S.me.role === 'coach') return (S.clients || []).filter(c => c.status === 'active').map(c => ({ id: c.id, name: c.trainee.name, uid: c.trainee.id }));
-  if (S.pair && S.pair.status === 'active') return [{ id: S.pair.id, name: (S.pair.coach || {}).name, uid: (S.pair.coach || {}).id }];
+  if (S.me.role === 'coach') return (S.clients || []).filter(c => (c.status === 'active' || c.status === 'trial') && !c.gone).map(c => ({ id: c.id, name: c.trainee.name, uid: c.trainee.id, trial: c.status === 'trial' }));
+  const cp = coachPair(); if (cp && cp.coach) return [{ id: cp.id, name: (cp.coach || {}).name, uid: (cp.coach || {}).id, trial: cp.status === 'trial' }];
   return [];
 }
 function linkify(text) {                     // plain text, but https links become tappable (form-check clips)
@@ -32,7 +32,7 @@ export function chatUnread() { return Object.values((S.chat && S.chat.index) || 
 // ---- list of chats (coach) / straight into the thread (trainee)
 SCREENS.chat = () => {
   const pairs = myPairs();
-  if (!pairs.length) return { title: t('Chat'), body: empty('chat', S.me.role === 'coach' ? t('No clients yet') : t('No coach yet')) };
+  if (!pairs.length) return { title: t('Chat'), body: empty('chat', S.me.role === 'coach' ? t('No clients yet') : t('No coach yet')) + (S.me.role === 'trainee' ? '<button class="btn" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button>' : '') };
   if (S.me.role !== 'coach') { const v = SCREENS.thread({ id: pairs[0].id }); v.tabs = true; return v; }   // the trainee has one chat: the tab is the thread
   const idx = (S.chat && S.chat.index) || {};
   return { title: t('Chat'), sub: t('{n} active', { n: pairs.length }), body: '<div class="slist">' + pairs.map(p => { const x = idx[p.id] || {}; return '<div class="srow" style="cursor:pointer" onclick="A.go(\'thread\',{id:\'' + p.id + '\'})">' + avatar(p.name, p.uid) + '<div class="grow"><div class="t">' + esc(p.name) + (x.unread ? ' <span class="pill bad">' + x.unread + '</span>' : '') + '</div><div class="s">' + (x.last ? esc((x.last.sender_id === S.me.id ? t('You') + ': ' : '') + preview(x.last)).slice(0, 70) : t('No messages yet')) + '</div></div>' + (x.last ? '<div class="r mute small">' + fmtDate(x.last.created_at, 'dm') + '</div>' : '') + '</div>'; }).join('') + '</div>',
@@ -45,8 +45,8 @@ SCREENS.thread = ({ id }) => {
   const p = myPairs().find(x => x.id === id); if (!p) return { title: t('Chat'), body: empty('chat', t('Not found')) }; scopePending('msg', id);   // a photo picked in one client's chat never moves to another chat
   const th = (S.chat && S.chat.threads && S.chat.threads[id]) || null;
   const body = !th ? loader(t('Loading…')) : (th.list.length ? '<div class="chat">' + th.list.map((m, i) => { const day = isoDate(new Date(m.created_at)); const prev = i ? isoDate(new Date(th.list[i - 1].created_at)) : null; return (day !== prev ? '<div class="msg sys">' + fmtDate(m.created_at) + '</div>' : '') + '<div class="msg ' + (m.sender_id === S.me.id ? 'me' : 'them') + '">' + attHtml(m.attachments) + linkify(m.text) + '<span class="tm">' + fmtTime(m.created_at) + '</span></div>'; }).join('') + '</div>' : '<div class="card soft"><div class="h3">' + t('Say hi') + '</div><div class="mute">' + t('Questions, how a session went, a photo or a clip of your form — it all goes here.') + '</div></div>');
-  const cp = S.me.role !== 'coach' && S.pair && S.pair.coach && S.pair.coach.coach_profiles; const cpp = cp && (Array.isArray(cp) ? cp[0] : cp);
-  return { title: p.name, lead: avatar(p.name, p.uid), sub: S.me.role === 'coach' ? t('Client') : [t('Your coach'), cpp && cpp.gym].filter(Boolean).join(' · '), tabs: false, body,
+  const CP = coachPair(); const cp = S.me.role !== 'coach' && CP && CP.coach && CP.coach.coach_profiles; const cpp = cp && (Array.isArray(cp) ? cp[0] : cp);
+  return { title: p.name, lead: avatar(p.name, p.uid), sub: S.me.role === 'coach' ? (p.trial ? t('Trial') : t('Client')) : [p.trial ? t('Your coach (trial)') : t('Your coach'), cpp && cpp.gym].filter(Boolean).join(' · '), tabs: false, body,
     footer: composerHtml('msg', { placeholder: t('Write a message'), send: "A.sendMsg('" + id + "')" }),
     after: async () => {
       const inp = document.getElementById('msg'); if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') A.sendMsg(id); }); renderPending('msg');

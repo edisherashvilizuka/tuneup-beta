@@ -10,6 +10,7 @@ import { effectiveTargets } from './plan.js';
 import { tuneButton } from './tune.js';
 import { pushCard } from './push.js';
 import { guideCard } from './guide.js';
+import { requestsBlock } from './requests.js';
 
 const DAYS_BACK = 13;                       // two weeks of logs for every active client, loaded once with the coach
 export async function loadMonitor() {
@@ -57,9 +58,15 @@ export function flagsFor(c, st) {
 }
 
 // ---- coach Today tab
+function reviewCard() {
+  const cp = S.coachProfile || {}; const rs = cp.review_status || 'approved'; if (rs === 'approved') return '';
+  const title = rs === 'pending' ? t('You\'re under review') : rs === 'more' ? t('One more thing for your review') : t('Your application was not approved');
+  const sub = rs === 'pending' ? t('Usually 1–2 days. We\'ll ping you. Meanwhile the app works for the clients you invite yourself.') : rs === 'more' ? (cp.review_note || t('Check your profile and documents.')) : (cp.review_note || t('Contact the Tune Up team if you think this is a mistake.'));
+  return '<div class="card amber"><div class="row" style="gap:10px"><span class="avatar sm" style="background:var(--a-amber);color:#16130F">' + I.shield + '</span><div class="h3">' + esc(title) + '</div></div><div class="s" style="color:var(--a-ink2)">' + esc(sub) + '</div>' + (rs !== 'rejected' ? '<div class="btn-row"><button class="btn" style="background:var(--a-ink);color:var(--a-bg)" onclick="A.newInvite()">' + t('Invite a client') + '</button><button class="btn sec" onclick="A.go(\'coachEdit\')">' + t('Edit profile') + '</button></div>' : '') + '</div>';
+}
 SCREENS.ctoday = () => {
   const active = (S.clients || []).filter(c => c.status === 'active');
-  if (!active.length) return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), body: guideCard() + '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Create an invite link and send it to a client. They sign up through it and land here.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>' };
+  if (!active.length) return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: reviewCard() + requestsBlock() + guideCard() + '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Invite your own clients with a link — and once your profile is approved, people find you in Find a coach.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>' };
   const rows = active.map(c => { const st = statsFor(c); return { c, st, flags: flagsFor(c, st) }; });
   const eye = rows.filter(r => r.flags.length);
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? 'amb' : 'red') + '">' + esc(f.label) + (f.k !== 'note' && f.sub ? ' · ' + esc(f.sub) : '') + '</span>';   // details visible on phones too (no hover)
@@ -67,7 +74,7 @@ SCREENS.ctoday = () => {
   const logged = rows.filter(r => r.st.today.L.length).length, wk = rows.reduce((a, r) => a + r.st.today.done, 0), wkp = rows.reduce((a, r) => a + r.st.today.planned, 0);
   const kpis = '<div class="kpis"><div class="kpi"><span class="eyebrow" style="color:var(--c-kcal)">' + t('Clients') + '</span><span class="num">' + rollNum(rows.length, 'i', null, true) + '</span><small>' + (eye.length ? t('{n} need your eye', { n: eye.length }) : t('All quiet')) + '</small></div>' +
     '<div class="kpi"><span class="eyebrow" style="color:var(--c-water)">' + t('Logged today') + '</span><span class="num">' + rollNum(logged, 'i', null, true) + '<small style="font-family:var(--font-body)"> / ' + rows.length + '</small></span><small>' + (wkp ? t('{n} of {m} exercises ticked', { n: wk, m: wkp }) : t('rest day for everyone')) + '</small></div></div>';
-  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: (guideCard() || pushCard()) + kpis +
+  return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: reviewCard() + requestsBlock() + (guideCard() || pushCard()) + kpis +
     '<div class="section-title"><span class="eyebrow">' + t('Needs your eye') + '</span></div>' +
     (eye.length ? eye.map(r => '<div class="card tap" onclick="A.go(\'client\',{id:\'' + r.c.id + '\'})"><div class="row">' + avatar(r.c.trainee.name, r.c.trainee.id) + '<div class="grow"><div class="t">' + esc(r.c.trainee.name) + '</div><div class="chips" style="margin-top:4px">' + r.flags.map(chip).join('') + '</div>' + (r.flags.find(f => f.k === 'note') ? '<div class="mute small" style="margin-top:4px">“' + esc(r.flags.find(f => f.k === 'note').sub) + '”</div>' : '') + '</div>' + I.chev + '</div></div>').join('') : '<div class="card flat mute">' + t('All quiet — nobody needs attention right now.') + '</div>') +
     '<div class="section-title"><span class="eyebrow">' + t('Everyone today') + '</span></div><div class="card">' +

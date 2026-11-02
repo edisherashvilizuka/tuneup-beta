@@ -5,10 +5,10 @@ import { loader } from './motion.js';
 import { t, esc, fmtDate, fmtTime, firstName, isoDate, addDays, dayName, weekdayOf, fmtDay } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair, isSolo } from './state.js';
 
-function pairs() { return S.me.role === 'coach' ? (S.clients || []).filter(c => c.status === 'active') : (S.pair && S.pair.status === 'active' ? [S.pair] : []); }
-function pairName(id) { const c = (S.clients || []).find(x => x.id === id); return c ? c.trainee.name : (S.pair && S.pair.coach ? S.pair.coach.name : ''); }
+function pairs() { if (S.me.role === 'coach') return (S.clients || []).filter(c => (c.status === 'active' || c.status === 'trial') && !c.gone); const cp = coachPair(); return cp ? [cp] : []; }
+function pairName(id) { const c = (S.clients || []).find(x => x.id === id); const cp = coachPair(); return c ? c.trainee.name : (cp && cp.coach ? cp.coach.name : ''); }
 export async function loadSessions() {
   const ids = pairs().map(p => p.id); S.cal = { sessions: [], exceptions: [] };
   if (!ids.length) return;
@@ -45,7 +45,7 @@ function occRow(o, withName, tap, gig) {
 const CALS = {};
 function calBtn(o) { const k = o.s.id + '@' + o.at.getTime(); CALS[k] = o; return '<button class="btn xs sec" onclick="event.stopPropagation();A.calSheet(\'' + k + '\')" aria-label="' + esc(t('Add to my calendar')) + '">' + I.cal + '</button>'; }
 function stamp(d) { return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); }
-function calText(o) { const coach = (S.pair && S.pair.coach && S.pair.coach.name) || ''; return { title: 'Tune Up · ' + (coach || t('Session')), place: o.s.where_kind === 'video' ? o.s.place : (o.s.place || ''), note: o.note || o.s.note || '', start: o.at, end: new Date(o.at.getTime() + o.s.minutes * 60000) }; }
+function calText(o) { const CP = coachPair(); const coach = (CP && CP.coach && CP.coach.name) || ''; return { title: 'Tune Up · ' + (coach || t('Session')), place: o.s.where_kind === 'video' ? o.s.place : (o.s.place || ''), note: o.note || o.s.note || '', start: o.at, end: new Date(o.at.getTime() + o.s.minutes * 60000) }; }
 A.calSheet = (k) => { const o = CALS[k]; if (!o) return; const c = calText(o);
   const g = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(c.title) + '&dates=' + stamp(c.start) + '/' + stamp(c.end) + '&location=' + encodeURIComponent(c.place) + '&details=' + encodeURIComponent(c.note);
   sheet('<div class="h2">' + t('Add to my calendar') + '</div><div class="mute">' + esc(fmtDay(isoDate(o.at))) + ' · ' + fmtTime(o.at) + ' · ' + o.s.minutes + ' ' + t('min') + '</div><div class="mute small">' + t('If your coach moves or cancels it, the app tells you — your calendar does not change by itself.') + '</div>' +
@@ -75,7 +75,8 @@ function heroCard(o, today) {
 }
 SCREENS.sessions = () => {
   const today = isoDate(); const list = occurrences(today, addDays(today, 27)).filter(o => !(o.cancelled && o.date < today));
-  const cp = S.pair && S.pair.coach && S.pair.coach.coach_profiles; const av = cp && (Array.isArray(cp) ? cp[0] : cp); const avail = av && av.availability_text;
+  const CP = coachPair(); const cp = CP && CP.coach && CP.coach.coach_profiles; const av = cp && (Array.isArray(cp) ? cp[0] : cp); const avail = av && av.availability_text;
+  if (!CP) return { title: t('Sessions'), body: '<div class="empty"><div class="ico">' + I.cal + '</div><div class="h3">' + t('Sessions come with a coach') + '</div><div class="s">' + t('Gym and video-call sessions open once you have a coach. Your program is self-guided.') + '</div><button class="btn sm" style="margin-top:6px" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button></div>' };
   let html = '';
   if (!S.cal) html = loader(t('Loading…'));
   else if (!list.length) html = empty('cal', t('No sessions planned yet — your coach adds them here.'));
@@ -84,7 +85,7 @@ SCREENS.sessions = () => {
     const rest = list.filter(o => o !== next);
     html = (next ? heroCard(next, today) : '') + (rest.length ? '<div class="section-title"><span class="eyebrow">' + t('Coming up') + '</span></div><div class="slist">' + rest.map(srow).join('') + '</div>' : '');
   }
-  return { title: t('Sessions'), sub: S.pair && S.pair.coach ? t('With {name}', { name: firstName(S.pair.coach.name) }) : t('next 4 weeks'), body: html + (avail ? '<div class="card flat mute small">' + I.cal + ' ' + t('{name} is usually available: {when}', { name: firstName((S.pair.coach || {}).name), when: esc(avail) }) + '</div>' : ''),
+  return { title: t('Sessions'), sub: CP.coach ? t('With {name}', { name: firstName(CP.coach.name) }) : t('next 4 weeks'), body: html + (avail ? '<div class="card flat mute small">' + I.cal + ' ' + t('{name} is usually available: {when}', { name: firstName((CP.coach || {}).name), when: esc(avail) }) + '</div>' : ''),
     after: async () => { if (!S.cal) { try { await loadSessions(); } catch (e) {} rerender(); } } };
 };
 

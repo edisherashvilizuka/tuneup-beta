@@ -1,8 +1,12 @@
 // Tune Up beta — trainee screens: Today (workout + log), Plan, Coach, More. Logging itself lives in log.js.
-import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle, weekOf } from './i18n.js';
+import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle, weekOf, LANG } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs, bell, field, val, busy } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair, isSolo } from './state.js';
+import { loadSolo, programCard, weeklyCard, findCoachCard, soloMoreRows, programLine } from './solo.js';
+import { loadMatch, requestCard } from './match.js';
+import { planBlock } from './requests.js';
+import { DISTRICTS } from './onboard.js';
 import { howUrl } from './exlib.js';
 import { resolveUrls } from './attach.js';
 import { foodCard, dayTiles, checkinCard } from './log.js';
@@ -13,12 +17,20 @@ import { tuneButton } from './tune.js';
 import { loadHistory, streakChip, recapCard, nudgeRow } from './habits.js';
 import { tickNow } from './motion.js';
 
-export const TRAINEE_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
+const ALL_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
+// Solo without a coach in sight: no Chat tab (Tune is the chat); Sessions stays and explains itself
+export const TRAINEE_TABS = ALL_TABS;
+export function traineeTabs() { return coachPair() ? ALL_TABS : ALL_TABS.filter(x => x.id !== 'chat'); }
 
 export async function loadTrainee() {
-  S.pair = await db.myCoachPair(S.me.id);
+  const pairs = await db.myPairs(S.me.id) || []; S.pairs = pairs;
+  S.pair = pairs.find(p => p.status === 'active') || pairs.find(p => p.status === 'ended') || null;   // the one that carries plan, targets, logs (coach or solo)
+  S.trial = pairs.find(p => p.status === 'trial') || null;
+  if (S.trial) { try { const ses = await db.sessionsFor([S.trial.id]); S.trial.trialSession = ses.find(x => x.id === S.trial.trial_session_id) || ses.find(x => x.status === 'planned') || null; } catch (e) { S.trial.trialSession = null; } }
   S.traineeProfile = await db.myTraineeProfile(S.me.id);
   S.today = { day: isoDate(), logs: [] };
+  if (isSolo()) { try { await loadSolo(); } catch (e) { console.warn('solo', e); } if (!S.trial) loadMatch().then(() => rerender()).catch(() => {}); }
+  setTabs(traineeTabs());
   if (S.pair && S.pair.status === 'active') {
     const [items, targets, goals, logs] = await Promise.all([db.planItems(S.pair.id), db.getTargets(S.pair.id), db.listGoals(S.pair.id), db.logsForDay(S.me.id, S.today.day)]);
     S.plan = { pairId: S.pair.id, items, targets, goals }; S.today.logs = logs; resolveUrls(logs).then(ok => { if (ok) rerender(); }).catch(() => {}); S.hist35 = null; loadHistory().then(() => rerender()).catch(() => {});
@@ -46,7 +58,7 @@ function workoutCard() {
 function goalsCard() {
   const gs = (S.plan && S.plan.goals) || []; if (!gs.length) return '';
   const cols = ['--c-carbs', '--c-water', '--c-kcal', '--c-protein'];
-  return '<div class="card"><div class="eyebrow">' + t('Goals from {name}', { name: firstName(((S.pair || {}).coach || {}).name) }) + '</div>' + gs.map((g, i) => '<div class="goal' + (g.done ? ' done' : '') + '"><span class="gdot" style="background:var(' + (g.done ? '--c-water' : cols[i % cols.length]) + ')"></span><span class="grow">' + esc(g.text) + '</span>' + (g.done ? '<span class="tag ok">' + t('done') + '</span>' : '') + '</div>').join('') + '</div>';
+  return '<div class="card"><div class="eyebrow">' + (isSolo() ? t('Your goals') : t('Goals from {name}', { name: firstName(((S.pair || {}).coach || {}).name) })) + '</div>' + gs.map((g, i) => '<div class="goal' + (g.done ? ' done' : '') + '"><span class="gdot" style="background:var(' + (g.done ? '--c-water' : cols[i % cols.length]) + ')"></span><span class="grow">' + esc(g.text) + '</span>' + (g.done ? '<span class="tag ok">' + t('done') + '</span>' : '') + '</div>').join('') + '</div>';
 }
 A.tick = async (id) => {
   const done = doneSet(); const now = !done.has(id); tickNow(id, now);
@@ -55,18 +67,19 @@ A.tick = async (id) => {
 };
 
 function coachCard() {
-  const p = S.pair; if (!p || p.status !== 'active') return '';
+  const p = S.pair; if (!p || p.status !== 'active' || p.kind !== 'coach') return '';
   const c = p.coach || {}; const cp = (c.coach_profiles && (Array.isArray(c.coach_profiles) ? c.coach_profiles[0] : c.coach_profiles)) || {};
   return '<div class="card tap" onclick="A.go(\'coach\')"><div class="row">' + avatar(c.name, c.id) + '<div class="grow"><div class="eyebrow">' + t('Your coach') + '</div><div class="h3">' + esc(c.name) + '</div><div class="mute">' + esc([cp.gym, cp.district].filter(Boolean).join(' · ') || (cp.online ? t('Online') : '')) + '</div></div>' + I.chev + '</div></div>';
 }
 
 function greeting() { const h = new Date().getHours(); return h < 5 ? 'Good evening, {name}' : h < 12 ? 'Good morning, {name}' : h < 18 ? 'Good afternoon, {name}' : 'Good evening, {name}'; }
 SCREENS.home = () => {
-  const p = S.pair; const active = p && p.status === 'active';
+  const p = S.pair; const active = p && p.status === 'active'; const solo = isSolo();
   const head = '<div class="tophead"><div class="grow"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="h1">' + t(greeting(), { name: firstName(S.me.name) }) + '</div></div>' + (active ? tuneButton() : '') + bell() + '</div>';
-  const body = head + (active ? (guideCard() || pushCard()) : '') +
-    (active ? foodCard(streakChip()) + dayTiles() + (S.plan && S.plan.items.length ? workoutCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>') + checkinCard() + goalsCard()
-      : '<div class="card amber"><div class="h3">' + (p ? (p.coach && p.coach.name ? t('Your coaching with {name} has ended', { name: firstName(p.coach.name) }) : t('Your coaching has ended')) : t('No coach yet')) + '</div>' + (p && p.end_note ? '<div style="margin:6px 0">' + t('Note from your coach') + ': ' + esc(p.end_note) + '</div>' : '') + '<div class="mute">' + t('Open a new invite link from a coach to start again.') + '</div></div>');
+  const noPlan = solo ? programCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p && p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>';
+  const body = head + requestCard() + (active ? (guideCard() || pushCard()) : '') +
+    (active ? (solo ? weeklyCard() : '') + foodCard(streakChip()) + dayTiles() + (S.plan && S.plan.items.length ? workoutCard() : noPlan) + checkinCard() + goalsCard() + (solo ? findCoachCard() : '')
+      : '<div class="card amber"><div class="h3">' + (p ? (p.coach && p.coach.name ? t('Your coaching with {name} has ended', { name: firstName(p.coach.name) }) : t('Your coaching has ended')) : t('No coach yet')) + '</div>' + (p && p.end_note ? '<div style="margin:6px 0">' + t('Note from your coach') + ': ' + esc(p.end_note) + '</div>' : '') + '<div class="mute">' + t('Start a free program with Tune, or find a new coach.') + '</div><div class="btn-row"><button class="btn sm" onclick="A.restartSolo()">' + t('Start with Tune') + '</button><button class="btn sm sec" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button></div></div>');
   return { title: '', header: false, body };
 };
 
@@ -94,8 +107,10 @@ SCREENS.plan = () => {
   return { title: t('Weekly plan'), sub: t('This week · {n} of {m} done', { n: doneDays, m: trained.length }), body: strip + dayCard + next + goalsCard(), after: () => { if (!S.hist35) loadHistory().then(() => rerender()).catch(() => {}); } };
 };
 
+// a trainee whose last pair ended with no active one (old data): a new solo pair through the sign-up function
+A.restartSolo = async () => { busy(true); try { const tp = S.traineeProfile || {}; await db.signupTrainee(S.me.name, LANG.cur, Object.assign({}, tp, { days: tp.days || [], time_of_day: tp.time_of_day || [] }), 'solo'); await loadTrainee(); root('home'); go('program'); } catch (e) { busy(false); toast(t('Could not start — try again'), 'err'); } };
 SCREENS.coach = () => {
-  const p = S.pair; if (!p || p.status !== 'active') return { title: t('Coach'), body: empty('users', t('No coach yet')) };
+  const p = coachPair(); if (!p) return { title: t('Coach'), body: empty('users', t('No coach yet')) + (isSolo() ? '<button class="btn" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button>' : '') };
   const c = p.coach || {}; const cp = (c.coach_profiles && (Array.isArray(c.coach_profiles) ? c.coach_profiles[0] : c.coach_profiles)) || {};
   const fmt = cp.inperson && cp.online ? t('In person or online') : cp.online ? t('Online') : t('In person');
   return { title: t('Your coach'), body:
@@ -105,29 +120,32 @@ SCREENS.coach = () => {
     (cp.gym || cp.district ? '<div class="mute">' + I.pin + ' ' + esc([cp.gym, cp.district].filter(Boolean).join(', ')) + '</div>' : '') +
     (cp.availability_text ? '<div class="mute">' + I.cal + ' ' + esc(cp.availability_text) + '</div>' : '') +
     '</div>' +
-    '<div class="card flat mute small">' + t('Together since {date}', { date: fmtDate(p.started_at, 'dm') }) + ' · ' + esc(opt('format', p.format)) + '</div>' };
+    (p.status === 'trial' ? '<div class="card amber"><div class="h3">' + t('Free trial') + '</div><div class="s" style="color:var(--a-ink2)">' + t('You two are getting to know each other. After the trial you both confirm, then you choose a plan.') + '</div></div>' : planBlock(p)) +
+    '<div class="card flat mute small">' + (p.status === 'trial' ? t('Accepted your request {date}', { date: fmtDate(p.started_at, 'dm') }) : t('Together since {date}', { date: fmtDate(p.started_at, 'dm') })) + ' · ' + esc(opt('format', p.format)) + '</div>' +
+    (p.status === 'active' ? '<button class="btn sec" onclick="A.endCoachingAsk()">' + t('End coaching') + '</button>' : '') };
 };
 
 function dotted(html, c) { return html.split('<div class="lrow"').join('<div class="lrow" style="--dot:var(' + c + ')"'); }
 SCREENS.more = () => {
-  const c = (S.pair || {}).coach; const active = S.pair && S.pair.status === 'active'; const email = (S.session.user && S.session.user.email) || '';
-  const head = '<div class="tophead">' + avatar(S.me.name, S.me.id, 'lg') + '<div class="grow" style="min-width:0"><div class="h1 sm">' + esc(S.me.name) + '</div><div class="eyebrow">' + esc(active && c ? t('Coached by {name} since {date}', { name: firstName(c.name), date: fmtDate(S.pair.started_at, 'dm') }) : email) + '</div></div></div>';
+  const cpair = coachPair(); const c = (cpair || {}).coach; const active = S.pair && S.pair.status === 'active'; const email = (S.session.user && S.session.user.email) || '';
+  const head = '<div class="tophead">' + avatar(S.me.name, S.me.id, 'lg') + '<div class="grow" style="min-width:0"><div class="h1 sm">' + esc(S.me.name) + '</div><div class="eyebrow">' + esc(cpair && cpair.status === 'active' && c ? t('Coached by {name} since {date}', { name: firstName(c.name), date: fmtDate(cpair.started_at, 'dm') }) : isSolo() ? (programLine() || t('Training with Tune')) : email) + '</div></div></div>';
   const row = (c2, on, title, sub) => '<div class="lrow" style="--dot:var(' + c2 + ');cursor:pointer" onclick="' + on + '"><div class="grow"><div class="t">' + title + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>' + I.chev + '</div>';
-  const you = row('--c-carbs', "A.go('myProfile')", t('My answers'), t('Weight, goal, injuries, diet')) + row('--c-water', "A.go('coach')", t('Your coach'), esc((c || {}).name || t('No coach yet'))) + row('--c-tune', "A.go('tune')", t('Ask Tune'), t('Your assistant')) + (active ? dotted(nudgeRow(), '--c-kcal') : '');
+  const you = row('--c-carbs', "A.go('myProfile')", t('My answers'), t('Weight, goal, injuries, diet')) + (cpair ? row('--c-water', "A.go('coach')", cpair.status === 'trial' ? t('Your coach (trial)') : t('Your coach'), esc((c || {}).name || t('No coach yet'))) : '') + soloMoreRows(row) + row('--c-tune', "A.go('tune')", t('Ask Tune'), t('Your assistant')) + (active ? dotted(nudgeRow(), '--c-kcal') : '');
   const app = '<div class="lrow" style="--dot:var(--c-kcal)"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + dotted(pushRow(), '--c-tune') + dotted(guideRow(), '--a-mute') + row('--a-mute', 'A.feedbackSheet()', t('Send feedback'), t('What is confusing, missing or great?'));
   return { title: '', header: false, body: head +
     '<div class="eyebrow grp">' + t('You') + '</div><div class="card menu">' + you + '</div>' +
     '<div class="eyebrow grp">' + t('App') + '</div><div class="card menu">' + app + '</div>' +
     '<div class="card menu plain"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
-    '<div class="mute small" style="text-align:center">Tune Up · ' + t('closed beta') + '</div>' };
+    '<div class="mute small" style="text-align:center">Tune Up</div>' };
 };
 
 A.setLangSave = async (l) => { A.lang(l); try { await db.updateProfile(S.me.id, { lang: l }); S.me.lang = l; } catch (e) {} };
 
 SCREENS.myProfile = () => {
   const tp = S.traineeProfile || {};
-  const rows = [[t('Weight'), tp.weight_kg ? tp.weight_kg + ' ' + unit('kg') : '—'], [t('Height'), tp.height_cm ? tp.height_cm + ' ' + unit('cm') : '—'], [t('Experience'), opt('experience', tp.experience)], [t('Main goal'), opt('goal', tp.goal)], [t('Anything specific?'), tp.goal_detail || '—'], [t('Injuries or limits'), tp.injuries || '—'], [t('Diet'), tp.diet || '—'], [t('Eating style'), opt('eating_style', tp.eating_style || '')], [t('Allergies or foods I avoid'), tp.allergies || '—'], [t('How you want to train'), opt('format', tp.format)]];
+  const rows = [[t('Sex'), tp.sex === 'f' ? t('Female') : tp.sex === 'm' ? t('Male') : '—'], [t('Age'), tp.age || '—'], [t('Weight'), tp.weight_kg ? tp.weight_kg + ' ' + unit('kg') : '—'], [t('Height'), tp.height_cm ? tp.height_cm + ' ' + unit('cm') : '—'], [t('Experience'), opt('experience', tp.experience)], [t('Main goal'), opt('goal', tp.goal)], [t('Anything specific?'), tp.goal_detail || '—'], [t('Injuries or limits'), tp.injuries || '—'], [t('Diet'), tp.diet || '—'], [t('Eating style'), opt('eating_style', tp.eating_style || '')], [t('Allergies or foods I avoid'), tp.allergies || '—'],
+    [t('Days you can train'), (tp.days || []).length ? tp.days.map(d => dayName(d, true)).join(' · ') : '—'], [t('Time of day'), (tp.time_of_day || []).length ? tp.time_of_day.map(x => t({ morning: 'Morning', day: 'Daytime', evening: 'Evening' }[x] || x)).join(' · ') : '—'], [t('Where you train'), tp.place === 'home' ? t('Home') : t('Gym')], [t('With a coach'), opt('format', tp.format)], [t('District'), DISTRICTS[tp.district] ? t(DISTRICTS[tp.district]) : (tp.district || '—')], [t('Budget per month'), tp.budget_max ? (tp.budget_min ? tp.budget_min + '–' : '') + tp.budget_max + ' ₾' : '—'], [t('Coach gender'), tp.coach_gender === 'f' ? t('Woman') : tp.coach_gender === 'm' ? t('Man') : t('Any')]];
   return { title: t('My answers'), body: '<div class="card">' + rows.map(r => '<div class="lrow"><div class="grow"><div class="s">' + esc(r[0]) + '</div><div class="t">' + esc(r[1]) + '</div></div></div>').join('') + '</div>' +
     '<button class="btn sec" onclick="A.go(\'editAnswers\')">' + I.edit + ' ' + t('Edit my answers') + '</button><div class="mute small">' + t('Your coach sees the changes. Your weigh-ins update the weight here.') + '</div>' };
 };
@@ -135,26 +153,42 @@ SCREENS.myProfile = () => {
 // ---- edit my answers (same fields as the sign-up form)
 function sel(id, group, cur) { return '<select class="input" id="' + id + '">' + Object.keys(OPTS[group]).map(k => '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + esc(t(OPTS[group][k])) + '</option>').join('') + '</select>'; }
 SCREENS.editAnswers = () => {
-  const tp = S.traineeProfile || {};
+  const saved = S.traineeProfile || {}; const dv = S.draft.ea || {}; const tp = Object.assign({}, saved, { age: dv.v_ea_age != null ? dv.v_ea_age : saved.age, weight_kg: dv.v_ea_w != null ? dv.v_ea_w : saved.weight_kg, height_cm: dv.v_ea_h != null ? dv.v_ea_h : saved.height_cm, goal_detail: dv.v_ea_gd != null ? dv.v_ea_gd : saved.goal_detail, injuries: dv.v_ea_inj != null ? dv.v_ea_inj : saved.injuries, diet: dv.v_ea_diet != null ? dv.v_ea_diet : saved.diet, allergies: dv.v_ea_allergies != null ? dv.v_ea_allergies : saved.allergies, budget_min: dv.v_ea_bmin != null ? dv.v_ea_bmin : saved.budget_min, budget_max: dv.v_ea_bmax != null ? dv.v_ea_bmax : saved.budget_max, experience: dv.v_ea_exp || saved.experience, goal: dv.v_ea_goal || saved.goal, eating_style: dv.v_ea_style != null ? dv.v_ea_style : saved.eating_style, format: dv.v_ea_fmt || saved.format });
+  const ed = S.draft.ea = S.draft.ea || { days: (tp.days || []).map(Number), time_of_day: (tp.time_of_day || []).slice(), place: tp.place || 'gym', sex: tp.sex || '', district: tp.district || '', coach_gender: tp.coach_gender || 'any' };
+  const seg = (k, opts) => '<div class="segc">' + Object.keys(opts).map(o => '<button type="button" class="' + (ed[k] === o ? 'on' : '') + '" onclick="A.eaPick(\'' + k + '\',\'' + o + '\')">' + esc(t(opts[o])) + '</button>').join('') + '</div>';
   return { title: t('Edit my answers'), body:
-    '<div class="input-row">' + field(t('Weight'), 'ea_w', tp.weight_kg || '', { type: 'number', unit: unit('kg'), ph: '70', attrs: ' step="0.1"' }) + field(t('Height'), 'ea_h', tp.height_cm || '', { type: 'number', unit: unit('cm'), ph: '170' }) + '</div>' +
+    '<div class="field"><label>' + t('Sex') + '</label>' + seg('sex', { f: 'Female', m: 'Male' }) + '</div>' +
+    '<div class="input-row">' + field(t('Age'), 'ea_age', tp.age || '', { type: 'number', ph: '29' }) + field(t('Weight'), 'ea_w', tp.weight_kg || '', { type: 'number', unit: unit('kg'), ph: '70', attrs: ' step="0.1"' }) + field(t('Height'), 'ea_h', tp.height_cm || '', { type: 'number', unit: unit('cm'), ph: '170' }) + '</div>' +
     '<div class="field"><label for="ea_exp">' + t('Experience') + '</label>' + sel('ea_exp', 'experience', tp.experience) + '</div>' +
     '<div class="field"><label for="ea_goal">' + t('Main goal') + '</label>' + sel('ea_goal', 'goal', tp.goal) + '</div>' +
     field(t('Anything specific?'), 'ea_gd', tp.goal_detail || '', { textarea: true }) +
     field(t('Injuries or limits'), 'ea_inj', tp.injuries || '') + field(t('Diet'), 'ea_diet', tp.diet || '') +
     '<div class="field"><label for="ea_style">' + t('Eating style') + '</label>' + sel('ea_style', 'eating_style', tp.eating_style || '') + '</div>' +
     field(t('Allergies or foods I avoid'), 'ea_allergies', tp.allergies || '', { ph: t('e.g. nuts, lactose, pork') }) + '<div class="mute small">' + t('Food suggestions and Tune respect these.') + '</div>' +
-    '<div class="field"><label for="ea_fmt">' + t('How you want to train') + '</label>' + sel('ea_fmt', 'format', tp.format) + '</div>' +
+    '<div class="field"><label for="ea_fmt">' + t('With a coach') + '</label>' + sel('ea_fmt', 'format', tp.format) + '</div>' +
+    '<div class="field"><label>' + t('Days you can train') + '</label><div class="wstrip">' + [1, 2, 3, 4, 5, 6, 7].map(dd => '<button type="button" class="wd ' + (ed.days.includes(dd) ? 'today' : '') + '" onclick="A.eaDay(' + dd + ')"><span>' + esc(dayName(dd, true)) + '</span></button>').join('') + '</div></div>' +
+    '<div class="field"><label>' + t('Time of day') + '</label><div class="chips">' + ['morning', 'day', 'evening'].map(x => '<button type="button" class="chip ' + (ed.time_of_day.includes(x) ? 'on' : '') + '" onclick="A.eaTod(\'' + x + '\')">' + esc(t({ morning: 'Morning', day: 'Daytime', evening: 'Evening' }[x])) + '</button>').join('') + '</div></div>' +
+    '<div class="field"><label>' + t('Where you train') + '</label>' + seg('place', { gym: 'Gym', home: 'Home' }) + '</div>' +
+    '<div class="field"><label>' + t('District') + '</label><div class="chips">' + Object.keys(DISTRICTS).map(o => '<button type="button" class="chip ' + (ed.district === o ? 'on' : '') + '" onclick="A.eaPick(\'district\',\'' + o + '\')">' + esc(t(DISTRICTS[o])) + '</button>').join('') + '</div></div>' +
+    '<div class="input-row">' + field(t('Budget from'), 'ea_bmin', tp.budget_min || '', { type: 'number', unit: '₾' }) + field(t('Budget to'), 'ea_bmax', tp.budget_max || '', { type: 'number', unit: '₾' }) + '</div>' +
+    '<div class="field"><label>' + t('Coach gender') + '</label>' + seg('coach_gender', { any: 'Any', f: 'Woman', m: 'Man' }) + '</div>' +
+    (isSolo() ? '<div class="s">' + t('Days, place and injuries reshape your program from next week.') + '</div>' : '') +
     '<button class="btn" onclick="A.saveAnswers()">' + t('Save') + '</button>' };
 };
+function eaKeep() { ['ea_age', 'ea_w', 'ea_h', 'ea_gd', 'ea_inj', 'ea_diet', 'ea_allergies', 'ea_bmin', 'ea_bmax'].forEach(id => { const el = document.getElementById(id); if (el) S.draft.ea['v_' + id] = el.value; }); ['ea_exp', 'ea_goal', 'ea_style', 'ea_fmt'].forEach(id => { const el = document.getElementById(id); if (el) S.draft.ea['v_' + id] = el.value; }); }
+A.eaPick = (k, v) => { eaKeep(); S.draft.ea[k] = v; rerender(); };
+A.eaDay = (dd) => { eaKeep(); const a = S.draft.ea.days; const i = a.indexOf(dd); if (i >= 0) a.splice(i, 1); else a.push(dd); rerender(); };
+A.eaTod = (x) => { eaKeep(); const a = S.draft.ea.time_of_day; const i = a.indexOf(x); if (i >= 0) a.splice(i, 1); else a.push(x); rerender(); };
 A.saveAnswers = async () => {
   const w = val('ea_w') ? parseFloat(val('ea_w')) : null, h = val('ea_h') ? parseInt(val('ea_h'), 10) : null;
   if (w !== null && (isNaN(w) || w < 20 || w > 400)) { toast(t('Check the number: weight in kg, 20–400.'), 'err'); return; }
   if (h !== null && (isNaN(h) || h < 100 || h > 250)) { toast(t('Check the number: height in cm, 100–250.'), 'err'); return; }
   busy(true);
   try {
-    const patch = { weight_kg: w, height_cm: h, experience: val('ea_exp'), goal: val('ea_goal'), goal_detail: val('ea_gd').slice(0, 300), injuries: val('ea_inj').slice(0, 300), diet: val('ea_diet').slice(0, 200), eating_style: val('ea_style'), allergies: val('ea_allergies').slice(0, 200), format: val('ea_fmt') };
-    const r = await db.updateTraineeProfile(S.me.id, patch); S.traineeProfile = Object.assign({}, S.traineeProfile, patch, r || {});
+    const ed = S.draft.ea || {}; const age = val('ea_age') ? parseInt(val('ea_age'), 10) : null;
+    const patch = { weight_kg: w, height_cm: h, age, sex: ed.sex || '', experience: val('ea_exp'), goal: val('ea_goal'), goal_detail: val('ea_gd').slice(0, 300), injuries: val('ea_inj').slice(0, 300), diet: val('ea_diet').slice(0, 200), eating_style: val('ea_style'), allergies: val('ea_allergies').slice(0, 200), format: val('ea_fmt'),
+      days: (ed.days || []).slice().sort((a, b) => a - b), time_of_day: ed.time_of_day || [], place: ed.place || 'gym', district: ed.district || '', budget_min: val('ea_bmin') ? parseInt(val('ea_bmin'), 10) : null, budget_max: val('ea_bmax') ? parseInt(val('ea_bmax'), 10) : null, coach_gender: ed.coach_gender || 'any' };
+    const r = await db.updateTraineeProfile(S.me.id, patch); S.traineeProfile = Object.assign({}, S.traineeProfile, patch, r || {}); S.draft.ea = null; S.match = null;
     toast(t('Saved')); back();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };

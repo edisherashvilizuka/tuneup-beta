@@ -49,17 +49,21 @@ export async function redeemClient(code, name, lang, profile) { return q(sb.rpc(
 export async function endPair(id, note) { return q(sb.rpc('end_pair', { p_pair: id, p_note: note || '' })); }
 
 // ---- trainee
+const PAIR_COLS = 'id,kind,status,format,started_at,ended_at,end_note,plan_id,plan_name,plan_price,plan_components,plan_since,trial_session_id,trial_trainee_ok,trial_coach_ok,program_id,program_started,program_week,program_vars';
+const COACH_JOIN = 'coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles(specialties,pitch,gym,district,online,inperson,availability_text,availability,years,sex,photo_url,rating,rating_n))';
+// the trainee's current pair: a trial or active one first (coach or solo), else the most recent ended one
 export async function myCoachPair(uid) {
-  return q(sb.from('pairs').select('id,status,format,started_at,ended_at,end_note,coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles(specialties,pitch,gym,district,online,inperson,availability_text))')
-    .eq('trainee_id', uid).order('started_at', { ascending: false }).limit(1).maybeSingle());
+  const rows = await q(sb.from('pairs').select(PAIR_COLS + ',' + COACH_JOIN).eq('trainee_id', uid).order('started_at', { ascending: false }).limit(6)) || [];
+  return rows.find(p => p.status === 'active' && p.kind === 'coach') || rows.find(p => p.status === 'trial') || rows.find(p => p.status === 'active') || rows[0] || null;
 }
+export async function myPairs(uid) { return q(sb.from('pairs').select(PAIR_COLS + ',' + COACH_JOIN).eq('trainee_id', uid).order('started_at', { ascending: false }).limit(6)); }
 export async function myTraineeProfile(uid) { return q(sb.from('trainee_profiles').select('*').eq('id', uid).maybeSingle()); }
 export async function updateTraineeProfile(uid, patch) { return q(sb.from('trainee_profiles').update(Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq('id', uid).select('*').single()); }
 export async function saveTraineeProfile(uid, patch) { return q(sb.from('trainee_profiles').upsert({ id: uid, ...patch, updated_at: new Date().toISOString() })); }
 
 // ---- coach
 export async function myClients(uid) {
-  return q(sb.from('pairs').select('id,status,format,started_at,ended_at,end_note,trainee:profiles!pairs_trainee_id_fkey(id,name,lang,trainee_profiles(weight_kg,height_cm,experience,goal,goal_detail,injuries,diet,format,allergies,eating_style))')
+  return q(sb.from('pairs').select(PAIR_COLS + ',trainee:profiles!pairs_trainee_id_fkey(id,name,lang,trainee_profiles(weight_kg,height_cm,experience,goal,goal_detail,injuries,diet,format,allergies,eating_style,sex,age,days,time_of_day,place,district))')
     .eq('coach_id', uid).order('started_at', { ascending: false }));
 }
 export async function myCoachProfile(uid) { return q(sb.from('coach_profiles').select('*').eq('id', uid).maybeSingle()); }
@@ -69,6 +73,7 @@ export async function createClientInvite(uid, note) { return q(sb.from('client_i
 export async function deleteClientInvite(code) { return q(sb.from('client_invites').delete().eq('code', code)); }
 
 // ---- admin
+export async function myIsAdmin() { try { return !!(await q(sb.rpc('my_is_admin'))); } catch (e) { return false; } }
 export async function adminUsers() { return q(sb.rpc('admin_users')); }
 export async function adminPairs() {
   return q(sb.from('pairs').select('id,status,format,started_at,ended_at,coach:profiles!pairs_coach_id_fkey(id,name),trainee:profiles!pairs_trainee_id_fkey(id,name)').order('started_at', { ascending: false }));
@@ -184,6 +189,57 @@ export async function askTune(payload) {
   const { data, error } = await sb.functions.invoke('tune', { body: payload });
   if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }
   return data || {};
+}
+// ---- Launch 1 (migration 0016): public sign-up, coach plans, matching, Solo programs
+export async function signupTrainee(name, lang, profile, mode) { return q(sb.rpc('signup_trainee', { p_name: name, p_lang: lang, p_profile: profile || {}, p_mode: mode })); }
+export async function signupCoach(name, lang, profile) { return q(sb.rpc('signup_coach', { p_name: name, p_lang: lang, p_profile: profile || {} })); }
+// coach plans (own rows; approved coaches' plans are public to signed-in users)
+const PLAN_COLS = 'id,coach_id,name,price_gel,components,status,position,created_at';
+export async function myPlans(uid) { return q(sb.from('coach_plans').select(PLAN_COLS).eq('coach_id', uid).order('position').order('created_at')); }
+export async function savePlan(row) { return row.id ? q(sb.from('coach_plans').update({ ...row, updated_at: new Date().toISOString() }).eq('id', row.id).select(PLAN_COLS).single()) : q(sb.from('coach_plans').insert(row).select(PLAN_COLS).single()); }
+export async function deletePlan(id) { return q(sb.from('coach_plans').delete().eq('id', id)); }
+// matching
+export async function browseCoaches() { return (await q(sb.rpc('browse_coaches'))) || []; }
+export async function sendRequest(coachId, note, format) { return q(sb.rpc('send_request', { p_coach: coachId, p_note: note || '', p_format: format || 'inperson' })); }
+export async function cancelRequest(id) { return q(sb.rpc('cancel_request', { p_request: id })); }
+export async function myRequest() { return q(sb.rpc('my_request')); }
+export async function coachRequests() { return (await q(sb.rpc('coach_requests_list'))) || []; }
+export async function answerRequest(id, accept) { return q(sb.rpc('answer_request', { p_request: id, p_accept: !!accept })); }
+export async function pendingRequests() { return (await q(sb.rpc('my_pending_requests'))) || 0; }
+export async function bookTrial(pairId, startsAt, where) { return q(sb.rpc('book_trial', { p_pair: pairId, p_starts_at: startsAt, p_where: where })); }
+export async function trialAnswer(pairId, ok, stars, text) { return q(sb.rpc('trial_answer', { p_pair: pairId, p_ok: !!ok, p_stars: stars || null, p_text: text || '' })); }
+export async function choosePlan(pairId, planId) { return q(sb.rpc('choose_plan', { p_pair: pairId, p_plan: planId })); }
+export async function setClientPlan(pairId, planId) { return q(sb.rpc('set_client_plan', { p_pair: pairId, p_plan: planId || null })); }
+export async function coachReviews(coachId) { return q(sb.from('coach_reviews').select('stars,text,created_at').eq('coach_id', coachId).order('created_at', { ascending: false }).limit(10)); }
+// Solo programs + rules
+const PROG_COLS = 'id,title,title_ka,goal,level,place,weeks,days_per_week,summary,summary_ka,body,status,author_id,confirmed_by,confirmed_at,uses,created_at,updated_at';
+export async function programs(all) { let qq = sb.from('programs').select(PROG_COLS).order('created_at'); if (!all) qq = qq.eq('status', 'published'); return q(qq); }
+export async function getProgram(id) { return q(sb.from('programs').select(PROG_COLS).eq('id', id).maybeSingle()); }
+export async function saveProgram(row) { return row.id ? q(sb.from('programs').update({ ...row, updated_at: new Date().toISOString() }).eq('id', row.id).select(PROG_COLS).single()) : q(sb.from('programs').insert(row).select(PROG_COLS).single()); }
+export async function setProgramStatus(id, status) { return q(sb.rpc('admin_program_status', { p_program: id, p_status: status })); }
+export async function rules() { return q(sb.from('app_rules').select('key,value,confirmed_by,confirmed_at,updated_at')); }
+export async function confirmRule(key, value) { return q(sb.rpc('admin_confirm_rule', { p_key: key, p_value: value || null })); }
+export async function startProgram(pairId, programId, vars) { return q(sb.rpc('start_program', { p_pair: pairId, p_program: programId, p_vars: vars || {} })); }
+export async function setProgramWeek(pairId, week, vars) { return q(sb.rpc('set_program_week', { p_pair: pairId, p_week: week, p_vars: vars || null })); }
+export async function replacePlanWeek(pairId, items) {   // the solo pair's plan is rewritten week by week
+  await q(sb.from('plan_items').delete().eq('pair_id', pairId));
+  return items.length ? q(sb.from('plan_items').insert(items.map(i => ({ ...i, pair_id: pairId })))) : [];
+}
+export async function proposals(pairId) { return q(sb.from('program_proposals').select('id,pair_id,week,text,text_ka,changes,status,created_at,answered_at').eq('pair_id', pairId).order('week', { ascending: false }).limit(3)); }
+export async function saveProposal(row) { return q(sb.from('program_proposals').upsert(row, { onConflict: 'pair_id,week' }).select('id,pair_id,week,text,text_ka,changes,status,created_at,answered_at').single()); }
+export async function answerProposal(id, status) { return q(sb.from('program_proposals').update({ status, answered_at: new Date().toISOString() }).eq('id', id)); }
+// admin
+export async function adminCoaches() { return (await q(sb.rpc('admin_coaches'))) || []; }
+export async function adminReviewCoach(id, status, note) { return q(sb.rpc('admin_review_coach', { p_coach: id, p_status: status, p_note: note || '' })); }
+export async function adminFunnel(days) { return (await q(sb.rpc('admin_funnel', { p_days: days || 30 }))) || {}; }
+export async function adminPairsFull() {
+  return q(sb.from('pairs').select('id,kind,status,format,started_at,ended_at,plan_name,plan_price,plan_since,trial_session_id,program_id,coach:profiles!pairs_coach_id_fkey(id,name),trainee:profiles!pairs_trainee_id_fkey(id,name)').order('started_at', { ascending: false }));
+}
+// coach profile photo (public bucket `avatars`, path <uid>/photo.jpg)
+export async function uploadAvatar(uid, blob, type) {
+  const path = uid + '/photo-' + Date.now() + '.' + (type === 'image/png' ? 'png' : 'jpg');
+  await q(sb.storage.from('avatars').upload(path, blob, { contentType: type, upsert: true, cacheControl: '86400' }));
+  const { data } = sb.storage.from('avatars').getPublicUrl(path); return data.publicUrl;
 }
 export function inviteLink(kind, code) {
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');

@@ -6,7 +6,7 @@
 // private notes. Neither side ever gets the other's Tune conversation; the coach's notes never reach a trainee.
 import { isoDate, addDays, weekdayOf, fmtTime, MOODS, exName, opt, LANG } from './i18n.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair, isSolo } from './state.js';
 import { effectiveTargets } from './plan.js';
 import { sumDay, oneOf, macroTotals } from './log.js';
 import { statsFor, flagsFor } from './monitor.js';
@@ -40,8 +40,8 @@ export async function loadTuneData(focus) {
   const D = {};
   if (!S.cal) { try { await loadSessions(); } catch (e) {} }
   if (S.me.role === 'trainee') {
-    const today = isoDate(); const p = S.pair;
-    const [hist, msgs] = await Promise.all([db.logsBetween(S.me.id, addDays(today, -6), addDays(today, -1)).catch(() => []), p && p.status === 'active' ? db.messages(p.id, 24).catch(() => []) : []]);
+    const today = isoDate(); const p = coachPair();
+    const [hist, msgs] = await Promise.all([db.logsBetween(S.me.id, addDays(today, -6), addDays(today, -1)).catch(() => []), p ? db.messages(p.id, 24).catch(() => []) : []]);
     D.hist = hist; D.msgs = (msgs || []).slice().reverse();
     if (S.today) { try { S.today.logs = await db.logsForDay(S.me.id, S.today.day); } catch (e) {} }
   } else {
@@ -54,9 +54,10 @@ export async function loadTuneData(focus) {
   return D;
 }
 
+function soloLine() { try { const { programLine } = window.__solo || {}; return programLine ? programLine() : ''; } catch (e) { return ''; } }
 // ---- trainee
 export function traineeContext(D) {
-  const R = {}; const p = S.pair || {}; const coach = p.coach || {}; const tg = (S.plan && S.plan.targets) || {}; const L = (S.today && S.today.logs) || []; const today = isoDate();
+  const R = {}; const p = coachPair() || S.pair || {}; const coach = p.coach || {}; const tg = (S.plan && S.plan.targets) || {}; const L = (S.today && S.today.logs) || []; const today = isoDate();
   const items = S.plan ? S.plan.items : []; const td = weekdayOf(); const done = new Set(L.filter(l => l.kind === 'exercise').map(l => l.ref));
   let e = 0; const workout = items.filter(i => i.day === td).map(i => { const ref = 'E' + (++e); R[ref] = { type: 'exercise', item: i }; return '[' + ref + '] ' + exName(i.exercise) + ' ' + itemLine(i) + (done.has(i.id) ? ' — done' : ' — not done yet'); });
   let l = 0; const logs = L.filter(x => x.kind !== 'exercise').sort((a, b) => (a.created_at || '') < (b.created_at || '') ? -1 : (a.created_at || '') > (b.created_at || '') ? 1 : 0).map(x => { const ref = 'L' + (++l); R[ref] = { type: 'log', log: x };
@@ -66,11 +67,11 @@ export function traineeContext(D) {
   const days = [6, 5, 4, 3, 2, 1].map(n => addDays(today, -n)).map(d => { const X = (D.hist || []).filter(x => x.day === d); if (!X.length) return null; const w = oneOf(X, 'weight'), c = oneOf(X, 'checkin'), s = oneOf(X, 'steps'); return d + ': ' + [X.filter(x => x.kind === 'exercise').length ? 'exercises done ' + X.filter(x => x.kind === 'exercise').length : '', sumDay(X, 'food') ? n0(sumDay(X, 'food')) + ' kcal / ' + n0(sumDay(X, 'food', 'protein_g')) + ' g protein' : '', sumDay(X, 'water') ? sumDay(X, 'water') / 1000 + ' L water' : '', s ? n0(s.value) + ' steps' : '', w ? w.value + ' kg' : '', c ? 'mood ' + mood(c.value) + (c.note ? ' ' + q(c.note) : '') : ''].filter(Boolean).join(', '); }).filter(Boolean);
   const sess = occurrences(today, addDays(today, 14)).map(o => (o.cancelled ? 'CANCELLED by the coach' + (o.note ? ' (' + q(o.note) + ')' : '') + ': ' : '') + isoDate(o.at) + ' ' + fmtDay(o.date) + ' ' + fmtTime(o.at) + ', ' + o.s.minutes + ' min, ' + (o.s.where_kind === 'video' ? 'video call' : (o.s.place || 'in person')) + (o.s.repeat === 'weekly' ? ', weekly' : '') + (o.moved ? ' (moved)' : '') + (o.s.note ? ' ' + q(o.s.note) : ''));
   const text = [
-    'Trainee: ' + S.me.name + '. Coach: ' + (coach.name || 'none') + (coach.lang ? ' (app language ' + (coach.lang === 'ka' ? 'Georgian' : 'English') + ')' : '') + (p.status === 'active' ? '' : ' (coaching ended — no messages possible)') + '. Today: ' + todayLine() + '.',
-    'Daily targets (set by the coach): ' + targetsLine(tg) + '.' + leftLine(),
+    'Trainee: ' + S.me.name + '. Coach: ' + (coach.name || 'none') + (coach.lang ? ' (app language ' + (coach.lang === 'ka' ? 'Georgian' : 'English') + ')' : '') + (p.status === 'trial' ? ' (free trial stage — the chat is open; plan and targets come after both confirm and a plan is chosen)' : p.status === 'active' || isSolo() ? '' : ' (coaching ended — no messages possible)') + (isSolo() ? '. MODE: Tune Up Solo — no coach; the person follows a ready-made program (' + soloLine() + ') adapted by you (Tune); a coach can be added via Find a coach' : '') + '. Today: ' + todayLine() + '.',
+    'Daily targets (' + (isSolo() ? 'from Tune Up\'s rules, confirmed by a coach' : 'set by the coach') + '): ' + targetsLine(tg) + '.' + leftLine(),
     'Food preferences (from My answers): ' + prefLine(S.traineeProfile || {}) + '. Saved meals: ' + ((S.meals || []).map(m => q(m.name)).join(', ') || 'none') + '.',
-    "TODAY'S WORKOUT: " + (workout.length ? workout.join('; ') : items.length ? 'rest day' : 'none — the coach has not made a plan yet'),
-    'Weekly plan: ' + (!items.length ? 'not made yet (the coach builds it; logging food, water, steps and weight works already)' : '') + (!items.length ? '' : [1, 2, 3, 4, 5, 6, 7].map(d => dayName(d, true) + ': ' + (items.filter(i => i.day === d).map(i => exName(i.exercise) + ' ' + i.sets + '×' + i.reps).join(', ') || 'rest')).join(' | ')),
+    "TODAY'S WORKOUT: " + (workout.length ? workout.join('; ') : items.length ? 'rest day' : (isSolo() ? 'none — the program has not been started yet (Your program in More)' : 'none — the coach has not made a plan yet')),
+    'Weekly plan: ' + (!items.length ? (isSolo() ? 'not started yet' : 'not made yet (the coach builds it; logging food, water, steps and weight works already)') : '') + (!items.length ? '' : [1, 2, 3, 4, 5, 6, 7].map(d => dayName(d, true) + ': ' + (items.filter(i => i.day === d).map(i => exName(i.exercise) + ' ' + i.sets + '×' + i.reps).join(', ') || 'rest')).join(' | ')),
     "TODAY'S LOGS: " + (logs.length ? logs.join('; ') : 'nothing logged yet'),
     'Totals today: ' + n0(sumDay(L, 'food')) + ' kcal / ' + n0(sumDay(L, 'food', 'protein_g')) + ' g protein / ' + n0(sumDay(L, 'food', 'carbs_g')) + ' g carbs / ' + n0(sumDay(L, 'food', 'fat_g')) + ' g fat (carbs/fat count only entries that have them); water ' + sumDay(L, 'water') / 1000 + ' L; steps ' + (steps ? n0(steps.value) : 'not logged') + '; weigh-in ' + (weight ? weight.value + ' kg' : 'not logged') + '; evening check-in ' + (ci ? mood(ci.value) : 'not done') + '.',
     'Last 6 days: ' + (days.length ? days.join(' | ') : 'nothing logged'),

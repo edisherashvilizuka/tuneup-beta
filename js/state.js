@@ -27,3 +27,12 @@ export function readInviteFromUrl() {
 }
 export function clearInvite() { S.invite = null; try { localStorage.removeItem(INV_KEY); } catch (e) {} }
 export function forgetInvite() { try { localStorage.removeItem(INV_KEY); } catch (e) {} }   // keep it in memory for this load only
+
+// public sign-up (Launch 1): which role the person chose on the welcome screen, kept across the e-mail code round-trip
+const SIGNUP_KEY = 'tuneup-signup';
+export function setSignup(role) { S.signup = role ? { role } : null; try { if (role) localStorage.setItem(SIGNUP_KEY, role); else localStorage.removeItem(SIGNUP_KEY); } catch (e) {} }
+export function readSignup() { try { const r = localStorage.getItem(SIGNUP_KEY); if (r === 'trainee' || r === 'coach') S.signup = { role: r }; } catch (e) {} }
+export function clearSignup() { setSignup(null); }
+// the trainee's pairs: S.pair = the active one (coach or solo: plan, targets, logs); S.trial = a trial pair with a coach (chat, the trial session)
+export function coachPair() { if (S.pair && S.pair.kind === 'coach' && S.pair.status === 'active') return S.pair; return S.trial || null; }
+export function isSolo() { return !!(S.pair && S.pair.kind === 'solo' && S.pair.status === 'active'); }

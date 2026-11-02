@@ -4,7 +4,7 @@
 // once; everything else waits for the person's Yes. RUN writes through the same RLS-checked queries the screens use.
 import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, unit, firstName } from './i18n.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair } from './state.js';
 import { go, root } from './ui.js';
 import { loadSessions } from './calendar.js';
 import { loadPlan, splitFor } from './plan.js';
@@ -70,7 +70,7 @@ const PREP = {
     const text = String(x.text || '').trim().slice(0, 2000); if (!text) bad('The message is empty.');
     let pairId, to;
     if (S.me.role === 'coach') { const c = client(R, x.client); pairId = c.id; to = c.trainee.name; }
-    else { if (!S.pair || S.pair.status !== 'active') bad('You have no active coach to write to.'); pairId = S.pair.id; to = (S.pair.coach || {}).name || t('Your coach'); }
+    else { const CP = coachPair(); if (!CP) bad('You have no coach to write to.'); pairId = CP.id; to = (CP.coach || {}).name || t('Your coach'); }
     p.data = { pairId, text }; p.card = { icon: 'chat', title: t('Message to {name}', { name: to }), body: text, who: t('Sent as you, in your chat with {name}.', { name: firstName(to) }) };
   },
   update_my_answers(p, x) {

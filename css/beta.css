@@ -555,3 +555,49 @@ body{font-size:16px}
 .app .fuel .s{font-size:11px}
 .app .att.file .s{font-size:11px}
 .app .srow .s,.app .trow .s{font-size:13px}
+
+/* ===== Launch 1 (31 Oct 2026): sign-up steps, plan cards, the component editor, free-hours grid, matching ===== */
+.steps{display:flex;gap:5px}.steps i{flex:1;height:4px;border-radius:2px;background:var(--a-line);display:block}.steps i.on{background:var(--a-accent)}
+.wstrip .wd.today{background:var(--a-amber);color:#16130F}
+.wstrip .wd{min-height:48px;padding:12px 0 10px;cursor:pointer}
+.card.sel{box-shadow:inset 0 0 0 2px var(--a-ink)}
+.card.green{background:var(--a-green-soft)}
+.card.tune{background:color-mix(in srgb,var(--c-tune) 14%,var(--a-card))}
+.btn.tune{background:var(--c-tune);color:#fff}
+.plan{gap:8px}
+.plan .pr{font-weight:800;font-size:18px;white-space:nowrap;flex:none}
+.plan .pr small{font-size:12px;color:var(--a-mute);font-weight:700}
+.plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.plan li{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.plan li i{width:18px;height:18px;border-radius:50%;background:var(--a-green);color:#16130F;display:grid;place-items:center;flex:none}
+.plan li i svg{width:11px;height:11px}
+.comp{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--a-line2)}
+.comp:last-child{border-bottom:0}
+.comp .check{cursor:pointer;width:40px;height:40px}
+.comp .chip.sm{min-height:36px;padding:8px 12px;font-size:13px}
+button.toggle{position:relative;width:54px;height:32px;border-radius:16px;flex:none}button.toggle::after{width:26px;height:26px}button.toggle.on::after{left:25px}button.toggle::before{content:"";position:absolute;inset:-8px}
+.srow .t.wrap{white-space:normal}
+.comp .stepper button{width:34px;height:34px}
+.comp .stepper b{min-width:24px;text-align:center;font-weight:800}
+.stepper b{min-width:28px;text-align:center;font-weight:800}
+.avail{display:grid;grid-template-columns:30px repeat(7,1fr);gap:4px;font-size:11px;font-weight:700;color:var(--a-mute)}
+.avail .hd{text-align:center;background:transparent;color:var(--a-mute);font-weight:800;font-size:11px;min-height:36px;padding:4px 0;cursor:pointer}
+.avail .hr{text-align:right;padding-right:4px;line-height:36px}
+.avail .c{height:36px;border-radius:8px;background:var(--a-bg);cursor:pointer;transition:background .15s}
+.avail .c.on{background:var(--a-green)}
+.avdot{display:inline-block;width:12px;height:12px;border-radius:4px;background:var(--a-green)}
+.gig{cursor:pointer}
+.gig.on{background:var(--a-amber);color:#16130F}.gig.on span{color:#16130F;opacity:.7}
+.gig.off{opacity:.45}
+.score{font-size:16px}
+.score.hi{background:var(--a-green);color:#16130F}.score.mid{background:var(--a-amber-soft);color:var(--a-amber-ink)}
+.stars{color:var(--a-amber);font-size:14px;letter-spacing:1px}
+.pill.tune{background:var(--c-tune);color:#fff}
+.kpi .num{font-family:var(--font-display)}
+.app[lang="ka"] .kpi .num{font-family:var(--font-body);font-weight:900}
+.cert{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--a-bg);border-radius:14px;margin-top:6px}
+.cert .ic{width:34px;height:34px;border-radius:50%;background:var(--a-card);display:grid;place-items:center;flex:none;color:var(--a-accent)}
+.xsearch .input{box-shadow:none}
+.segc button[disabled]{opacity:.5}
+.btn[disabled]{opacity:.45}
+@media (max-width:374px){.avail{gap:3px}.avail .c{height:34px}.plan .pr{font-size:16px}}
