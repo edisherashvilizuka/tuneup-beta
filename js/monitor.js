@@ -66,7 +66,7 @@ function reviewCard() {
 }
 SCREENS.ctoday = () => {
   const active = (S.clients || []).filter(c => c.status === 'active');
-  if (!active.length) return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: reviewCard() + requestsBlock() + guideCard() + '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Invite your own clients with a link — and once your profile is approved, people find you in Find a coach.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>' };
+  if (!active.length) return { title: t('Today'), sub: fmtDate(Date.now(), 'full'), actions: tuneButton(), body: reviewCard() + requestsBlock() + guideCard() + ((S.clients || []).some(c => c.status === 'trial' && !c.gone) ? '' : '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Invite your own clients with a link — and once your profile is approved, people find you in Find a coach.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>') };
   const rows = active.map(c => { const st = statsFor(c); return { c, st, flags: flagsFor(c, st) }; });
   const eye = rows.filter(r => r.flags.length);
   const chip = f => '<span class="chip sm ' + (f.k === 'note' ? 'blue' : f.k === 'weight' ? 'amb' : f.k === 'quiet' ? 'amb' : 'red') + '">' + esc(f.label) + (f.k !== 'note' && f.sub ? ' · ' + esc(f.sub) : '') + '</span>';   // details visible on phones too (no hover)

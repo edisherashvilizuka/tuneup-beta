@@ -34,6 +34,7 @@ A.attPick = async (id, input) => {
     try { list.push(await prepare(f, id)); } catch (e) { toast(e.message || t('Could not read the file'), 'err'); }
   }
   renderPending(id); A.attChanged && A.attChanged(id);
+  const err = document.getElementById('err'); if (err && list.length) err.textContent = '';   // a step's "add a photo" warning goes once a file is in
 };
 A.attDrop = (id, i) => { pending(id).splice(i, 1); renderPending(id); A.attChanged && A.attChanged(id); };
 async function prepare(file, id) {

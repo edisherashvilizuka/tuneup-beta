@@ -54,7 +54,7 @@ export function fuelGauge(L) {
   const done = !!(kcal.max && prot.max && kcal.v >= kcal.max && kcal.v <= kcal.max * 1.05 && prot.v >= prot.max);
   const legend = '<div class="fuel leg">' + rows.map(r => {
     const left = r.max ? Math.round(r.max - r.v) : null; const over = r.max && r.key !== 'protein_g' && r.v > r.max * 1.05;
-    const tail = r.max == null ? '' : over ? '<span style="color:var(--a-red)">+' + Math.round(r.v - r.max) + ' ' + esc(t('over')) + '</span>' : left > 0 ? left + ' ' + esc(t('to go')) : '✓ ' + esc(t('done'));
+    const tail = !r.max ? '' : over ? '<span style="color:var(--a-red)">+' + Math.round(r.v - r.max) + ' ' + esc(t('over')) + '</span>' : left > 0 ? left + ' ' + esc(t('to go')) : '✓ ' + esc(t('done'));
     return '<div class="f1" role="button" tabindex="0" onclick="A.openFoods(\'' + r.key + '\')" onkeydown="if(event.key===\'Enter\')this.click()" aria-label="' + esc(t(r.label)) + ' ' + n0(r.v) + (r.max ? ' / ' + r.max : '') + ' ' + esc(unit(r.unit)) + '">' +
       '<span class="dot" style="background:' + r.color + '"></span><div style="min-width:0"><div class="lb">' + esc(t(r.label)) + (tail ? ' · ' + tail : '') + '</div><div class="val">' + rollNum(n0(r.v), 'i', 'leg:' + r.key, true) + (r.max ? ' <small>/ ' + r.max + ' ' + esc(unit(r.unit)) + '</small>' : ' <small>' + esc(unit(r.unit)) + '</small>') + '</div></div></div>';
   }).join('') + '</div>';

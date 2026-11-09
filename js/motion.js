@@ -69,7 +69,7 @@ const HEX = { 'var(--c-kcal)': '#E8632B', 'var(--c-protein)': '#D9456A', 'var(--
 export function recordStack(rows, label, opts) {
   const id = 'rs' + (++stackN); const o = opts || {};
   const plates = rows.slice(0, 4).map((m, i) => {
-    const y = YS[i]; const has = !!m.max; const frac = has ? Math.max(0, m.v / m.max) : 1;
+    const y = YS[i]; const has = !!m.max; const frac = has ? Math.max(0, m.v / m.max) : (m.v > 0 ? 0.5 : 0);   // no target yet: empty until something is logged, then half
     const over = has && m.key !== 'protein_g' && frac > 1.05; const col = over ? darker(HEX[m.color] || '#16130F') : m.color;
     const w = (120 * Math.min(1, frac)).toFixed(1);   // nothing eaten = an empty plate (no sliver of colour)
     return '<g class="plate" data-plate="' + m.key + '"><ellipse cx="64" cy="' + y + '" rx="60" ry="15" fill="#E6DCC8"/>' +
