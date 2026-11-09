@@ -50,7 +50,8 @@ export async function endPair(id, note) { return q(sb.rpc('end_pair', { p_pair: 
 
 // ---- trainee
 const PAIR_COLS = 'id,kind,status,format,started_at,ended_at,end_note,plan_id,plan_name,plan_price,plan_components,plan_since,trial_session_id,trial_trainee_ok,trial_coach_ok,program_id,program_started,program_week,program_vars';
-const COACH_JOIN = 'coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles(specialties,pitch,gym,district,online,inperson,availability_text,availability,years,sex,photo_url,rating,rating_n))';
+// coach_profiles has two links to profiles (id, reviewed_by) → the embed must name the one it means, or PostgREST answers 300
+const COACH_JOIN = 'coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles!coach_profiles_id_fkey(specialties,pitch,gym,district,online,inperson,availability_text,availability,years,sex,photo_url,rating,rating_n))';
 // the trainee's current pair: a trial or active one first (coach or solo), else the most recent ended one
 export async function myCoachPair(uid) {
   const rows = await q(sb.from('pairs').select(PAIR_COLS + ',' + COACH_JOIN).eq('trainee_id', uid).order('started_at', { ascending: false }).limit(6)) || [];
@@ -63,7 +64,7 @@ export async function saveTraineeProfile(uid, patch) { return q(sb.from('trainee
 
 // ---- coach
 export async function myClients(uid) {
-  return q(sb.from('pairs').select(PAIR_COLS + ',trainee:profiles!pairs_trainee_id_fkey(id,name,lang,trainee_profiles(weight_kg,height_cm,experience,goal,goal_detail,injuries,diet,format,allergies,eating_style,sex,age,days,time_of_day,place,district))')
+  return q(sb.from('pairs').select(PAIR_COLS + ',trainee:profiles!pairs_trainee_id_fkey(id,name,lang,trainee_profiles!trainee_profiles_id_fkey(weight_kg,height_cm,experience,goal,goal_detail,injuries,diet,format,allergies,eating_style,sex,age,days,time_of_day,place,district))')
     .eq('coach_id', uid).order('started_at', { ascending: false }));
 }
 export async function myCoachProfile(uid) { return q(sb.from('coach_profiles').select('*').eq('id', uid).maybeSingle()); }
