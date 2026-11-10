@@ -68,6 +68,7 @@ export async function myClients(uid) {
     .eq('coach_id', uid).order('started_at', { ascending: false }));
 }
 export async function myCoachProfile(uid) { return q(sb.from('coach_profiles').select('*').eq('id', uid).maybeSingle()); }
+export async function coachResubmit() { return q(sb.rpc('coach_resubmit')); }   // after "Ask for more": the coach sends the profile back to the team
 export async function saveCoachProfile(uid, patch) { return q(sb.from('coach_profiles').upsert({ id: uid, ...patch, updated_at: new Date().toISOString() })); }
 export async function myInvites(uid) { return q(sb.from('client_invites').select('code,note,created_at,expires_at,used_by,used_at').eq('coach_id', uid).order('created_at', { ascending: false })); }
 export async function createClientInvite(uid, note) { return q(sb.from('client_invites').insert({ coach_id: uid, note: note || '' }).select('code,expires_at').single()); }

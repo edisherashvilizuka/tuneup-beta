@@ -11,7 +11,7 @@ import { pushRow } from './push.js';
 import { guideRow } from './guide.js';
 import { loadRequests, pendingCount, requestsBlock, planBlock } from './requests.js';
 import { availGrid, toggleHour, availSummary, DISTRICTS } from './onboard.js';
-import { shrink } from './attach.js';
+import { shrink, attachBlock, saveAttachments } from './attach.js';
 
 export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home', badge: () => pendingCount() || 0 }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'ccal', label: 'Calendar', ico: 'cal' }, { id: 'cmore', label: 'More', ico: 'gear' }];
 
@@ -41,7 +41,7 @@ SCREENS.clients = () => {
   return { title: t('Clients'), sub: t('{n} active', { n: active.length }), body:
     (active.length || ended.length ? '<div class="chips hs">' + chip('all', 'All', active.length) + chip('eye', 'Needs your eye', needs.length) + chip('ok', 'On track', ok.length) + '</div>' : '') +
     (f === 'all' && trials.length ? '<div class="section-title"><span class="eyebrow">' + t('Trials') + '</span></div><div class="slist">' + trials.map(c => '<div class="srow" style="cursor:pointer" onclick="A.go(\'client\',{id:\'' + c.id + '\'})">' + avatar(c.trainee.name, c.trainee.id) + '<div class="grow" style="min-width:0"><div class="t">' + esc(c.trainee.name) + '</div><div class="s">' + esc(c.trialSession ? t('Free trial {when}', { when: fmtDate(c.trialSession.starts_at, 'dm') }) : t('Waiting for them to book the free trial')) + '</div></div><span class="pill warn">' + t('Trial') + '</span></div>').join('') + '</div>' : '') +
-    (list.length ? '<div class="slist">' + list.map(row).join('') + '</div>' : active.length || f !== 'all' ? '<div class="card flat mute">' + t('Nobody here right now.') + '</div>' : trials.length ? '' : '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + t('Invite your own clients with a link — and once your profile is approved, people find you in Find a coach.') + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>') +
+    (list.length ? '<div class="slist">' + list.map(row).join('') + '</div>' : active.length || f !== 'all' ? '<div class="card flat mute">' + t('Nobody here right now.') + '</div>' : trials.length ? '' : '<div class="card soft"><div class="h3">' + t('No clients yet') + '</div><div class="mute">' + (((S.coachProfile || {}).review_status || 'approved') === 'approved' ? t('Invite your own clients with a link — trainees can also find you in Find a coach.') : t('Invite your own clients with a link — and once your profile is approved, people find you in Find a coach.')) + '</div><button class="btn sm" onclick="A.newInvite()">' + I.link + ' ' + t('Invite a client') + '</button></div>') +
     (f === 'all' && ended.length ? '<div class="section-title"><span class="eyebrow">' + t('Ended') + '</span></div><div class="slist">' + ended.map(row).join('') + '</div>' : ''),
     actions: '<button class="act add" onclick="A.newInvite()" aria-label="Invite">' + I.plus + '</button>',
     after: async () => { if (!S.mon) { try { await loadMonitor(); rerender(); } catch (e) {} } } };
@@ -138,6 +138,7 @@ SCREENS.coachEdit = () => {
   cp.availability = cp.availability || {};
   const fmt = cp.inperson && cp.online ? 'either' : cp.online ? 'online' : 'inperson';
   const spec = Object.keys(OPTS.specialty);
+  const review = (S.coachProfile || {}).review_status || 'approved'; const docs = k => ((S.coachProfile || {}).docs || []).filter(x => x.kind === k);
   return { title: t('Coach profile'), body:
     '<div class="row" style="gap:14px">' + (cp.photo_url ? '<img src="' + esc(cp.photo_url) + '" alt="" class="avatar xl" style="object-fit:cover">' : avatar(S.me.name, S.me.id, 'xl')) + '<div class="col"><span class="link" onclick="document.getElementById(\'ce_photo\').click()">' + (cp.photo_url ? t('Change photo') : t('Add a photo')) + '</span><span class="s">' + t('Trainees see it in Find a coach') + '</span></div></div><input type="file" id="ce_photo" accept="image/*" style="display:none" onchange="A.cpPhoto(this)">' +
     field(t('Your name'), 'name', S.draft.name != null ? S.draft.name : S.me.name) +
@@ -150,7 +151,11 @@ SCREENS.coachEdit = () => {
     '<div class="field"><label>' + t('Your free hours') + '</label><div class="s">' + t('Free trials and bookings land only here.') + (availSummary(cp.availability) ? ' · ' + esc(availSummary(cp.availability)) : '') + '</div><div class="card">' + availGrid(cp.availability, 'cpHour') + '</div></div>' +
     field(t('When you are usually available (in words, optional)'), 'availability_text', cp.availability_text, { ph: t('e.g. Mon–Fri 8–20, Sat mornings') }) +
     field(t('CV or links (optional)'), 'links', cp.links || '', { ph: t('e.g. Instagram, a website, LinkedIn') }) +
-    '<button class="btn" onclick="A.cpSave()">' + t('Save') + '</button>' };
+    (review !== 'approved' ? '<div class="field"><label>' + t('Documents for the review') + '</label><div class="s">' + t('Seen only by the Tune Up team.') + '</div>' +
+      '<div class="card"><div class="t">' + t('ID (photo)') + '</div>' + attachBlock('ce_id', docs('id'), { accept: 'image/*', multiple: false, keep: 'id' }) + '</div>' +
+      '<div class="card"><div class="t">' + t('Certificate (photo or PDF)') + '</div>' + attachBlock('ce_cert', docs('cert'), { accept: 'image/*,application/pdf', multiple: false, keep: 'cert' }) + '</div></div>' : '') +
+    (review === 'more' && S.coachProfile.review_note ? '<div class="card soft"><div class="eyebrow">' + t('The team asked') + '</div><div>' + esc(S.coachProfile.review_note) + '</div></div>' : '') +
+    '<button class="btn" onclick="A.cpSave()">' + (review === 'more' ? t('Save and send for review') : t('Save')) + '</button>' };
 };
 function cpKeep() { const cp = S.draft.cp; ['pitch', 'gym', 'availability_text', 'links'].forEach(id => { const el = document.getElementById(id); if (el) cp[id] = el.value; }); const y = document.getElementById('years'); if (y) cp.years = y.value; S.draft.name = val('name'); }
 A.cpSex = (v) => { cpKeep(); S.draft.cp.sex = v; rerender(); };
@@ -165,7 +170,10 @@ A.cpSave = async () => {
   busy(true);
   try {
     const years = cp.years === '' || cp.years == null ? null : parseInt(cp.years, 10);
-    await db.saveCoachProfile(S.me.id, { specialties: cp.specialties, pitch: cp.pitch, gym: cp.gym, district: cp.district, inperson: cp.inperson, online: cp.online, availability_text: cp.availability_text || '', availability: cp.availability || {}, years: isNaN(years) ? null : years, sex: cp.sex || '', photo_url: cp.photo_url || '', links: cp.links || '' });
+    const review = (S.coachProfile || {}).review_status || 'approved'; const patch = { specialties: cp.specialties, pitch: cp.pitch, gym: cp.gym, district: cp.district, inperson: cp.inperson, online: cp.online, availability_text: cp.availability_text || '', availability: cp.availability || {}, years: isNaN(years) ? null : years, sex: cp.sex || '', photo_url: cp.photo_url || '', links: cp.links || '' };
+    if (review !== 'approved') { const idDocs = await saveAttachments('ce_id', 'tune/' + S.me.id + '/docs'); const certDocs = await saveAttachments('ce_cert', 'tune/' + S.me.id + '/docs'); patch.docs = idDocs.map(a => Object.assign(a, { kind: 'id' })).concat(certDocs.map(a => Object.assign(a, { kind: 'cert' }))); cp.docs = patch.docs; }
+    await db.saveCoachProfile(S.me.id, patch);
+    if (review === 'more') { await db.coachResubmit(); cp.review_status = 'pending'; cp.review_note = ''; }   // back in the team's queue as "Ready
     if (name !== S.me.name) { await db.updateProfile(S.me.id, { name }); S.me.name = name; }
     S.coachProfile = Object.assign({}, S.coachProfile, cp); S.draft = {}; toast(t('Saved')); back();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }

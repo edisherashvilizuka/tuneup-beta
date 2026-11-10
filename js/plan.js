@@ -2,7 +2,7 @@
 import { t, esc, dayName, exName, unit } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, isSolo } from './state.js';
 import { itemFields, readItemFields } from './picker.js';
 import { EQ_ICON, exLine, howUrl, dayFigure, groupsLine } from './exlib.js';
 
@@ -118,6 +118,8 @@ A.saveTargets = async () => {
 A.goalsScreen = () => go('goals');
 SCREENS.goals = () => {
   const gs = (S.plan && S.plan.goals) || [];
+  // a trainee with a coach reads the goals the coach set; only the coach (or a Solo trainee) edits them
+  if (S.me && S.me.role === 'trainee' && !isSolo()) return { title: t('Goals'), body: gs.length ? '<div class="card">' + gs.map(g => '<div class="lrow"><span class="check ' + (g.done ? 'on' : '') + '">' + (g.done ? I.check : '') + '</span><div class="grow ' + (g.done ? 'mute' : '') + '">' + esc(g.text) + '</div></div>').join('') + '</div><div class="mute small">' + t('Your coach sets and ticks these goals.') + '</div>' : empty('plan', t('Your coach has not set goals yet.')) };
   return { title: t('Goals'), body:
     (gs.length ? '<div class="card">' + gs.map(g => '<div class="lrow"><button class="check ' + (g.done ? 'on' : '') + '" onclick="A.toggleGoal(\'' + g.id + '\')">' + (g.done ? I.check : '') + '</button><div class="grow ' + (g.done ? 'mute' : '') + '">' + esc(g.text) + '</div><button class="act" onclick="A.deleteGoal(\'' + g.id + '\')" aria-label="Delete">' + I.x + '</button></div>').join('') + '</div>' : '<div class="card flat mute">' + t('No goals yet') + '</div>') +
     field(t('New goal'), 'goal_text', '', { ph: t('e.g. Run 5 km without stopping') }) + '<button class="btn" onclick="A.addGoal()">' + I.plus + ' ' + t('Add goal') + '</button>' };

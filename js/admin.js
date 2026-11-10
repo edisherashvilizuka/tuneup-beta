@@ -106,10 +106,11 @@ SCREENS.aprogram = ({ id }) => {
     '<div class="chips hs">' + Array.from({ length: p.weeks }, (_, i) => '<button class="chip ' + (w === i + 1 ? 'on' : '') + '" onclick="A.apWeek(\'' + id + '\',' + (i + 1) + ')">' + esc(t('Week {n}', { n: i + 1 })) + '</button>').join('') + '</div>' +
     days.map(d => '<div class="card" style="gap:6px"><div class="t">' + esc(LANG.cur === 'ka' && d.name_ka ? d.name_ka : d.name) + '</div>' + d.items.map(it => '<div class="s" style="color:var(--a-ink2)">' + esc(exName(it.ex) + ' ' + it.sets + '×' + it.reps + (it.load ? ' · ' + it.load : '')) + '</div>').join('') + '</div>').join('') +
     (p.status !== 'published' ? '<button class="btn" style="background:var(--a-green);color:#16130F" onclick="A.programStatus(\'' + id + '\',\'published\')">' + t('Confirm and publish') + '</button>' : '<button class="btn sec" onclick="A.programStatus(\'' + id + '\',\'unpublished\')">' + t('Unpublish') + '</button>') +
-    '<div class="card flat mute small">' + t('To change exercises, sets or reps, edit the draft in tools/programs.py and re-seed, or ask Claude in the project chat; this screen is for reading and confirming.') + '</div>' };
+    (p.status === 'submitted' ? '<button class="btn sec" onclick="A.programStatus(\'' + id + '\',\'unpublished\')">' + t('Not now') + '</button>' : '') +
+    '<div class="card flat mute small">' + t('Something to change — an exercise, sets or reps? Send it through Feedback with the program name and it will be updated. This screen is for reading and confirming.') + '</div>' };
 };
 A.apWeek = (id, w) => { S.draft.apWeek = S.draft.apWeek || {}; S.draft.apWeek[id] = w; rerender(); };
-A.programStatus = async (id, status) => { busy(true); try { await db.setProgramStatus(id, status); await loadAdmin(); toast(status === 'published' ? t('Published — Solo users can pick it') : t('Unpublished')); rerender(); } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); } };
+A.programStatus = async (id, status) => { busy(true); try { await db.setProgramStatus(id, status); await loadAdmin(); toast(status === 'published' ? t('Published — Solo users can pick it') : t('Not published')); rerender(); } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); } };
 SCREENS.arule = ({ key }) => {
   const r = (S.admin.rules || {})[key]; if (!r) return { title: '', body: empty('plan', t('Not found')) }; const v = r.value || {};
   let body = '';

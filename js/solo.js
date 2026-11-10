@@ -197,6 +197,7 @@ A.propKeep = async (week) => {
 // ---- Solo pieces on Today and More
 export function programCard() {
   if (!isSolo()) return ''; const pg = myProgram();
+  if (!pg && !((S.solo && S.solo.programs) || []).some(p => p.status === 'published')) return '<div class="card soft tap" onclick="A.go(\'findCoach\')"><div class="row"><div class="grow"><div class="h3">' + t('Programs are on their way') + '</div><div class="s" style="color:var(--a-ink2)">' + t('Our coach is checking the first programs. Meanwhile log your food, or find a coach.') + '</div></div>' + I.chev + '</div></div>';   // none confirmed yet: do not promise a ready program
   if (!pg) return '<div class="card soft tap" onclick="A.go(\'program\')"><div class="row"><div class="grow"><div class="h3">' + t('Your program is ready') + '</div><div class="s" style="color:var(--a-ink2)">' + t('Made for you from your answers — open it and press start.') + '</div></div>' + I.chev + '</div></div>';
   return '';
 }

@@ -3,7 +3,7 @@ import { recordStack, rollNum, rippleNow, moodNow, buzz, loader, playMotion } fr
 import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS, exName, addDays, LANG, macroShort } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, isSolo } from './state.js';
 import { voiceAvailable, attachBlock, saveAttachments, attHtml, resolveUrls } from './attach.js';
 import { effectiveTargets } from './plan.js';
 import { loadMeals } from './food.js';
@@ -61,7 +61,7 @@ export function fuelGauge(L) {
   const left = kcal.max ? Math.round(kcal.max - kcal.v) : null;
   return '<div class="rec-row">' + recordStack(rows, esc(rows.map(m => t(m.label) + (m.max ? ' ' + Math.round(Math.min(1, m.v / m.max) * 100) + '%' : '')).join(', '))) + legend + '</div>' +
     (kcal.max ? '<div class="big">' + (left > 0 ? rollNum(left, 'i', 'kleft') : left < -Math.max(50, kcal.max * .05) ? '+' + (-left) : '✓') + ' <span>' + esc(left > 0 ? t('kcal left today') : left < -Math.max(50, kcal.max * .05) ? t('over') : t('done')) + '</span></div>' : '') +
-    '<div class="mute small">' + (any ? t('Tap a macro to see the best foods for it') : t('Your coach has not set daily targets yet.')) + '</div>';
+    '<div class="mute small">' + (any ? t('Tap a macro to see the best foods for it') : (isSolo() ? t('Tune sets your daily targets when your program starts.') : t('Your coach has not set daily targets yet.'))) + '</div>';
 }
 function macroLine(f, sep) { return [f.protein_g != null && f.protein_g !== '' ? t('P') + ' ' + n0(f.protein_g) : '', f.carbs_g != null && f.carbs_g !== '' ? t('C') + ' ' + n0(f.carbs_g) : '', f.fat_g != null && f.fat_g !== '' ? t('F') + ' ' + n0(f.fat_g) : ''].filter(Boolean).join(sep || ' · '); }
 // ---- Today, redesigned (29 Oct): one hero food card, three tiles, a mood card. trainee.js puts them in order.

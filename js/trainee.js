@@ -7,6 +7,7 @@ import { loadSolo, programCard, weeklyCard, findCoachCard, soloMoreRows, program
 import { loadMatch, requestCard } from './match.js';
 import { planBlock } from './requests.js';
 import { DISTRICTS } from './onboard.js';
+const distLabel = d => { const k = String(d || '').toLowerCase().trim(); const key = Object.keys(DISTRICTS).find(x => x === k || DISTRICTS[x].toLowerCase() === k); return key ? t(DISTRICTS[key]) : (d || ''); };   // stored as a key ("vake"); shown as the name
 import { howUrl } from './exlib.js';
 import { resolveUrls } from './attach.js';
 import { foodCard, dayTiles, checkinCard } from './log.js';
@@ -120,7 +121,7 @@ SCREENS.coach = () => {
     '<div class="card"><div class="row">' + avatar(c.name, c.id, 'lg') + '<div class="grow"><div class="h2">' + esc(c.name) + '</div><div class="mute">' + esc(fmt) + '</div></div></div>' +
     (cp.pitch ? '<p class="lead">' + esc(cp.pitch) + '</p>' : '') +
     (cp.specialties && cp.specialties.length ? '<div class="chips">' + cp.specialties.map(s => '<span class="chip sm soft">' + esc(opt('specialty', s)) + '</span>').join('') + '</div>' : '') +
-    (cp.gym || cp.district ? '<div class="mute">' + I.pin + ' ' + esc([cp.gym, cp.district].filter(Boolean).join(', ')) + '</div>' : '') +
+    (cp.gym || cp.district ? '<div class="mute">' + I.pin + ' ' + esc([cp.gym, distLabel(cp.district)].filter((x, i, a) => x && a.indexOf(x) === i && !(i === 1 && (a[0] || '').toLowerCase().includes(x.toLowerCase()))).join(', ')) + '</div>' : '') +
     (cp.availability_text ? '<div class="mute">' + I.cal + ' ' + esc(cp.availability_text) + '</div>' : '') +
     '</div>' +
     (p.status === 'trial' ? '<div class="card amber"><div class="h3">' + t('Free trial') + '</div><div class="s" style="color:var(--a-ink2)">' + t('You two are getting to know each other. After the trial you both confirm, then you choose a plan.') + '</div></div>' : planBlock(p)) +
