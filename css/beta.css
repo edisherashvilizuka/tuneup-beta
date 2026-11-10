@@ -607,3 +607,6 @@ button.toggle{position:relative;width:54px;height:32px;border-radius:16px;flex:n
 html[lang="ka"] .btn-row .btn { font-size: 14px; letter-spacing: -0.01em; }
 html[lang="ka"] .md { font-size: 11px; letter-spacing: -0.01em; text-align: center; line-height: 1.15; }
 html[lang="ka"] .tabbar button { letter-spacing: -0.02em; }
+
+/* QA 10 Nov: heat-map labels readable on small phones */
+.heat .lab,.heat .d{font-size:11px}
