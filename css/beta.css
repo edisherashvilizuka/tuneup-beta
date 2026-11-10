@@ -601,3 +601,9 @@ button.toggle{position:relative;width:54px;height:32px;border-radius:16px;flex:n
 .segc button[disabled]{opacity:.5}
 .btn[disabled]{opacity:.45}
 @media (max-width:374px){.avail{gap:3px}.avail .c{height:34px}.plan .pr{font-size:16px}}
+
+/* QA 10 Nov: long Georgian single words ("დათვალიერება") ran into the pill edge in side-by-side buttons */
+.btn-row .btn { padding-left: 12px; padding-right: 12px; }
+html[lang="ka"] .btn-row .btn { font-size: 14px; letter-spacing: -0.01em; }
+html[lang="ka"] .md { font-size: 11px; letter-spacing: -0.01em; text-align: center; line-height: 1.15; }
+html[lang="ka"] .tabbar button { letter-spacing: -0.02em; }

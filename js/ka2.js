@@ -11,7 +11,7 @@ export const KA2 = {
   'How was your day?': 'როგორი იყო დღე?', 'A line for your coach (optional)': 'სტრიქონი მწვრთნელისთვის (არასავალდებულო)',
   'e.g. slept badly, knee felt fine': 'მაგ. ცუდად მეძინა, მუხლი კარგად იყო', 'Pick how your day was.': 'აირჩიე, როგორი იყო დღე.',
   'Saved — see you tomorrow': 'შენახულია — ხვალამდე',
-  'Rough': 'ცუდი', 'Low': 'ასე-ისე', 'OK': 'ნორმალური', 'Good': 'კარგი', 'Great': 'შესანიშნავი',
+  'Rough': 'ცუდი', 'Low': 'ასე-ისე', 'OK': 'ნორმა', 'Good': 'კარგი', 'Great': 'საუცხოო',   // short: five mood chips share one row on a phone (QA 10 Nov)
   'Loading…': 'იტვირთება…', 'workout': 'ვარჯიში', 'rest': 'დასვენება', 'rest day': 'დასვენების დღე', 'Nothing logged': 'არაფერია ჩაწერილი', 'Nothing logged yet': 'ჯერ არაფერია ჩაწერილი',
   'Could not load — try again': 'ვერ ჩაიტვირთა — სცადე თავიდან',
   'Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.': 'კვირის გეგმა აქ გამოჩნდება, როგორც კი მწვრთნელი მოამზადებს. დღის ჩაწერა უკვე შეგიძლია ქვემოთ.',
