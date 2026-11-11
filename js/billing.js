@@ -6,7 +6,7 @@
 import { t, esc, fmtDate, firstName, LANG } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair } from './state.js';
 import { isNative, openOutside } from './native.js';
 
 export const money = (tetri) => { const v = Math.round(Number(tetri) || 0) / 100; return (Number.isInteger(v) ? String(v) : v.toFixed(2)) + ' ₾'; };
@@ -111,7 +111,8 @@ export function billingCard() {
 }
 // the plan line under "Plan" on the trainee's side
 export function planPayLine() {
-  const sub = currentSub(); if (!S.payOn || !sub) return '';
+  const sub = currentSub(); if (!S.payOn) return '';
+  if (!sub) return t('Not paid in the app yet — More → Plan & payments');
   if (sub.status === 'active' && sub.cancel_at_period_end) return t('Paid in the app · stops on {date}', { date: day(sub.current_period_end) });
   if (sub.status === 'active') return t('Paid in the app · renews on {date}', { date: day(sub.current_period_end) });
   return t('Payment needs attention');
@@ -124,7 +125,9 @@ SCREENS.billing = () => {
   const sub = currentSub();
   if (!S.subs) return { title: t('Plan & payments'), body: '<div class="card flat mute">' + t('Loading…') + '</div>', after: async () => { await loadBilling(); rerender(); } };
   let top;
-  if (!sub) top = '<div class="card soft"><div class="h3">' + t('No paid plan right now') + '</div><div class="mute">' + t('When you choose a coach\'s plan, you pay for it here by card.') + '</div></div>';
+  const cp = coachPair();
+  if (!sub) top = '<div class="card soft"><div class="h3">' + t('No paid plan right now') + '</div><div class="mute">' + t('When you choose a coach\'s plan, you pay for it here by card.') + '</div>' +
+    (cp && (cp.status === 'active' || (cp.trial_trainee_ok && cp.trial_coach_ok)) ? '<button class="btn sm" onclick="A.go(\'choosePlan\')">' + t('Choose a plan') + '</button>' : '') + '</div>';
   else {
     const chip = '<span class="tag ' + (sub.status === 'active' && !sub.cancel_at_period_end ? 'ok' : 'warn') + '">' + esc(t(sub.cancel_at_period_end && sub.status === 'active' ? 'Stops at the end of the month' : STATUS[sub.status] || sub.status)) + '</span>';
     const rows = [

@@ -68,4 +68,5 @@ export const KA15 = {
   'I have an invite code': 'მაქვს მოწვევის კოდი', 'Invite code': 'მოწვევის კოდი',
   'The 8 letters and numbers at the end of the invite link your coach sent you.': 'მწვრთნელის გამოგზავნილი მოწვევის ბმულის ბოლოში მოცემული 8 ასო და ციფრი.',
   'Code': 'კოდი', 'Check the code and try again.': 'გადაამოწმე კოდი და სცადე თავიდან.', 'Could not check the code — try again.': 'კოდი ვერ შემოწმდა — სცადე თავიდან.',
+  'Choose a plan': 'აირჩიე გეგმა', 'Not paid in the app yet — More → Plan & payments': 'აპლიკაციაში ჯერ არ არის გადახდილი — მეტი → გეგმა და გადახდები',
 };
