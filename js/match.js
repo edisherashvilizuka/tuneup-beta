@@ -7,6 +7,7 @@ import * as db from './db.js';
 import { S, isSolo } from './state.js';
 import { planCardHtml, componentLines, cheapest, planFormat } from './plans.js';
 import { DISTRICTS, HOURS } from './onboard.js';
+import { choosePlanPaid } from './billing.js';
 
 // ---- the fit score (SPEC: specialty 30, calendar overlap 25, district 15 / adjacent 8, budget 10, gender 5, injury
 // experience 5, rating 5 with new coach +3; −20 when the formats cannot meet)
@@ -177,12 +178,14 @@ SCREENS.choosePlan = () => {
   const pr = S.trial || (S.pair && S.pair.kind === 'coach' && S.pair.status === 'active' ? S.pair : null); if (!pr) return { title: t('Choose your plan'), body: empty('plan', t('Nothing to choose right now.')) };
   const c = pr.coach || {}; const plans = S.draft.coachPlans;
   if (!plans) return { title: t('Choose your plan'), body: '<div class="card flat mute">' + t('Loading…') + '</div>', after: async () => { try { await loadMatch(); const cc = (S.match.coaches || []).find(x => x.id === c.id); S.draft.coachPlans = (cc && cc.plans) || []; } catch (e) { S.draft.coachPlans = []; } rerender(); } };
-  return { title: t('Choose your plan'), sub: c.name, body: '<div class="s">' + esc(t('You pay {name} directly — he\'ll tell you how. Cancel any month.', { name: firstName(c.name) })) + '</div>' +
+  return { title: t('Choose your plan'), sub: c.name, body: '<div class="s">' + (S.payOn ? esc(t('Pay by card in the app. It renews every month; cancel any time.')) : esc(t('You pay {name} directly — he\'ll tell you how. Cancel any month.', { name: firstName(c.name) }))) + '</div>' +
     (plans.length ? plans.map(p => planCardHtml(p, { chosen: pr.plan_id === p.id, choose: 'A.choosePlan(\'' + p.id + '\')' })).join('') : '<div class="card flat mute">' + t('The coach has no plans yet — ask in the chat.') + '</div>'),
     after: () => {} };
 };
 A.choosePlan = async (planId) => {
-  const pr = S.trial || S.pair; busy(true);
+  const pr = S.trial || S.pair;
+  if (S.payOn) { const plan = (S.draft.coachPlans || []).find(p => p.id === planId); if (plan && plan.price_gel > 0) { choosePlanPaid(pr, plan); return; } }
+  busy(true);
   try { await db.choosePlan(pr.id, planId); S.draft.coachPlans = null; const { loadTrainee } = await import('./trainee.js'); await loadTrainee(); toast(t('Welcome aboard!')); root('home'); }
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };

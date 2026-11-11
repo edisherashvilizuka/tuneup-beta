@@ -17,6 +17,7 @@ import { loadUnread, loadChatIndex } from './chat.js';
 import { tuneButton } from './tune.js';
 import { loadHistory, streakChip, recapCard, nudgeRow } from './habits.js';
 import { tickNow } from './motion.js';
+import { loadBilling, billingCard, billingRow } from './billing.js';
 
 const ALL_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
 // Solo without a coach in sight: no Chat tab (Tune is the chat); Sessions stays and explains itself
@@ -29,6 +30,7 @@ export async function loadTrainee() {
   S.trial = pairs.find(p => p.status === 'trial') || null;
   if (S.trial) { try { const ses = await db.sessionsFor([S.trial.id]); S.trial.trialSession = ses.find(x => x.id === S.trial.trial_session_id) || ses.find(x => x.status === 'planned') || null; } catch (e) { S.trial.trialSession = null; } }
   S.traineeProfile = await db.myTraineeProfile(S.me.id);
+  try { await loadBilling(); } catch (e) { S.payOn = false; }
   S.today = { day: isoDate(), logs: [] };
   if (isSolo()) { try { await loadSolo(); } catch (e) { console.warn('solo', e); } if (!S.trial) loadMatch().then(() => rerender()).catch(() => {}); }
   setTabs(traineeTabs());
@@ -78,7 +80,7 @@ SCREENS.home = () => {
   const p = S.pair; const active = p && p.status === 'active'; const solo = isSolo();
   const head = '<div class="tophead"><div class="grow"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="h1">' + t(greeting(), { name: firstName(S.me.name) }) + '</div></div>' + (active ? tuneButton() : '') + bell() + '</div>';
   const noPlan = solo ? programCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p && p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>';
-  const body = head + requestCard() + (active ? (guideCard() || pushCard()) : '') +
+  const body = head + requestCard() + billingCard() + (active ? (guideCard() || pushCard()) : '') +
     (active ? (solo ? weeklyCard() : '') + foodCard(streakChip()) + dayTiles() + (S.plan && S.plan.items.length ? workoutCard() : noPlan) + checkinCard() + goalsCard() + (solo ? findCoachCard() : '')
       : '<div class="card amber"><div class="h3">' + (p ? (p.coach && p.coach.name ? t('Your coaching with {name} has ended', { name: firstName(p.coach.name) }) : t('Your coaching has ended')) : t('No coach yet')) + '</div>' + (p && p.end_note ? '<div style="margin:6px 0">' + t('Note from your coach') + ': ' + esc(p.end_note) + '</div>' : '') + '<div class="mute">' + t('Start a free program with Tune, or find a new coach.') + '</div><div class="btn-row"><button class="btn sm" onclick="A.restartSolo()">' + t('Start with Tune') + '</button><button class="btn sm sec" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button></div></div>');
   return { title: '', header: false, body };
@@ -134,12 +136,13 @@ SCREENS.more = () => {
   const cpair = coachPair(); const c = (cpair || {}).coach; const active = S.pair && S.pair.status === 'active'; const email = (S.session.user && S.session.user.email) || '';
   const head = '<div class="tophead">' + avatar(S.me.name, S.me.id, 'lg') + '<div class="grow" style="min-width:0"><div class="h1 sm">' + esc(S.me.name) + '</div><div class="eyebrow">' + esc(cpair && cpair.status === 'active' && c ? t('Coached by {name} since {date}', { name: firstName(c.name), date: fmtDate(cpair.started_at, 'dm') }) : isSolo() ? (programLine() || t('Training with Tune')) : email) + '</div></div></div>';
   const row = (c2, on, title, sub) => '<div class="lrow" style="--dot:var(' + c2 + ');cursor:pointer" onclick="' + on + '"><div class="grow"><div class="t">' + title + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>' + I.chev + '</div>';
-  const you = row('--c-carbs', "A.go('myProfile')", t('My answers'), t('Weight, goal, injuries, diet')) + (cpair ? row('--c-water', "A.go('coach')", cpair.status === 'trial' ? t('Your coach (trial)') : t('Your coach'), esc((c || {}).name || t('No coach yet'))) : '') + soloMoreRows(row) + row('--c-tune', "A.go('tune')", t('Ask Tune'), t('Your assistant')) + (active ? dotted(nudgeRow(), '--c-kcal') : '');
+  const you = row('--c-carbs', "A.go('myProfile')", t('My answers'), t('Weight, goal, injuries, diet')) + (cpair ? row('--c-water', "A.go('coach')", cpair.status === 'trial' ? t('Your coach (trial)') : t('Your coach'), esc((c || {}).name || t('No coach yet'))) : '') + soloMoreRows(row) + row('--c-tune', "A.go('tune')", t('Ask Tune'), t('Your assistant')) + (active ? dotted(nudgeRow(), '--c-kcal') : '') + billingRow(row);
   const app = '<div class="lrow" style="--dot:var(--c-kcal)"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + dotted(pushRow(), '--c-tune') + dotted(guideRow(), '--a-mute') + row('--a-mute', 'A.feedbackSheet()', t('Send feedback'), t('What is confusing, missing or great?'));
   return { title: '', header: false, body: head +
     '<div class="eyebrow grp">' + t('You') + '</div><div class="card menu">' + you + '</div>' +
     '<div class="eyebrow grp">' + t('App') + '</div><div class="card menu">' + app + '</div>' +
-    '<div class="card menu plain"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
+    '<div class="card menu plain">' + ((window.TUNE_CFG || {}).legalLinks ? '<div class="lrow" style="cursor:pointer" onclick="A.legal(\'privacy\')"><div class="grow"><div class="t">' + t('Privacy, terms & refunds') + '</div></div>' + I.chev + '</div>' : '') +
+    '<div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
     '<div class="mute small" style="text-align:center">Tune Up</div>' };
 };

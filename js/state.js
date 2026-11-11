@@ -25,6 +25,7 @@ export function readInviteFromUrl() {
     }
   } catch (e) { S.invite = S.invite || null; }
 }
+export function setInvite(inv) { S.invite = inv; try { localStorage.setItem(INV_KEY, JSON.stringify({ kind: inv.kind, code: inv.code })); } catch (e) {} }
 export function clearInvite() { S.invite = null; try { localStorage.removeItem(INV_KEY); } catch (e) {} }
 export function forgetInvite() { try { localStorage.removeItem(INV_KEY); } catch (e) {} }   // keep it in memory for this load only
 

@@ -2,7 +2,8 @@
 import { t, esc, LANG, setLang, firstName } from './i18n.js';
 import { SCREENS, A, I, go, replace, root, rerender, toast, busy, val, field, langToggle, sheet, closeSheet , setTheme } from './ui.js';
 import * as db from './db.js';
-import { S, setSignup } from './state.js';
+import { S, setSignup, setInvite } from './state.js';
+import { openOutside, publicUrl } from './native.js';
 
 let afterSignIn = () => {};
 export function onSignedIn(fn) { afterSignIn = fn; }
@@ -32,7 +33,9 @@ SCREENS.welcome = () => {
     (inv && inv.info && inv.info.valid ? '<button class="btn" onclick="A.startSignup(null)">' + I.mail + ' ' + t('Continue with e-mail') + '</button>'
       : '<button class="btn" onclick="A.startSignup(\'trainee\')">' + t('I want to train') + '</button><button class="btn sec" onclick="A.startSignup(\'coach\')">' + t('I am a coach') + '</button>') +
     '</div><div style="height:10px"></div><div class="link" onclick="A.startSignup(\'signin\')">' + t('Already have an account? Sign in') + '</div>' +
-    '<div class="mute small" style="margin-top:6px">' + t('No passwords — we e-mail you a one-time code.') + '</div>' };
+    (inv && inv.info && inv.info.valid ? '' : '<div class="link" style="margin-top:6px" onclick="A.inviteCodeSheet()">' + t('I have an invite code') + '</div>') +
+    '<div class="mute small" style="margin-top:6px">' + t('No passwords — we e-mail you a one-time code.') + '</div>' +
+    (!(window.TUNE_CFG || {}).legalLinks ? '' : '<div class="mute small" style="margin-top:14px">' + t('By continuing you accept the') + ' <span class="link" style="display:inline" onclick="A.legal(\'terms\')">' + t('the Terms of use') + '</span> ' + t('and the') + ' <span class="link" style="display:inline" onclick="A.legal(\'privacy\')">' + t('the Privacy policy') + '</span>.</div>') };
 };
 
 // which door the person came through: a role (new account allowed), an invite (new account allowed), or plain sign-in
@@ -87,6 +90,7 @@ SCREENS.consent = () => ({ title: t('Before we start'), tabs: false, back: false
   '<p>' + t('We also count which screens are used, under an account number without your name or health data, to see what to improve.') + '</p>' +
   '<p>' + t('You can delete your account and all of its data at any time from More → Delete account.') + '</p>' +
   '<p>' + t('Tune Up is new: things may change, and we may ask you for feedback.') + '</p>' +
+  (!(window.TUNE_CFG || {}).legalLinks ? '' : '<p><span class="link" style="display:inline" onclick="A.legal(\'privacy\')">' + t('Full privacy policy') + '</span> · <span class="link" style="display:inline" onclick="A.legal(\'terms\')">' + t('Terms of use') + '</span></p>') +
   '</div>' +
   '<button class="btn" onclick="A.consent()">' + t('I agree — continue') + '</button>' +
   '<button class="btn sec" onclick="A.signOut()">' + t('Not now — sign out') + '</button>' });
@@ -108,3 +112,22 @@ A.signOut = async () => { try { const { pushSignOut } = await import('./push.js'
 A.deleteAccountAsk = () => sheet('<div class="h2">' + t('Delete your account?') + '</div><p class="lead">' + t('This removes your profile, logs, messages and pairing for good. It cannot be undone.') + '</p>' +
   '<button class="btn danger" onclick="A.deleteAccount()">' + t('Delete everything') + '</button><button class="btn sec" onclick="A.closeSheet()">' + t('Keep my account') + '</button>');
 A.deleteAccount = async () => { try { await db.deleteAccount(); closeSheet(); toast(t('Account deleted')); await A.signOut(); } catch (e) { toast(t('Could not delete — try again'), 'err'); } };
+
+// privacy policy, terms and refunds — one public page, in the current language
+A.legal = (sec) => { const ka = LANG.cur === 'ka'; openOutside(publicUrl('legal.html?lang=' + (ka ? 'ka' : 'en') + '#' + (sec || 'privacy') + (ka ? '-ka' : ''))); };
+
+// an invite typed by hand (the store app cannot open invite links yet; also handy when a link gets mangled)
+A.inviteCodeSheet = () => sheet('<div class="h2">' + t('Invite code') + '</div><p class="lead">' + t('The 8 letters and numbers at the end of the invite link your coach sent you.') + '</p>' +
+  field(t('Code'), 'inv_code', '', { ph: 'ABCD2345', attrs: ' autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40"' }) + '<div class="err" id="err"></div>' +
+  '<button class="btn" onclick="A.inviteCodeUse()">' + t('Continue') + '</button><button class="btn sec" onclick="A.closeSheet()">' + t('Cancel') + '</button>');
+A.inviteCodeUse = async () => {
+  const raw = String(val('inv_code') || '').trim(); const m = raw.match(/[?&](invite|coach)=([A-Za-z0-9]+)/);
+  const code = (m ? m[2] : raw).toUpperCase().replace(/[^A-Z0-9]/g, ''); const err = document.getElementById('err');
+  if (code.length < 4) { if (err) err.textContent = t('Check the code and try again.'); return; }
+  busy(true);
+  try {
+    const info = await db.inviteInfo(code); busy(false);
+    if (!info || !info.valid) { if (err) err.textContent = t('This invite link is no longer valid'); return; }
+    setInvite({ kind: info.kind === 'coach' ? 'coach' : 'client', code, info }); closeSheet(); rerender();
+  } catch (e) { busy(false); if (err) err.textContent = t('Could not check the code — try again.'); }
+};

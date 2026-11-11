@@ -7,6 +7,7 @@ import * as db from './db.js';
 import { S } from './state.js';
 import { componentLines, CADENCE } from './plans.js';
 import { DISTRICTS } from './onboard.js';
+import { planPayLine } from './billing.js';
 
 export async function loadRequests() { try { S.requests = await db.coachRequests(); } catch (e) { S.requests = S.requests || []; } }
 export function pendingCount() { return (S.requests || []).filter(r => r.status === 'pending').length; }
@@ -69,7 +70,7 @@ export function planBlock(p, opts) {
   const change = isCoach ? '<span class="link small" onclick="A.clientPlanSheet(\'' + p.id + '\')">' + t('Change plan') + '</span>' : '<span class="link small" onclick="A.go(\'choosePlan\')">' + t('Change plan') + '</span>';
   return '<div class="card"><div class="row between"><div class="eyebrow">' + t('Plan') + '</div>' + change + '</div><div class="h3">' + esc(p.plan_name + ' · ' + p.plan_price + ' ₾ ' + t('/ month') + (p.plan_since ? ' · ' + t('since {date}', { date: fmtDay(String(p.plan_since).slice(0, 10), 'dm') }) : '')) + '</div>' +
     '<div style="display:flex;flex-direction:column">' + rows.map(r => '<div class="lrow" style="padding:9px 0;min-height:0"><div class="grow"><div class="t" style="font-weight:600">' + esc(r[0]) + '</div></div>' + r[1] + '</div>').join('') + '</div>' +
-    (!isCoach ? '<div class="s">' + t('You pay your coach directly.') + '</div>' : '') + '</div>';
+    (!isCoach ? '<div class="s">' + esc(planPayLine() || t('You pay your coach directly.')) + '</div>' : '') + '</div>';
 }
 A.clientPlanSheet = async (pairId) => {
   if (!S.coachPlans) { try { S.coachPlans = await db.myPlans(S.me.id); } catch (e) { S.coachPlans = []; } }

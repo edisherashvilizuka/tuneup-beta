@@ -136,5 +136,8 @@ export const KA14 = {
   // notification titles (0016)
   'New request': 'ახალი მოთხოვნა', 'Request accepted': 'მოთხოვნა მიღებულია', 'Request declined': 'მოთხოვნა უარყოფილია', 'Trial ahead': 'წინ საცდელია', 'Trial booked': 'საცდელი დაჯავშნილია', 'After the trial': 'საცდელის შემდეგ', 'Plan chosen': 'გეგმა არჩეულია', 'Your plan': 'შენი გეგმა',
   'Tune Up team': 'Tune Up-ის გუნდი', 'Admin': 'ადმინი', 'Coach review, programs, pairs & plans': 'მწვრთნელების განხილვა, პროგრამები, წყვილები და გეგმები', 'Back to coaching': 'უკან წვრთნაზე', 'Your clients, calendar and chat': 'შენი კლიენტები, კალენდარი და ჩატი',
-  'You are approved': 'დამტკიცებული ხარ', 'Review update': 'განხილვის განახლება', 'Your program is live': 'შენი პროგრამა გამოქვეყნდა', 'Your coaching ended': 'შენი წვრთნა დასრულდა'
+  'You are approved': 'დამტკიცებული ხარ', 'Review update': 'განხილვის განახლება', 'Your program is live': 'შენი პროგრამა გამოქვეყნდა', 'Your coaching ended': 'შენი წვრთნა დასრულდა',
+  // legal pages (11 Nov)
+  'By continuing you accept the': 'გაგრძელებით ეთანხმები', 'the Terms of use': 'გამოყენების პირობებს', 'and the': 'და', 'the Privacy policy': 'კონფიდენციალურობის პოლიტიკას', 'Terms of use': 'გამოყენების პირობები',
+  'Full privacy policy': 'კონფიდენციალურობის სრული პოლიტიკა', 'Privacy, terms & refunds': 'კონფიდენციალურობა, პირობები, თანხის დაბრუნება',
 };

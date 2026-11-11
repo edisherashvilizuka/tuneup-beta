@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tune Up — payment finished</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<style>
+/* Where the bank sends people who paid from the store app: the in-app browser closes and the app checks the payment. */
+body { margin:0; background:#F6F1E8; color:#1D1C19; font:17px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans Georgian",sans-serif; }
+.wrap { max-width:420px; margin:0 auto; padding:64px 20px; text-align:center; }
+.dot { width:64px; height:64px; border-radius:50%; background:#2A9A90; margin:0 auto 18px; display:flex; align-items:center; justify-content:center; }
+h1 { font-size:22px; margin:0 0 8px; } p { color:#6F665C; margin:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="dot"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+  <h1 id="h">Back to Tune Up</h1>
+  <p id="p">Close this page — the app shows whether the payment went through.</p>
+</div>
+<script>
+if (/lang=ka/.test(location.search)) { document.documentElement.lang = 'ka'; document.getElementById('h').textContent = 'დაბრუნდი Tune Up-ში'; document.getElementById('p').textContent = 'დახურე ეს გვერდი — აპლიკაცია გაჩვენებს, შესრულდა თუ არა გადახდა.'; }
+</script>
+</body>
+</html>

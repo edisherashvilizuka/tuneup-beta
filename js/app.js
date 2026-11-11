@@ -1,6 +1,6 @@
 // Tune Up beta — boot: decide which screen the person lands on.
 import { setLang, LANG, t } from './i18n.js';
-import { root, setTabs, toast, A, rerender, refreshBadges } from './ui.js';
+import { root, go, back, NAV, setTabs, toast, A, rerender, refreshBadges } from './ui.js';
 import * as db from './db.js';
 import { S, readInviteFromUrl, clearInvite, forgetInvite, readSignup, clearSignup } from './state.js';
 import { onSignedIn } from './auth.js';
@@ -22,6 +22,8 @@ import './plans.js';
 import './solo.js';
 import './match.js';
 import './requests.js';
+import { readPayReturn, checkPendingPayment } from './billing.js';
+import { isNative, onResume, onBrowserClosed, onBackButton, exitApp } from './native.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -63,7 +65,8 @@ async function home() {
     else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('ctoday'); }
     else if (S.me.role === 'admin') { await loadAdmin(); setTabs(ADMIN_TABS); root('aover'); }
     track('open');
-    await initPush(); rerender(); routePending();   // the push card/row depend on what the phone says
+    await initPush(); rerender(); routePending();
+    if (S.payReturn && S.me.role === 'trainee') go('payReturn', { payment: S.payReturn });   // the push card/row depend on what the phone says
   } catch (e) { console.error(e); toast(t('Could not load your data — pull to refresh or sign in again'), 'err'); setTabs([]); root('noinvite'); }
 }
 onSignedIn(afterSignIn);
@@ -73,7 +76,7 @@ onOnboarded(async () => { S.me = await db.loadProfile(S.session.user.id); await 
 async function boot() {
   document.documentElement.setAttribute('lang', LANG.cur);
   if (!db.configured) { root('setup'); return; }
-  readInviteFromUrl(); readSignup();
+  readInviteFromUrl(); readSignup(); readPayReturn();
   if (S.invite && !S.invite.info) { try { S.invite.info = await db.inviteInfo(S.invite.code); } catch (e) { S.invite.info = { kind: 'none', valid: false }; } }
   if (S.invite && S.invite.info && !S.invite.info.valid) forgetInvite();   // shown once on the welcome screen, then dropped
   S.session = await db.getSession();
@@ -81,6 +84,12 @@ async function boot() {
   await afterSignIn();
 }
 boot();
+// store app: after the bank's page or the background, check an open checkout; Android back button = back a screen
+if (isNative) {
+  onResume(() => { if (S.me) checkPendingPayment(); });
+  onBrowserClosed(() => { if (S.me) checkPendingPayment(); });
+  onBackButton(() => { const sh = document.querySelector('.sheet'); if (sh && A.closeSheet) { A.closeSheet(); return; } if (NAV.stack.length > 1) back(); else exitApp(); });
+}
 
 // Phone keyboard: iPhone does not shrink the page when the keyboard opens — it slides the whole view up and sometimes
 // leaves it there after the keyboard closes. Size and place the app to the part of the screen that is really visible

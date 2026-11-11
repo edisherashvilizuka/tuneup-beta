@@ -265,3 +265,24 @@ export async function transcribe(dataUrl, lang) {
   if (data && data.error) throw new Error(data.error);
   return data || {};
 }
+
+// ---- payments (0021 + Edge Function `pay`)
+async function payCall(body) {
+  const { data, error } = await sb.functions.invoke('pay', { body });
+  if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} const err = new Error(msg); err.status = error.context && error.context.status; throw err; }
+  return data || {};
+}
+export async function paymentsOn() { try { return !!(await q(sb.rpc('my_payments_on'))); } catch (e) { return false; } }
+export async function payStart(pairId, planId, lang, ret) { return payCall({ action: 'start', pair: pairId, plan: planId, lang, return: ret || 'web' }); }
+export async function payStatus(paymentId) { return payCall({ action: 'status', payment: paymentId }); }
+export async function payMock(paymentId, sig, ok) { return payCall({ action: 'mock_result', payment: paymentId, sig, ok }); }
+export async function payRefund(paymentId, amountTetri, reason) { return payCall({ action: 'refund', payment: paymentId, amount_tetri: amountTetri, reason }); }
+const SUB_COLS = 'id,coach_id,pair_id,product,plan_id,plan_name,amount_tetri,status,cancel_at_period_end,current_period_start,current_period_end,retry_count,next_retry_at,card_last4,card_brand,next_plan_id,next_plan_name,next_amount_tetri,mode,created_at';
+export async function mySubscriptions() { return q(sb.from('subscriptions').select(SUB_COLS).order('created_at', { ascending: false }).limit(10)); }
+export async function myPayments() { return q(sb.from('payments').select('id,subscription_id,kind,amount_tetri,status,failure_reason,refunded_tetri,period_start,period_end,created_at,paid_at').order('created_at', { ascending: false }).limit(24)); }
+export async function subCancel(subId, cancel) { return q(sb.rpc('sub_cancel', { p_sub: subId, p_cancel: cancel })); }
+export async function subChangePlan(subId, planId) { return q(sb.rpc('sub_change_plan', { p_sub: subId, p_plan: planId })); }
+export async function coachSetPayout(iban, holder) { return q(sb.rpc('coach_set_payout', { p_iban: iban, p_holder: holder })); }
+export async function coachEarnings() { return q(sb.rpc('coach_earnings')); }
+export async function adminBilling(month) { return q(sb.rpc('admin_billing', { p_month: month || null })); }
+export async function adminVerifyPayout(coachId, ok, note) { return q(sb.rpc('admin_verify_payout', { p_coach: coachId, p_ok: ok, p_note: note || '' })); }

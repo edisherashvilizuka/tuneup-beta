@@ -3,16 +3,19 @@ import { t, esc } from './i18n.js';
 import { A, I, go, root, rerender, toast } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
+import { isNative, nativePushAvailable, nativePushState, nativePushInit, nativePushOn } from './native.js';
 
 const CFG = window.TUNE_CFG || {};
 const DISMISS = 'tuneup-push-later';
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const standalone = () => navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-export const supported = () => !!(CFG.vapidPublic && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+export const supported = () => isNative ? nativePushAvailable() : !!(CFG.vapidPublic && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+let nState = 'prompt', nToken = '';   // the store app: Apple / Google permission and this phone's token
 let reg = null, sub = null, pending = null;   // pending = {kind, pair} from a tapped notification, routed once the home screen is up
 
 // ---- state for the UI: on | off | blocked | install (iPhone, not yet on the Home Screen) | unsupported
 export function state() {
+  if (isNative) return !supported() ? 'unsupported' : nState === 'denied' ? 'blocked' : nState === 'granted' && nToken ? 'on' : 'off';
   if (!supported()) return isIOS && !standalone() ? 'install' : 'unsupported';
   if (Notification.permission === 'denied') return 'blocked';
   return sub ? 'on' : 'off';
@@ -21,6 +24,12 @@ export function state() {
 // ---- boot: register the worker, re-save an existing subscription (endpoints can change), listen for taps
 export async function initPush() {
   readTap();
+  if (isNative) {
+    if (!supported()) return;
+    nState = await nativePushState();
+    await nativePushInit(async (token) => { nToken = token; try { await saveNative(token); } catch (e) {} rerender(); }, (kind, pair) => { if (S.me && S.me.role) routeTap(kind, pair); else pending = { kind, pair }; });
+    return;
+  }
   if (!supported()) return;
   try {
     reg = await navigator.serviceWorker.register('sw.js');
@@ -44,6 +53,7 @@ function routeTap(kind, pair) {
   const coach = S.me.role === 'coach';
   if (kind === 'message') { if (pair && A.openPairChat) A.openPairChat(pair); else root('chat'); }
   else if (kind === 'checkin' && coach && pair) { root('clients'); go('client', { id: pair }); }
+  else if (/^(plan_paid|payment_|plan_cancel|refund|payout_checked)/.test(kind || '')) { root(coach ? 'cmore' : 'more'); go(coach ? 'earnings' : 'billing'); }
   else if (kind === 'joined' || kind === 'left') { if (coach && A.openClients) A.openClients(kind === 'joined' ? pair : ''); else root('home'); }
   else root(coach ? 'ccal' : 'sessions');
 }
@@ -54,8 +64,17 @@ async function save(s) {
 }
 function keyBytes(s) { const pad = '='.repeat((4 - s.length % 4) % 4); const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); }
 
+async function saveNative(token) {
+  if (!S.me) return;
+  await db.savePushSub({ user_id: S.me.id, endpoint: token, p256dh: 'native', auth: 'native', ua: navigator.userAgent.slice(0, 200), updated_at: new Date().toISOString() });
+}
 A.pushOn = async () => {
   if (!supported()) return;
+  if (isNative) {
+    try { nState = await nativePushOn(); if (nState !== 'granted') { rerender(); toast(t('Notifications are blocked in your phone settings'), 'err'); return; } toast(t('Notifications on')); }
+    catch (e) { toast(t('Could not turn on notifications — try again'), 'err'); }
+    rerender(); return;
+  }
   try {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { rerender(); toast(t('Notifications are blocked in your phone settings'), 'err'); return; }
@@ -66,11 +85,13 @@ A.pushOn = async () => {
   } catch (e) { console.warn('push', e); sub = null; rerender(); toast(t('Could not turn on notifications — try again'), 'err'); }
 };
 A.pushOff = async () => {
+  if (isNative) { try { if (nToken) await db.deletePushSub(nToken).catch(() => {}); nToken = ''; nState = 'prompt'; rerender(); toast(t('Notifications off')); } catch (e) {} return; }
   try { if (sub) { const ep = sub.endpoint; await sub.unsubscribe(); await db.deletePushSub(ep).catch(() => {}); } sub = null; rerender(); toast(t('Notifications off')); }
   catch (e) { toast(t('Could not change — try again'), 'err'); }
 };
 A.pushLater = () => { try { localStorage.setItem(DISMISS, '1'); } catch (e) {} rerender(); };
 export async function pushSignOut() {          // this phone stops receiving this person's notifications
+  if (isNative) { try { if (nToken) await db.deletePushSub(nToken); } catch (e) {} nToken = ''; return; }
   try { if (sub) { const ep = sub.endpoint; await db.deletePushSub(ep).catch(() => {}); await sub.unsubscribe(); } } catch (e) {} sub = null;
 }
 

@@ -12,6 +12,7 @@ import { guideRow } from './guide.js';
 import { loadRequests, pendingCount, requestsBlock, planBlock } from './requests.js';
 import { availGrid, toggleHour, availSummary, DISTRICTS } from './onboard.js';
 import { shrink, attachBlock, saveAttachments } from './attach.js';
+import { earningsRow } from './billing.js';
 
 export const COACH_TABS = [{ id: 'ctoday', label: 'Today', ico: 'home', badge: () => pendingCount() || 0 }, { id: 'clients', label: 'Clients', ico: 'users' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'ccal', label: 'Calendar', ico: 'cal' }, { id: 'cmore', label: 'More', ico: 'gear' }];
 
@@ -19,6 +20,7 @@ export async function loadCoach() {
   // after coaching ends the ex-client's profile is private again (by design), so the pair comes back without it
   S.clients = (await db.myClients(S.me.id) || []).map(c => c.trainee ? c : Object.assign(c, { gone: true, trainee: { id: null, name: t('Former client'), lang: 'en', trainee_profiles: null } }));
   S.coachProfile = await db.myCoachProfile(S.me.id);
+  try { S.payOn = await db.paymentsOn(); } catch (e) { S.payOn = false; }
   const trials = S.clients.filter(c => c.status === 'trial' && !c.gone);
   if (trials.length) { try { const ses = await db.sessionsFor(trials.map(c => c.id)); trials.forEach(c => { c.trialSession = ses.find(x => x.id === c.trial_session_id) || ses.find(x => x.pair_id === c.id && x.status === 'planned') || null; }); } catch (e) {} }
   await Promise.all([loadMonitor(), loadRequests()]);
@@ -125,10 +127,11 @@ SCREENS.cmore = () => {
   const rsLabel = rs === 'approved' ? (!hasPlan ? t('Approved · add a plan to appear in Find a coach') : !hasHours ? t('Approved · add free hours so trainees can book a trial') : t('Approved · visible in Find a coach')) : rs === 'pending' ? t('Under review') : rs === 'more' ? t('Review: one more thing needed') : t('Not approved');
   const head = '<div class="tophead">' + (cp.photo_url ? '<img src="' + esc(cp.photo_url) + '" alt="" class="avatar lg" style="object-fit:cover">' : avatar(S.me.name, S.me.id, 'lg')) + '<div class="grow" style="min-width:0"><div class="h1 sm">' + esc(S.me.name) + '</div><div class="eyebrow">' + esc([cp.gym, DISTRICTS[cp.district] ? t(DISTRICTS[cp.district]) : cp.district, t('{n} active', { n })].filter(Boolean).join(' · ')) + '</div><div class="s">' + esc(rsLabel) + '</div></div></div>';
   return { title: '', header: false, body: head +
-    '<div class="eyebrow grp">' + t('Coaching') + '</div><div class="card menu">' + row('--c-kcal', "A.go('coachEdit')", t('Coach profile'), esc([cp.gym, DISTRICTS[cp.district] ? t(DISTRICTS[cp.district]) : cp.district].filter(Boolean).join(' · ') || t('Gym, district, what you coach'))) + row('--c-protein', "A.go('myPlans')", t('My plans'), esc((S.coachPlans || []).length ? S.coachPlans.map(p => p.name + ' ' + p.price_gel + ' ₾').join(' · ') : t('What you offer and at what price'))) + row('--c-carbs', "A.go('myExercises')", t('My exercises'), t('Your own moves and video links')) + row('--c-water', "A.go('invites')", t('Invite links'), t('One link per client')) + (rs === 'approved' ? row('--c-tune', "A.go('contribute')", t('Contribute a program'), t('For people training on their own — with your name on it')) : '') + '</div>' +
+    '<div class="eyebrow grp">' + t('Coaching') + '</div><div class="card menu">' + row('--c-kcal', "A.go('coachEdit')", t('Coach profile'), esc([cp.gym, DISTRICTS[cp.district] ? t(DISTRICTS[cp.district]) : cp.district].filter(Boolean).join(' · ') || t('Gym, district, what you coach'))) + earningsRow(row) + row('--c-protein', "A.go('myPlans')", t('My plans'), esc((S.coachPlans || []).length ? S.coachPlans.map(p => p.name + ' ' + p.price_gel + ' ₾').join(' · ') : t('What you offer and at what price'))) + row('--c-carbs', "A.go('myExercises')", t('My exercises'), t('Your own moves and video links')) + row('--c-water', "A.go('invites')", t('Invite links'), t('One link per client')) + (rs === 'approved' ? row('--c-tune', "A.go('contribute')", t('Contribute a program'), t('For people training on their own — with your name on it')) : '') + '</div>' +
     (S.me.isAdmin ? '<div class="eyebrow grp">' + t('Tune Up team') + '</div><div class="card menu">' + row('--c-tune', 'A.switchAdmin()', t('Admin'), t('Coach review, programs, pairs & plans')) + '</div>' : '') +
     '<div class="eyebrow grp">' + t('App') + '</div><div class="card menu">' + dotted(pushRow(), '--c-tune') + '<div class="lrow" style="--dot:var(--c-kcal)"><div class="grow"><div class="t">' + t('Language') + '</div></div>' + langToggle('setLangSave') + '</div>' + dotted(guideRow(), '--a-mute') + row('--a-mute', 'A.feedbackSheet()', t('Send feedback'), t('What is confusing, missing or great?')) + '</div>' +
-    '<div class="card menu plain"><div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
+    '<div class="card menu plain">' + ((window.TUNE_CFG || {}).legalLinks ? '<div class="lrow" style="cursor:pointer" onclick="A.legal(\'privacy\')"><div class="grow"><div class="t">' + t('Privacy, terms & refunds') + '</div></div>' + I.chev + '</div>' : '') +
+    '<div class="lrow" style="cursor:pointer" onclick="A.signOut()"><div class="grow"><div class="t">' + t('Sign out') + '</div></div>' + I.logout + '</div>' +
     '<div class="lrow" style="cursor:pointer" onclick="A.deleteAccountAsk()"><div class="grow"><div class="t" style="color:var(--a-red)">' + t('Delete account') + '</div><div class="s">' + t('Removes all your data') + '</div></div></div></div>' +
     '<div class="mute small" style="text-align:center">Tune Up</div>' };
 };

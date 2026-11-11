@@ -2,7 +2,8 @@
    supabaseUrl / supabaseKey — from Supabase → Settings → API (Project URL + publishable/anon key)
    proxy   — Tune's AI relay (Netlify Function; the Anthropic key lives in Netlify env vars, never here)
    posthog — PostHog project key (phc_…); empty = no usage stats
-   vapidPublic — public half of the push-notification key pair (the private half is a Supabase secret) */
+   vapidPublic — public half of the push-notification key pair (the private half is a Supabase secret)
+   legalLinks — show the privacy / terms / refunds links (welcome, data notice, More) */
 window.TUNE_CFG = {
   supabaseUrl: 'https://tlpquinatxrpxgcqphpv.supabase.co',
   supabaseKey: 'sb_publishable_oObQxyEOBgQc88SnDh2xDQ_yQ1RfMs0',
@@ -10,5 +11,6 @@ window.TUNE_CFG = {
   posthog: 'phc_CCypmPS8SXGwYMCTqQUiAc6gRmNYegCkTwP98cCceeeD',
   posthogHost: 'https://eu.i.posthog.com',
   vapidPublic: 'BKHuN3pdKyj1ty8o5tTKPW0v3TykTc53PZY6XwCu6WJ8htyFZDspy7kEq8y-QYPPEsZJgsL9puoVT7snN8p3OTg',
-  beta: true
+  beta: true,
+  legalLinks: false   // true once legal.html has the operator's details (name, ID, address, e-mail)
 };

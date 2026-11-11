@@ -13,7 +13,8 @@ import { KA11 } from './ka11.js';
 import { KA12 } from './ka12.js';
 import { KA13 } from './ka13.js';
 import { KA14 } from './ka14.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10, KA11, KA12, KA13, KA14);
+import { KA15 } from './ka15.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10, KA11, KA12, KA13, KA14, KA15);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}
@@ -42,6 +43,7 @@ export function fmtDate(ts, opt) {
   const d = new Date(ts);
   const m = MONTHS[LANG.cur][d.getMonth()];
   if (opt === 'dm') return d.getDate() + ' ' + m;
+  if (opt === 'my') return m + ' ' + d.getFullYear();
   if (opt === 'full') return DAYS[LANG.cur][d.getDay()] + ' ' + d.getDate() + ' ' + m + ' ' + d.getFullYear();
   return DAYS[LANG.cur][d.getDay()] + ' ' + d.getDate() + ' ' + m;
 }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tune Up — test payment</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<script src="config.js"></script>
+<style>
+/* The stand-in bank: used only while payments are in test mode with no bank connected. Looks deliberately unlike a real bank page. */
+:root { --bg:#EDE7F6; --panel:#fff; --fg:#1D1C19; --mute:#6F665C; --line:#D9D0EA; --accent:#5B4BB0; --bad:#B3261E; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans Georgian",sans-serif; }
+.wrap { max-width:420px; margin:0 auto; padding:28px 16px 40px; }
+.ribbon { background:#FFE8A3; border:1px dashed #C99A00; border-radius:12px; padding:10px 12px; font-weight:700; text-align:center; margin-bottom:16px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; }
+.amt { font-size:34px; font-weight:800; margin:4px 0 2px; }
+.mute { color:var(--mute); font-size:14px; }
+.field { margin:14px 0 4px; font-size:13px; color:var(--mute); }
+.input { width:100%; border:1px solid var(--line); border-radius:10px; padding:12px; font:inherit; background:#F7F5FB; color:var(--mute); }
+button { width:100%; border:0; border-radius:999px; padding:14px; font:inherit; font-weight:700; margin-top:12px; cursor:pointer; }
+.pay { background:var(--accent); color:#fff; } .no { background:transparent; border:1px solid var(--line); color:var(--bad); }
+button:disabled { opacity:.5; }
+.err { color:var(--bad); font-size:14px; min-height:20px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="ribbon" id="rib">TEST BANK — no real money</div>
+  <div class="card">
+    <div class="mute" id="to">Tune Up</div>
+    <div class="amt" id="amt">—</div>
+    <div class="mute" id="plan"></div>
+    <div class="field" id="lcard">Card</div>
+    <input class="input" value="4242 4242 4242 4242" disabled aria-label="test card">
+    <button class="pay" id="pay">Pay</button>
+    <button class="no" id="no">Decline (test a failed payment)</button>
+    <div class="err" id="err"></div>
+  </div>
+</div>
+<script type="module">
+import { sb, payMock } from './js/db.js';
+const q = new URLSearchParams(location.search); const id = q.get('p'), sig = q.get('s'), ka = q.get('lang') === 'ka';
+const T = ka ? { rib: 'სატესტო ბანკი — რეალური ფული არ ჩამოიჭრება', card: 'ბარათი', pay: 'გადახდა', no: 'უარყოფა (წარუმატებელი გადახდის ტესტი)', err: 'ვერ მოხერხდა — სცადე თავიდან', sign: 'ჯერ შედი Tune Up-ში' }
+            : { rib: 'TEST BANK — no real money', card: 'Card', pay: 'Pay', no: 'Decline (test a failed payment)', err: 'Did not work — try again', sign: 'Sign in to Tune Up first' };
+document.documentElement.lang = ka ? 'ka' : 'en';
+document.getElementById('rib').textContent = T.rib; document.getElementById('lcard').textContent = T.card;
+document.getElementById('pay').textContent = T.pay; document.getElementById('no').textContent = T.no;
+const a = Number(q.get('a') || 0) / 100; document.getElementById('amt').textContent = (Number.isInteger(a) ? a : a.toFixed(2)) + ' ₾';
+document.getElementById('plan').textContent = q.get('n') || '';
+async function go(ok) {
+  const btns = document.querySelectorAll('button'); btns.forEach(b => b.disabled = true); document.getElementById('err').textContent = '';
+  try {
+    const { data } = await sb.auth.getSession(); if (!data.session) { document.getElementById('err').textContent = T.sign; btns.forEach(b => b.disabled = false); return; }
+    await payMock(id, sig, ok);
+    location.replace('./?paid=' + encodeURIComponent(id));
+  } catch (e) { document.getElementById('err').textContent = T.err; btns.forEach(b => b.disabled = false); }
+}
+document.getElementById('pay').onclick = () => go(true);
+document.getElementById('no').onclick = () => go(false);
+</script>
+</body>
+</html>
