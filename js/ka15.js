@@ -75,4 +75,9 @@ export const KA15 = {
   'Your history is kept. Choose a plan to continue with your coach.': 'შენი ისტორია შენახულია. აირჩიე გეგმა, რომ მწვრთნელთან გააგრძელო.',
   'Your plan with {name} ended': '{name}-სთან შენი გეგმა დასრულდა',
   'What it included has stopped. Your history is kept — choose a plan to continue.': 'გეგმაში შემავალი მომსახურება შეჩერდა. შენი ისტორია შენახულია — გასაგრძელებლად აირჩიე გეგმა.',
+  // paid plan on the coach side (0024)
+  'Paid in the app': 'გადახდილია აპლიკაციაში',
+  'Paid by the client in the app until {date}. The client changes the plan; it applies from the next month.': 'კლიენტმა აპლიკაციაში გადაიხადა {date}-მდე. გეგმას კლიენტი ცვლის; ცვლილება მომდევნო თვიდან მოქმედებს.',
+  'The client pays for this plan in the app — they change it themselves.': 'ამ გეგმას კლიენტი აპლიკაციაში იხდის — მას თავად ცვლის.',
+  'Build 1–4 plans from what Tune Up offers. Trainees pick one after the free trial and pay by card in the app; your 85 % goes to your TBC account.': 'შექმენი 1–4 გეგმა იმისგან, რასაც Tune Up გთავაზობს. მოვარჯიშე უფასო საცდელის შემდეგ ირჩევს ერთს და იხდის ბარათით აპლიკაციაში; შენი 85 % შენს თიბისი ანგარიშზე ირიცხება.',
 };

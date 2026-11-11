@@ -70,10 +70,12 @@ export function planBlock(p, opts) {
   if (c.checkin) rows.push([t('Check-in replies {c}', { c: t(CADENCE[c.checkin] || c.checkin) }), '']);
   if (c.review) rows.push([t('Monthly progress review'), p.plan_since ? tag(true, t('due {date}', { date: fmtDay(addDays(String(p.plan_since).slice(0, 10), 30), 'dm') })) : '']);
   if (c.plan) rows.push([t('Training plan'), '']); if (c.nutrition) rows.push([t('Nutrition coaching'), '']); if (c.content) rows.push([t('Coach\'s video content'), '']); if (c.custom) rows.push([c.custom, '']);
-  const change = isCoach ? '<span class="link small" onclick="A.clientPlanSheet(\'' + p.id + '\')">' + t('Change plan') + '</span>' : '<span class="link small" onclick="A.go(\'choosePlan\')">' + t('Change plan') + '</span>';
+  const change = isCoach && p.plan_paid_until ? '<span class="tag ok">' + t('Paid in the app') + '</span>'
+    : isCoach ? '<span class="link small" onclick="A.clientPlanSheet(\'' + p.id + '\')">' + t('Change plan') + '</span>' : '<span class="link small" onclick="A.go(\'choosePlan\')">' + t('Change plan') + '</span>';
   return '<div class="card"><div class="row between"><div class="eyebrow">' + t('Plan') + '</div>' + change + '</div><div class="h3">' + esc(p.plan_name + ' · ' + p.plan_price + ' ₾ ' + t('/ month') + (p.plan_since ? ' · ' + t('since {date}', { date: fmtDay(String(p.plan_since).slice(0, 10), 'dm') }) : '')) + '</div>' +
     '<div style="display:flex;flex-direction:column">' + rows.map(r => '<div class="lrow" style="padding:9px 0;min-height:0"><div class="grow"><div class="t" style="font-weight:600">' + esc(r[0]) + '</div></div>' + r[1] + '</div>').join('') + '</div>' +
-    (!isCoach ? '<div class="s">' + esc(planPayLine() || t('You pay your coach directly.')) + '</div>' : '') + '</div>';
+    (!isCoach ? '<div class="s">' + esc(planPayLine() || t('You pay your coach directly.')) + '</div>'
+      : p.plan_paid_until ? '<div class="s">' + esc(t('Paid by the client in the app until {date}. The client changes the plan; it applies from the next month.', { date: fmtDay(String(p.plan_paid_until).slice(0, 10), 'dm') })) + '</div>' : '') + '</div>';
 }
 A.clientPlanSheet = async (pairId) => {
   if (!S.coachPlans) { try { S.coachPlans = await db.myPlans(S.me.id); } catch (e) { S.coachPlans = []; } }
@@ -84,7 +86,7 @@ A.clientPlanSheet = async (pairId) => {
 A.setClientPlan = async (pairId, planId) => {
   busy(true);
   try { await db.setClientPlan(pairId, planId); closeSheet(); const { loadCoach } = await import('./coach.js'); await loadCoach(); toast(t('Saved — the client sees it too')); rerender(); }
-  catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
+  catch (e) { busy(false); toast(/paid in the app/.test(String(e.message)) ? t('The client pays for this plan in the app — they change it themselves.') : t('Could not save — try again'), 'err'); }
 };
 
 // ---- Contribute a program (approved coaches; the partner confirms in admin before it is published)
