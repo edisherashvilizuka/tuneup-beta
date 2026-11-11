@@ -57,6 +57,9 @@ export function sessionsUsed(pairId, kind) {
 export function planBlock(p, opts) {
   opts = opts || {}; if (!p || p.kind !== 'coach') return '';
   const c = p.plan_components || {}; const isCoach = S.me.role === 'coach';
+  if (!p.plan_id && p.plan_ended_at) return isCoach
+    ? '<div class="card amber"><div class="eyebrow">' + t('Plan') + '</div><div class="h3">' + esc(t('Plan ended on {date}', { date: fmtDay(String(p.plan_ended_at).slice(0, 10), 'dm') })) + '</div><div class="s" style="color:var(--a-ink2)">' + t('What the plan included has stopped. Everything you did together is kept, and the client can choose a plan again any time.') + '</div></div>'
+    : (S.payOn ? '<div class="card amber"><div class="eyebrow">' + t('Plan') + '</div><div class="h3">' + esc(t('Plan ended on {date}', { date: fmtDay(String(p.plan_ended_at).slice(0, 10), 'dm') })) + '</div><div class="s" style="color:var(--a-ink2)">' + t('Your history is kept. Choose a plan to continue with your coach.') + '</div><button class="btn sm" onclick="A.go(\'choosePlan\')">' + t('Choose a plan') + '</button></div>' : '');
   if (!p.plan_id) return isCoach ? '<div class="card"><div class="row between"><div class="eyebrow">' + t('Plan') + '</div><span class="link small" onclick="A.clientPlanSheet(\'' + p.id + '\')">' + t('Assign') + '</span></div><div class="s">' + t('Existing client — no plan assigned yet. Assign one so both of you see what is included.') + '</div></div>' : '';
   const rows = [];
   const tag = (ok, txt) => '<span class="tag ' + (ok ? 'ok' : 'warn') + '">' + esc(txt) + '</span>';

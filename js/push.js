@@ -53,7 +53,7 @@ function routeTap(kind, pair) {
   const coach = S.me.role === 'coach';
   if (kind === 'message') { if (pair && A.openPairChat) A.openPairChat(pair); else root('chat'); }
   else if (kind === 'checkin' && coach && pair) { root('clients'); go('client', { id: pair }); }
-  else if (/^(plan_paid|payment_|plan_cancel|refund|payout_checked)/.test(kind || '')) { root(coach ? 'cmore' : 'more'); go(coach ? 'earnings' : 'billing'); }
+  else if (/^(plan_paid|payment_|plan_cancel|plan_ended|refund|payout_checked)/.test(kind || '')) { root(coach ? 'cmore' : 'more'); go(coach ? 'earnings' : 'billing'); }
   else if (kind === 'joined' || kind === 'left') { if (coach && A.openClients) A.openClients(kind === 'joined' ? pair : ''); else root('home'); }
   else root(coach ? 'ccal' : 'sessions');
 }

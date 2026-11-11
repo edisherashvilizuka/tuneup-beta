@@ -106,6 +106,9 @@ A.payRetry = () => { S.payResult = null; S.payReturn = null; root('home'); go('c
 export function billingCard() {
   if (!S.payOn) return '';
   const sub = (S.subs || []).find(s => s.product === 'coach_plan' && (s.status === 'past_due' || s.status === 'paused'));
+  const cp = coachPair();
+  if (!sub && cp && cp.status === 'active' && !cp.plan_id && cp.plan_ended_at && !currentSub())
+    return '<div class="card amber"><div class="h3">' + esc(t('Your plan with {name} ended', { name: firstName((cp.coach || {}).name) })) + '</div><div class="s" style="color:var(--a-ink2)">' + t('What it included has stopped. Your history is kept — choose a plan to continue.') + '</div><button class="btn sm" onclick="A.go(\'choosePlan\')">' + t('Choose a plan') + '</button></div>';
   if (!sub) return '';
   if (sub.status === 'past_due') return '<div class="card amber" style="cursor:pointer" onclick="A.go(\'billing\')"><div class="h3">' + t('Card payment failed') + '</div><div class="s" style="color:var(--a-ink2)">' + esc(t('We will try again on {date}. Check that your card has money on it.', { date: day(sub.next_retry_at) })) + '</div></div>';
   return '<div class="card amber"><div class="h3">' + t('Your plan is paused') + '</div><div class="s" style="color:var(--a-ink2)">' + esc(t('The monthly payment for {plan} did not go through. Pay to continue with your coach.', { plan: sub.plan_name })) + '</div><button class="btn sm" onclick="A.go(\'choosePlan\')">' + t('Pay now') + '</button></div>';

@@ -49,7 +49,7 @@ export async function redeemClient(code, name, lang, profile) { return q(sb.rpc(
 export async function endPair(id, note) { return q(sb.rpc('end_pair', { p_pair: id, p_note: note || '' })); }
 
 // ---- trainee
-const PAIR_COLS = 'id,kind,status,format,started_at,ended_at,end_note,plan_id,plan_name,plan_price,plan_components,plan_since,trial_session_id,trial_trainee_ok,trial_coach_ok,program_id,program_started,program_week,program_vars';
+const PAIR_COLS = 'id,kind,status,format,started_at,ended_at,end_note,plan_id,plan_name,plan_price,plan_components,plan_since,plan_ended_at,trial_session_id,trial_trainee_ok,trial_coach_ok,program_id,program_started,program_week,program_vars';
 // coach_profiles has two links to profiles (id, reviewed_by) → the embed must name the one it means, or PostgREST answers 300
 const COACH_JOIN = 'coach:profiles!pairs_coach_id_fkey(id,name,lang,coach_profiles!coach_profiles_id_fkey(specialties,pitch,gym,district,online,inperson,availability_text,availability,years,sex,photo_url,rating,rating_n))';
 // the trainee's current pair: a trial or active one first (coach or solo), else the most recent ended one

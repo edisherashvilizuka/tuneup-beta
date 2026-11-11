@@ -69,4 +69,10 @@ export const KA15 = {
   'The 8 letters and numbers at the end of the invite link your coach sent you.': 'მწვრთნელის გამოგზავნილი მოწვევის ბმულის ბოლოში მოცემული 8 ასო და ციფრი.',
   'Code': 'კოდი', 'Check the code and try again.': 'გადაამოწმე კოდი და სცადე თავიდან.', 'Could not check the code — try again.': 'კოდი ვერ შემოწმდა — სცადე თავიდან.',
   'Choose a plan': 'აირჩიე გეგმა', 'Not paid in the app yet — More → Plan & payments': 'აპლიკაციაში ჯერ არ არის გადახდილი — მეტი → გეგმა და გადახდები',
+  // plan ended (0023)
+  'Plan ended on {date}': 'გეგმა დასრულდა {date}-ს', 'Your plan ended': 'შენი გეგმა დასრულდა', 'Client plan ended': 'კლიენტის გეგმა დასრულდა',
+  'What the plan included has stopped. Everything you did together is kept, and the client can choose a plan again any time.': 'გეგმაში შემავალი მომსახურება შეჩერდა. ყველაფერი, რაც ერთად გააკეთეთ, შენახულია და კლიენტს ნებისმიერ დროს შეუძლია გეგმის თავიდან არჩევა.',
+  'Your history is kept. Choose a plan to continue with your coach.': 'შენი ისტორია შენახულია. აირჩიე გეგმა, რომ მწვრთნელთან გააგრძელო.',
+  'Your plan with {name} ended': '{name}-სთან შენი გეგმა დასრულდა',
+  'What it included has stopped. Your history is kept — choose a plan to continue.': 'გეგმაში შემავალი მომსახურება შეჩერდა. შენი ისტორია შენახულია — გასაგრძელებლად აირჩიე გეგმა.',
 };
