@@ -33,7 +33,7 @@ export const KA15 = {
   'until {date}': '{date}-მდე', '{amount} back': '{amount} დაბრუნდა',
   'Questions about a payment? Write to us through Feedback.': 'გადახდასთან დაკავშირებით კითხვა გაქვს? მოგვწერე უკუკავშირით.',
   'Cancel your plan?': 'გავაუქმო გეგმა?',
-  'You keep everything until {date}. After that there are no more payments, and your coaching ends unless you choose a plan again.': '{date}-მდე ყველაფერი გრჩება. მას შემდეგ გადახდები აღარ იქნება და მწვრთნელთან მუშაობა დასრულდება, თუ გეგმას თავიდან არ აირჩევ.',
+  'You keep everything until {date}. After that there are no more payments, and your coach sees that your plan has stopped.': '{date}-მდე ყველაფერი გრჩება. მას შემდეგ გადახდები აღარ იქნება და მწვრთნელი დაინახავს, რომ გეგმა დასრულდა.',
   'Your plan will stop at the end of the month': 'გეგმა თვის ბოლოს დასრულდება', 'Your plan continues': 'გეგმა გრძელდება',
   'Card payments for your coach\'s plan': 'მწვრთნელის გეგმის ბარათით გადახდა',
   'Active': 'აქტიური', 'Payment failed': 'გადახდა ვერ მოხერხდა', 'Cancelled': 'გაუქმებულია', 'Ended': 'დასრულდა', 'Not paid': 'გადაუხდელი',
@@ -62,7 +62,7 @@ export const KA15 = {
   'Refund': 'თანხის დაბრუნება', 'Amount (₾)': 'თანხა (₾)', 'Reason': 'მიზეზი', 'e.g. coach did not start': 'მაგ.: მწვრთნელმა მუშაობა არ დაიწყო',
   'Send refund': 'თანხის დაბრუნება', 'Up to {amount}': 'მაქსიმუმ {amount}', 'Refund sent': 'თანხა დაბრუნდა', 'The refund did not go through — try again.': 'თანხა ვერ დაბრუნდა — სცადე თავიდან.',
   // notification titles (0021)
-  'Plan paid': 'გეგმა გადახდილია', 'Plan paused': 'გეგმა შეჩერდა', 'Client plan paused': 'კლიენტის გეგმა შეჩერდა', 'Plan will stop': 'გეგმა სრულდება',
+  'Plan paid': 'გეგმა გადახდილია', 'Plan paused': 'გეგმა შეჩერდა', 'Client plan paused': 'კლიენტის გეგმა შეჩერდა', 'Plan will stop': 'გეგმა სრულდება', 'Plan continues': 'გეგმა გრძელდება',
   'Coach bank account to check': 'მწვრთნელის ანგარიში შესამოწმებელია', 'Bank account confirmed': 'ანგარიში დადასტურდა', 'Bank account needs a fix': 'ანგარიში გასასწორებელია',
   // invite code typed by hand (welcome screen; the store app)
   'I have an invite code': 'მაქვს მოწვევის კოდი', 'Invite code': 'მოწვევის კოდი',

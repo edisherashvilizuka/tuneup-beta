@@ -11,6 +11,7 @@ import { isNative, openOutside } from './native.js';
 
 export const money = (tetri) => { const v = Math.round(Number(tetri) || 0) / 100; return (Number.isInteger(v) ? String(v) : v.toFixed(2)) + ' ₾'; };
 const day = (ts) => ts ? fmtDate(ts, 'dm') : '';
+const L = () => !!(window.TUNE_CFG || {}).legalLinks;   // legal page links only once it carries the operator's details
 const LIVE = ['active', 'past_due', 'paused'];
 
 // ---------------------------------------------------------------- loading
@@ -43,7 +44,7 @@ export function choosePlanPaid(pr, plan) {
   sheet('<div class="eyebrow">' + t('Pay by card') + '</div><div class="h2">' + esc(plan.name) + '</div>' +
     '<div class="card flat"><div class="row between"><div>' + esc(t('With {name}', { name: firstName(c.name) })) + '</div><div class="h3">' + money(plan.price_gel * 100) + ' ' + t('/ month') + '</div></div>' +
     '<div class="s">' + t('Renews every month on the same date. Cancel any time in More → Plan & payments; the month you paid for keeps running.') + '</div></div>' +
-    '<p class="mute small">' + t('Card, Apple Pay or Google Pay on the bank\'s secure page — Tune Up never sees your card number.') + ' <span class="link" style="display:inline" onclick="A.legal(\'refunds\')">' + t('Payments & refunds') + '</span></p>' +
+    '<p class="mute small">' + t('Card, Apple Pay or Google Pay on the bank\'s secure page — Tune Up never sees your card number.') + (L() ? ' <span class="link" style="display:inline" onclick="A.legal(\'refunds\')">' + t('Payments & refunds') + '</span>' : '') + '</p>' +
     '<button class="btn" id="paybtn" onclick="A.payStart(\'' + pr.id + '\',\'' + plan.id + '\')">' + esc(t('Pay {price}', { price: money(plan.price_gel * 100) })) + '</button>' +
     '<button class="btn sec" onclick="A.closeSheet()">' + t('Not now') + '</button>');
 }
@@ -148,11 +149,11 @@ SCREENS.billing = () => {
     '<div class="lrow" style="cursor:default"><div class="grow"><div class="t">' + money(p.amount_tetri) + '</div><div class="s">' + esc(day(p.paid_at || p.created_at) + (p.period_end && p.status !== 'failed' ? ' · ' + t('until {date}', { date: day(p.period_end) }) : '') + (p.refunded_tetri ? ' · ' + t('{amount} back', { amount: money(p.refunded_tetri) }) : '')) + '</div></div>' +
     '<span class="tag ' + (p.status === 'succeeded' ? 'ok' : 'warn') + '">' + esc(t(PSTATUS[p.status] || p.status)) + '</span></div>').join('') + '</div>' : '';
   return { title: t('Plan & payments'), body: top + hist +
-    '<p class="mute small">' + t('Questions about a payment? Write to us through Feedback.') + ' <span class="link" style="display:inline" onclick="A.legal(\'refunds\')">' + t('Payments & refunds') + '</span></p>' };
+    '<p class="mute small">' + t('Questions about a payment? Write to us through Feedback.') + (L() ? ' <span class="link" style="display:inline" onclick="A.legal(\'refunds\')">' + t('Payments & refunds') + '</span>' : '') + '</p>' };
 };
 A.subCancelAsk = (subId) => {
   const sub = currentSub(); if (!sub) return;
-  sheet('<div class="h2">' + t('Cancel your plan?') + '</div><p class="lead">' + esc(t('You keep everything until {date}. After that there are no more payments, and your coaching ends unless you choose a plan again.', { date: day(sub.current_period_end) })) + '</p>' +
+  sheet('<div class="h2">' + t('Cancel your plan?') + '</div><p class="lead">' + esc(t('You keep everything until {date}. After that there are no more payments, and your coach sees that your plan has stopped.', { date: day(sub.current_period_end) })) + '</p>' +
     '<button class="btn danger" onclick="A.subCancel(\'' + subId + '\',true)">' + t('Cancel plan') + '</button><button class="btn sec" onclick="A.closeSheet()">' + t('Keep my plan') + '</button>');
 };
 A.subCancel = async (subId, cancel) => {
