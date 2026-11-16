@@ -3,7 +3,7 @@
 // injuries — and written week by week into the plan of their solo pair, so Today / Plan / Foods work exactly as with a
 // coach. Targets come from the confirmed nutrition rules. Every week Tune proposes the next step on a card the person
 // taps (Apply / Keep). A coach can be added at any time; ending coaching brings the person back here.
-import { t, esc, LANG, isoDate, addDays, weekdayOf, dayName, exName, unit, fmtDay, firstName, opt } from './i18n.js';
+import { t, esc, LANG, isoDate, addDays, weekdayOf, dayName, exName, unit, fmtDay, firstName, opt, repsTxt } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, busy, empty, val } from './ui.js';
 import * as db from './db.js';
 import { S, isSolo } from './state.js';
@@ -23,7 +23,11 @@ export function progSummary(p) { return (LANG.cur === 'ka' && p.summary_ka) ? p.
 export function pickProgram(tp, progs) {
   progs = progs || (S.solo && S.solo.programs) || []; tp = tp || {};
   const goal = GOAL_MAP[tp.goal] || 'tone', level = LEVEL_MAP[tp.experience] || 'beginner', place = tp.place || 'gym';
-  const score = p => (p.goal === goal ? 4 : 0) + (p.level === level ? 2 : 0) + (p.place === place ? 1 : 0);
+  // 16 Nov QA: someone free 3 days got the 4-day program and lost a whole day of it (2 upper days, 1 lower) — the days a
+  // person can train now count more than the level: a program that fits their week, else the one that loses the least
+  const nd = (tp.days || []).length || 3;
+  const fit = p => !p.days_per_week ? 0 : p.days_per_week === nd ? 3 : p.days_per_week < nd ? 2 : -(p.days_per_week - nd);
+  const score = p => (p.goal === goal ? 4 : 0) + fit(p) + (p.level === level ? 2 : 0) + (p.place === place ? 1 : 0);
   return progs.slice().sort((a, b) => score(b) - score(a))[0] || null;
 }
 // week N of a program — the same arithmetic as tools/programs.py week_items(): reps grow every `reps_every` weeks, one
@@ -63,11 +67,14 @@ export function adaptDays(days, tp) {
   return { days: out, notes, keys };
 }
 // which weekday gets which day template: the person's days, spread; more days than templates → templates repeat
-export function mapDays(templates, days) {
+// fewer days than templates: the templates rotate week by week (week 2 starts where week 1 stopped), so no day of the
+// program is lost for good
+export function mapDays(templates, days, week) {
   const D = (days || []).map(Number).filter(x => x >= 1 && x <= 7).sort((a, b) => a - b);
   const n = templates.length; if (!n) return [];
   if (!D.length) return templates.map((tpl, i) => ({ day: [1, 3, 5, 2, 4, 6][i] || 7, tpl }));
-  if (D.length <= n) return D.map((d, i) => ({ day: d, tpl: templates[i % n] }));
+  if (D.length < n) { const off = ((week || 1) - 1) * D.length; return D.map((d, i) => ({ day: d, tpl: templates[(off + i) % n] })); }
+  if (D.length === n) return D.map((d, i) => ({ day: d, tpl: templates[i] }));
   const picks = []; for (let i = 0; i < n; i++) picks.push(D[Math.round(i * (D.length - 1) / Math.max(1, n - 1))]);
   return [...new Set(picks)].map((d, i) => ({ day: d, tpl: templates[i] }));
 }
@@ -90,8 +97,8 @@ export function targetsFor(tp) {
 }
 // write week N into the solo pair's plan (+ targets when none yet)
 export async function materialize(pair, program, week, opts) {
-  const tp = S.traineeProfile || {}; const days = expandWeek(program, week); const ad = adaptDays(days, tp); const map = mapDays(ad.days, tp.days);
-  const items = []; map.forEach(m => { m.tpl.items.forEach((it, i) => { const x = exByName(it.ex); if (!x) return; items.push({ day: m.day, exercise_id: x.id, sets: Math.max(1, Math.min(20, it.sets)), reps: String(it.reps), load: it.load || '', note: it.swapped ? t('instead of {name}', { name: exName(exByName(it.swapped) || { name: it.swapped }) }) : '', position: i }); }); });
+  const tp = S.traineeProfile || {}; const days = expandWeek(program, week); const ad = adaptDays(days, tp); const map = mapDays(ad.days, tp.days, week);
+  const items = []; map.forEach(m => { m.tpl.items.forEach((it, i) => { const x = exByName(it.ex); if (!x) return; items.push({ day: m.day, exercise_id: x.id, sets: Math.max(1, Math.min(20, it.sets)), reps: String(it.reps), load: it.load || '', note: it.swapped ? 'instead of ' + it.swapped : '', position: i }); }); });
   await db.replacePlanWeek(pair.id, items);
   if ((opts || {}).targets !== false) { const cur = await db.getTargets(pair.id); if (!cur || !cur.kcal) await db.saveTargets(pair.id, targetsFor(tp)); }
   return { items, notes: ad.notes, map };
@@ -104,6 +111,25 @@ export async function startProgram(program) {
   Object.assign(pair, { program_id: program.id, program_started: isoDate(), program_week: 1, program_vars: vars });
   await materialize(pair, program, 1);
 }
+// a swap note is stored as "instead of <English exercise name>" and shown in the reader's language (16 Nov QA: notes
+// written in Georgian at sign-up showed in Georgian on the English screen; older Georgian notes are matched too)
+export function planNote(note) {
+  const m = /^(?:instead of (.+)|ნაცვლად: (.+)|(.+)-ის ნაცვლად)$/.exec(String(note || '').trim()); if (!m) return note || '';
+  const nm = m[1] || m[2] || m[3]; const x = (S.exercises || []).find(e => e.name === nm || e.name_ka === nm);
+  return t('instead of {name}', { name: x ? exName(x) : nm });
+}
+// 16 Nov QA: changing injuries / days / place (My answers or Tune) showed the adapted week on "Your program" while the
+// real plan kept the old exercises (Pike push-up after "shoulder hurts"). Now the current week is rewritten when one of
+// those answers really changed; targets stay as they are.
+export async function readaptAfterAnswers(prev) {
+  try {
+    if (!isSolo() || !myProgram()) return false; const now = S.traineeProfile || {}; prev = prev || {};
+    const key = p => JSON.stringify([injuryKeys(p.injuries).sort(), (p.days || []).map(Number).sort(), p.place || 'gym']);
+    if (key(prev) === key(now)) return false;
+    await materialize(S.pair, myProgram(), S.pair.program_week || 1, { targets: false });
+    return true;
+  } catch (e) { console.warn('readapt', e); return false; }
+}
 export function myProgram() { const id = S.pair && S.pair.program_id; return id ? ((S.solo && S.solo.programs) || []).find(p => p.id === id) || null : null; }
 function weekOfProgram() { const p = S.pair; if (!p || !p.program_started) return 0; return Math.floor((new Date(isoDate() + 'T00:00:00') - new Date(p.program_started + 'T00:00:00')) / 86400000 / 7) + 1; }
 window.__solo = { programLine: () => programLine() };
@@ -115,7 +141,7 @@ SCREENS.program = () => {
   if (!S.solo || !S.solo.programs) return { title: t('Your program'), body: '<div class="card flat mute">' + t('Loading…') + '</div>', after: async () => { try { await loadSolo(); } catch (e) {} rerender(); } };
   const tp = S.traineeProfile || {}; const cur = myProgram(); const pg = cur || S.draft.pickedProgram || pickProgram(tp);
   if (!pg) return { title: t('Your program'), body: empty('plan', t('No programs are published yet — check back soon, or find a coach.')) + '<button class="btn" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button>' };
-  const ad = adaptDays(expandWeek(pg, 1), tp); const map = mapDays(ad.days, tp.days); const tg = cur ? (S.plan && S.plan.targets) || targetsFor(tp) : targetsFor(tp);
+  const wk = cur ? (S.pair.program_week || 1) : 1; const ad = adaptDays(expandWeek(pg, wk), tp); const map = mapDays(ad.days, tp.days, wk); const tg = cur ? (S.plan && S.plan.targets) || targetsFor(tp) : targetsFor(tp);
   const who = pg.author_id ? t('Contributed by a Tune Up coach') : t('Drafted by Tune');
   const head = '<div class="card accent"><div class="eyebrow">' + esc(progTitle(pg)) + '</div><div class="h2" style="font-size:22px">' + esc(t('{w} weeks · {d} days a week · about 45 min', { w: pg.weeks, d: pg.days_per_week })) + '</div>' + (cur ? '<div class="s" style="color:rgba(255,255,255,.85)">' + esc(t('Week {n} of {m} · started {date}', { n: S.pair.program_week || 1, m: pg.weeks, date: fmtDay(S.pair.program_started, 'dm') })) + '</div>' : '') +
     '<div class="s" style="color:rgba(255,255,255,.85)">' + esc(progSummary(pg)) + '</div><div class="s" style="color:rgba(255,255,255,.85)">' + I.shield + ' ' + esc(pg.confirmed_at ? t('Confirmed by a Tune Up coach') : who) + '</div></div>';
@@ -125,8 +151,10 @@ SCREENS.program = () => {
     ad.notes.map(n => '<div class="row" style="gap:8px"><span class="check sm on">' + I.check + '</span><span>' + esc(t({ knee: 'Knee', back: 'Back', shoulder: 'Shoulder', wrist: 'Wrist', ankle: 'Ankle' }[n.when]) + ': ' + exName(exByName(n.from) || { name: n.from }) + ' → ' + exName(exByName(n.to) || { name: n.to })) + '</span></div>').join('') +
     (tp.eating_style && tp.eating_style !== 'normal' ? '<div class="row" style="gap:8px"><span class="check sm on">' + I.check + '</span><span>' + esc(t('Food ideas follow your eating style ({style})', { style: opt('eating_style', tp.eating_style) })) + '</span></div>' : '') + '</div></div>';
   const kpi = (v, c) => '<div class="kpi" style="background:var(--a-bg)"><div class="num" style="font-size:20px;color:var(' + c + ')">' + esc(v) + '</div></div>';
-  const targets = '<div class="card"><div class="h3">' + t('Your targets') + '</div><div class="kpis">' + kpi(tg.kcal + ' ' + unit('kcal'), '--c-kcal') + kpi(tg.protein_g + ' ' + unit('g') + ' ' + t('protein'), '--c-protein') + kpi((tg.water_ml / 1000) + ' ' + unit('L') + ' ' + t('water'), '--c-water') + kpi(tg.steps + ' ' + t('steps'), '--c-kcal') + '</div><div class="s">' + t('From Tune Up\'s rules, confirmed by a coach. Tune explains every number if you ask.') + '</div></div>';
-  const week1 = '<div class="card"><div class="row between"><div class="h3">' + (cur ? t('This week') : t('Week 1')) + '</div><span class="mute small">' + esc(map.length + ' ' + t('days')) + '</span></div>' + map.map(m => '<div class="lrow"><div class="grow"><div class="t">' + esc(dayName(m.day)) + ' · ' + esc(LANG.cur === 'ka' && m.tpl.name_ka ? m.tpl.name_ka : m.tpl.name) + '</div><div class="s">' + esc(m.tpl.items.filter(i => !/Stretching|Cat-cow|Brisk walk|treadmill/.test(i.ex)).map(i => exName(exByName(i.ex) || { name: i.ex }) + ' ' + i.sets + '×' + i.reps).join(' · ')) + '</div></div></div>').join('') + '</div>';
+  const targets = '<div class="card"><div class="h3">' + t('Your targets') + '</div><div class="kpis">' + kpi(tg.kcal + ' ' + unit('kcal'), '--c-kcal') + kpi(tg.protein_g + ' ' + unit('g') + ' ' + t('protein'), '--c-protein') + kpi((tg.water_ml / 1000) + ' ' + unit('L') + ' ' + t('water'), '--c-water') + kpi(tg.steps + ' ' + t('steps'), '--c-kcal') + '</div><div class="s">' + t('From Tune Up\'s rules, confirmed by a coach. Tune explains every number if you ask.') + '</div>' +
+    // 16 Nov QA: with no weight / height the targets were quietly worked out from 70 kg / 170 cm
+    (!tp.weight_kg || !tp.height_cm || !tp.age ? '<div class="s" style="color:var(--a-red)">' + esc(t('These are estimates — add your weight, height and age in My answers for exact targets.')) + ' <span class="link" onclick="A.go(\'editAnswers\')">' + t('Add them') + ' ›</span></div>' : '') + '</div>';
+  const week1 = '<div class="card"><div class="row between"><div class="h3">' + (cur ? t('This week') : t('Week 1')) + '</div><span class="mute small">' + esc(map.length + ' ' + t('days')) + '</span></div>' + map.map(m => '<div class="lrow"><div class="grow"><div class="t">' + esc(dayName(m.day)) + ' · ' + esc(LANG.cur === 'ka' && m.tpl.name_ka ? m.tpl.name_ka : m.tpl.name) + '</div><div class="s">' + esc(m.tpl.items.filter(i => !/Stretching|Cat-cow|Brisk walk|treadmill/.test(i.ex)).map(i => exName(exByName(i.ex) || { name: i.ex }) + ' ' + i.sets + '×' + repsTxt(i.reps)).join(' · ')) + '</div></div></div>').join('') + '</div>';
   const foot = cur ? '<button class="btn sec" onclick="A.changeProgram()">' + t('Change program') + '</button><button class="btn sec" onclick="A.go(\'findCoach\')">' + I.users + ' ' + t('Find a coach') + '</button>'
     : '<button class="btn" onclick="A.startProgram()">' + t('Start the program') + '</button><button class="btn sec" onclick="A.changeProgram()">' + t('Pick another program') + '</button>';
   return { title: t('Your program'), back: !!cur, tabs: !!cur, body: head + adapted + targets + week1 + foot };
@@ -151,9 +179,9 @@ A.pickProgram = async (id) => {
 };
 
 // ---- the weekly card (Monday, or whenever the current week has run its course): Tune looks at the week and proposes
-function lastWeekStats() {
+function lastWeekStats(due) {
   const p = S.pair; const items = (S.plan && S.plan.items) || []; const H = S.hist35 || []; const tg = (S.plan && S.plan.targets) || {};
-  const start = addDays(p.program_started, 7 * ((p.program_week || 1) - 1)); const days = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(start, i)).filter(d => d < isoDate() || d === isoDate());
+  const start = due && due.from ? due.from : addDays(p.program_started, 7 * ((p.program_week || 1) - 1)); const days = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(start, i)).filter(d => d < isoDate() || d === isoDate());
   const planned = days.filter(d => items.some(i => i.day === weekdayOf(new Date(d + 'T00:00:00')))).length;
   const done = days.filter(d => { const its = items.filter(i => i.day === weekdayOf(new Date(d + 'T00:00:00'))); if (!its.length) return false; const L = (d === isoDate() ? (S.today.logs || []) : H.filter(l => l.day === d)); const refs = new Set(L.filter(l => l.kind === 'exercise').map(l => l.ref)); return its.every(i => refs.has(i.id)); }).length;
   const protDays = tg.protein_g ? days.filter(d => { const L = (d === isoDate() ? (S.today.logs || []) : H.filter(l => l.day === d)); const g = L.filter(l => l.kind === 'food').reduce((a, l) => a + (Number(l.protein_g) || 0), 0); return g >= tg.protein_g * 0.9; }).length : null;
@@ -161,19 +189,27 @@ function lastWeekStats() {
 }
 export function proposalDue() {
   const p = S.pair; const pg = myProgram(); if (!p || !pg || !p.program_started) return null;
-  const w = p.program_week || 1; const endOfWeek = addDays(p.program_started, 7 * w);     // first day after week w
+  const w = p.program_week || 1; const P = (S.solo && S.solo.proposals) || [];
+  // the current week starts when it was applied (a week kept once or twice moves everything after it)
+  const applied = P.find(x => x.week === w && x.status === 'applied' && x.answered_at); let weekStart = addDays(p.program_started, 7 * (w - 1));
+  if (applied) { const a = isoDate(new Date(applied.answered_at)); if (a > weekStart) weekStart = a; }
+  const endOfWeek = addDays(weekStart, 7);     // first day after week w
   if (isoDate() < endOfWeek) return null;
-  return { week: w, next: w + 1, finished: w >= pg.weeks };
+  // 16 Nov QA: "Keep / Repeat week" only moved the clock on the phone — after a reload the week was never proposed again and
+  // the person stayed in week 1 for good. A kept week now comes back 7 days after it was kept.
+  const kept = ((S.solo && S.solo.proposals) || []).find(x => x.week === w + 1 && x.status === 'kept' && x.answered_at);
+  if (kept) { const resume = addDays(isoDate(new Date(kept.answered_at)), 7); if (isoDate() < resume) return null; return { week: w, next: w + 1, finished: w >= pg.weeks, again: true, from: addDays(resume, -7) }; }
+  return { week: w, next: w + 1, finished: w >= pg.weeks, from: weekStart };
 }
 export function weeklyCard() {
   if (!isSolo()) return ''; const due = proposalDue(); if (!due) return '';
-  const pg = myProgram(); const st = lastWeekStats();
+  const pg = myProgram(); const st = lastWeekStats(due);
   if (due.finished) return '<div class="card tune"><div class="row" style="gap:8px"><span style="color:var(--c-tune)">' + I.spark + '</span><div class="grow"><div class="eyebrow" style="color:var(--c-tune)">' + t('Program complete') + '</div><div class="h3">' + esc(t('{w} weeks done — well played', { w: pg.weeks })) + '</div></div></div><div class="s" style="color:var(--a-ink2)">' + esc(t('Pick the next program (the intermediate one, if this was beginner) or repeat this one a notch heavier.')) + '</div><div class="btn-row"><button class="btn tune" onclick="A.changeProgram()">' + t('Next program') + '</button><button class="btn sec" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button></div></div>';
   const prop = (S.solo.proposals || []).find(x => x.week === due.next);
-  if (prop && prop.status !== 'pending') return '';
+  if (prop && prop.status !== 'pending' && !(due.again && prop.status === 'kept')) return '';
   const good = st.planned === 0 || st.done >= Math.ceil(st.planned * 2 / 3);
   const nextDays = adaptDays(expandWeek(pg, due.next), S.traineeProfile || {}).days; const curDays = adaptDays(expandWeek(pg, due.week), S.traineeProfile || {}).days;
-  const diffs = []; nextDays.forEach((d, i) => { (d.items || []).forEach((it, j) => { const o = ((curDays[i] || {}).items || [])[j]; if (o && o.ex === it.ex && (o.sets !== it.sets || o.reps !== it.reps)) diffs.push(exName(exByName(it.ex) || { name: it.ex }) + ' ' + o.sets + '×' + o.reps + ' → ' + it.sets + '×' + it.reps); }); });
+  const diffs = []; nextDays.forEach((d, i) => { (d.items || []).forEach((it, j) => { const o = ((curDays[i] || {}).items || [])[j]; if (o && o.ex === it.ex && (o.sets !== it.sets || o.reps !== it.reps)) diffs.push(exName(exByName(it.ex) || { name: it.ex }) + ' ' + o.sets + '×' + repsTxt(o.reps) + ' → ' + it.sets + '×' + repsTxt(it.reps)); }); });
   const uniq = [...new Set(diffs)].slice(0, 4);
   const sum = t('{done} of {planned} workouts done', { done: st.done, planned: st.planned }) + (st.protDays != null ? ', ' + t('protein on target {n} of {m} days', { n: st.protDays, m: st.days }) : '') + '.';
   const text = good ? sum + ' ' + t('For week {n} I suggest: {changes}', { n: due.next, changes: uniq.length ? uniq.join(', ') : t('the next step of the program') }) + (S.pair.program_vars && (S.pair.program_vars.injuries || []).length ? ' ' + t('Still no moves that load the {part}.', { part: (S.pair.program_vars.injuries || []).map(k => t({ knee: 'knee', back: 'back', shoulder: 'shoulder', wrist: 'wrist', ankle: 'ankle' }[k])).join(', ') }) : '')
@@ -190,7 +226,7 @@ A.propApply = async (week) => {
 A.propKeep = async (week) => {
   // "keep" / "repeat": the same items stay; the program's clock moves on so next Monday brings the next proposal
   busy(true);
-  try { await db.setProgramWeek(S.pair.id, S.pair.program_week || 1, null); await saveProp(week, 'kept'); S.pair.program_started = addDays(S.pair.program_started, 7); busy(false); toast(t('Kept — same week again')); rerender(); }
+  try { await db.setProgramWeek(S.pair.id, S.pair.program_week || 1, null); await saveProp(week, 'kept'); busy(false); toast(t('Kept — same week again')); rerender(); }
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };
 

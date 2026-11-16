@@ -4,7 +4,7 @@ import { t, esc, fmtDate, fmtTime, fmtDay, firstName, isoDate } from './i18n.js'
 import { SCREENS, A, I, go, root, rerender, toast, sheet, closeSheet, field, val, busy, avatar, empty, cur, track } from './ui.js';
 import * as db from './db.js';
 import { S, coachPair } from './state.js';
-import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, stopVoice, attachBlock, saveAttachments, scopePending } from './attach.js';
+import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, stopVoice, attachBlock, saveAttachments, scopePending, clearDraft } from './attach.js';
 
 // ---- pairs this person can chat in
 function myPairs() {
@@ -70,10 +70,10 @@ let sending = false;
 A.sendMsg = async (id) => {
   const inp = document.getElementById('msg'); const text = (inp ? inp.value : '').trim(); const files = pending('msg');
   if ((!text && !files.length) || sending) return;
-  sending = true; stopVoice(); inp.value = ''; const btn = inp && inp.parentElement && inp.parentElement.querySelector('button:last-child'); if (btn) btn.disabled = true;
+  sending = true; stopVoice(true); inp.value = ''; const btn = inp && inp.parentElement && inp.parentElement.querySelector('button:last-child'); if (btn) btn.disabled = true;
   try {
     const atts = files.length ? await uploadPending('msg', id) : [];
-    const m = await db.sendMessage(id, S.me.id, text, atts); clearPending('msg'); await resolveUrls([m]);
+    const m = await db.sendMessage(id, S.me.id, text, atts); clearPending('msg'); clearDraft('msg'); await resolveUrls([m]);
     S.chat.threads[id].list.push(m); if (S.chat.index && S.chat.index[id]) S.chat.index[id].last = m; rerender(); scrollChat(); const i2 = document.getElementById('msg'); if (i2) i2.focus();
     if (atts.length) track('attach', { where: 'chat', n: atts.length, kind: atts[0].type });
   }

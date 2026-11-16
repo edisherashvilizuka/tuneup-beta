@@ -1,6 +1,6 @@
 // Tune Up beta — admin screens (week 1: coach invites, users, pairs).
 import { rollNum } from './motion.js';
-import { t, esc, fmtDate, firstName, fmtTime, isoDate, dayName, LANG } from './i18n.js';
+import { t, esc, fmtDate, firstName, fmtTime, isoDate, dayName, LANG, repsTxt } from './i18n.js';
 import { SCREENS, A, I, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
@@ -105,7 +105,7 @@ SCREENS.aprogram = ({ id }) => {
   return { title: progTitle(p), sub: t(PS[p.status] || p.status) + (p.confirmed_at ? ' · ' + t('confirmed {date}', { date: fmtDate(p.confirmed_at, 'dm') }) : ''), body:
     '<div class="s">' + esc(t('{w} weeks · {d} days a week', { w: p.weeks, d: p.days_per_week }) + ' · ' + who) + '</div>' + (progSummary(p) ? '<div class="card"><div class="lead">' + esc(progSummary(p)) + '</div></div>' : '') +
     '<div class="chips hs">' + Array.from({ length: p.weeks }, (_, i) => '<button class="chip ' + (w === i + 1 ? 'on' : '') + '" onclick="A.apWeek(\'' + id + '\',' + (i + 1) + ')">' + esc(t('Week {n}', { n: i + 1 })) + '</button>').join('') + '</div>' +
-    days.map(d => '<div class="card" style="gap:6px"><div class="t">' + esc(LANG.cur === 'ka' && d.name_ka ? d.name_ka : d.name) + '</div>' + d.items.map(it => '<div class="s" style="color:var(--a-ink2)">' + esc(exName(it.ex) + ' ' + it.sets + '×' + it.reps + (it.load ? ' · ' + it.load : '')) + '</div>').join('') + '</div>').join('') +
+    days.map(d => '<div class="card" style="gap:6px"><div class="t">' + esc(LANG.cur === 'ka' && d.name_ka ? d.name_ka : d.name) + '</div>' + d.items.map(it => '<div class="s" style="color:var(--a-ink2)">' + esc(exName(it.ex) + ' ' + it.sets + '×' + repsTxt(it.reps) + (it.load ? ' · ' + it.load : '')) + '</div>').join('') + '</div>').join('') +
     (p.status !== 'published' ? '<button class="btn" style="background:var(--a-green);color:#16130F" onclick="A.programStatus(\'' + id + '\',\'published\')">' + t('Confirm and publish') + '</button>' : '<button class="btn sec" onclick="A.programStatus(\'' + id + '\',\'unpublished\')">' + t('Unpublish') + '</button>') +
     (p.status === 'submitted' ? '<button class="btn sec" onclick="A.programStatus(\'' + id + '\',\'unpublished\')">' + t('Not now') + '</button>' : '') +
     '<div class="card flat mute small">' + t('Something to change — an exercise, sets or reps? Send it through Feedback with the program name and it will be updated. This screen is for reading and confirming.') + '</div>' };

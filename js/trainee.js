@@ -1,9 +1,9 @@
 // Tune Up beta — trainee screens: Today (workout + log), Plan, Coach, More. Logging itself lives in log.js.
-import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle, weekOf, LANG } from './i18n.js';
+import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle, weekOf, LANG, repsTxt } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs, bell, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S, coachPair, isSolo } from './state.js';
-import { loadSolo, programCard, weeklyCard, findCoachCard, soloMoreRows, programLine } from './solo.js';
+import { loadSolo, programCard, weeklyCard, findCoachCard, soloMoreRows, programLine, planNote, readaptAfterAnswers } from './solo.js';
 import { loadMatch, requestCard } from './match.js';
 import { planBlock } from './requests.js';
 import { DISTRICTS } from './onboard.js';
@@ -42,13 +42,13 @@ export async function loadTrainee() {
 }
 function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day === day); }
 function doneSet() { return new Set((S.today.logs || []).filter(l => l.kind === 'exercise').map(l => l.ref)); }
-function itemLine(i) { return [i.sets + ' × ' + i.reps, i.load].filter(Boolean).join(' · '); }
+function itemLine(i) { return [i.sets + ' × ' + repsTxt(i.reps), i.load].filter(Boolean).join(' · '); }
 function videoBtn(x) { return x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''; }
 function videoDot(x) { const u = howUrl(x); return u ? '<a class="vdot" href="' + esc(u) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="' + esc(x.video_url ? t('Video') : t('How to do it')) + '">' + I.play + '</a>' : ''; }
 function trkRow(i, done, tickable) {
   return '<div class="trow' + (done ? ' done' : '') + '"' + (tickable ? ' data-id="' + esc(i.id) + '"' : '') + (tickable ? ' role="button" tabindex="0" onclick="A.tick(\'' + i.id + '\')" onkeydown="if(event.key===\'Enter\')this.click()"' : '') + '>' +
     (tickable ? '<span class="check ' + (done ? 'on' : '') + '">' + (done ? I.check : '') + '</span>' : '') +
-    '<div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div>' + (i.note || i.load ? '<div class="s">' + esc([i.load, i.note].filter(Boolean).join(' · ')) + '</div>' : '') + '</div><span class="reps">' + esc(i.sets + ' × ' + i.reps) + '</span>' + videoDot(i.exercise) + '</div>';
+    '<div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div>' + (i.note || i.load ? '<div class="s">' + esc([i.load, planNote(i.note)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div><span class="reps">' + esc(i.sets + ' × ' + repsTxt(i.reps)) + '</span>' + videoDot(i.exercise) + '</div>';
 }
 function workoutCard() {
   const items = itemsFor(weekdayOf()); const done = doneSet();
@@ -72,7 +72,7 @@ A.tick = async (id) => {
 function coachCard() {
   const p = S.pair; if (!p || p.status !== 'active' || p.kind !== 'coach') return '';
   const c = p.coach || {}; const cp = (c.coach_profiles && (Array.isArray(c.coach_profiles) ? c.coach_profiles[0] : c.coach_profiles)) || {};
-  return '<div class="card tap" onclick="A.go(\'coach\')"><div class="row">' + avatar(c.name, c.id) + '<div class="grow"><div class="eyebrow">' + t('Your coach') + '</div><div class="h3">' + esc(c.name) + '</div><div class="mute">' + esc([cp.gym, cp.district].filter(Boolean).join(' · ') || (cp.online ? t('Online') : '')) + '</div></div>' + I.chev + '</div></div>';
+  return '<div class="card tap" onclick="A.go(\'coach\')"><div class="row">' + avatar(c.name, c.id) + '<div class="grow"><div class="eyebrow">' + t('Your coach') + '</div><div class="h3">' + esc(c.name) + '</div><div class="mute">' + esc([cp.gym, distLabel(cp.district)].filter((x, i, a) => x && !(i === 1 && (a[0] || '').toLowerCase().includes(String(x).toLowerCase()))).join(' · ') || (cp.online ? t('Online') : '')) + '</div></div>' + I.chev + '</div></div>';
 }
 
 function greeting() { const h = new Date().getHours(); return h < 5 ? 'Good evening, {name}' : h < 12 ? 'Good morning, {name}' : h < 18 ? 'Good afternoon, {name}' : 'Good evening, {name}'; }
@@ -109,7 +109,7 @@ SCREENS.plan = () => {
       (isToday && n < items.length ? '<button class="btn" onclick="A.tickAll()">' + t('Tick all done') + '</button>' : isToday ? '<div class="donebar">' + I.check + ' ' + t('Workout done — nice work!') + '</div>' : '') + '</div>';
   const trained = [1, 2, 3, 4, 5, 6, 7].filter(d => itemsFor(d).length); const doneDays = trained.filter(d => d <= td && dayDone(d)).length;
   let nd = 0; for (let k = 1; k <= 7 && !nd; k++) { const d = ((sel - 1 + k) % 7) + 1; if (itemsFor(d).length) nd = d; }
-  const next = nd && nd !== sel ? '<div class="card"><div class="row between"><span class="eyebrow">' + t('Up next') + ' · ' + esc(dayName(nd)) + '</span><span class="link small" onclick="A.planDay(' + nd + ')">' + t('Open') + ' ›</span></div>' + itemsFor(nd).map(i => '<div class="goal"><span class="gdot" style="background:var(--a-line)"></span><span class="grow">' + esc(exName(i.exercise)) + '</span><span class="mute small">' + esc(i.sets + ' × ' + i.reps) + '</span></div>').join('') + '</div>' : '';
+  const next = nd && nd !== sel ? '<div class="card"><div class="row between"><span class="eyebrow">' + t('Up next') + ' · ' + esc(dayName(nd)) + '</span><span class="link small" onclick="A.planDay(' + nd + ')">' + t('Open') + ' ›</span></div>' + itemsFor(nd).map(i => '<div class="goal"><span class="gdot" style="background:var(--a-line)"></span><span class="grow">' + esc(exName(i.exercise)) + '</span><span class="mute small">' + esc(i.sets + ' × ' + repsTxt(i.reps)) + '</span></div>').join('') + '</div>' : '';
   return { title: t('Weekly plan'), sub: t('This week · {n} of {m} done', { n: doneDays, m: trained.length }), body: strip + dayCard + next + goalsCard(), after: () => { if (!S.hist35) loadHistory().then(() => rerender()).catch(() => {}); } };
 };
 
@@ -154,7 +154,7 @@ SCREENS.myProfile = () => {
   const rows = [[t('Sex'), tp.sex === 'f' ? t('Female') : tp.sex === 'm' ? t('Male') : '—'], [t('Age'), tp.age || '—'], [t('Weight'), tp.weight_kg ? tp.weight_kg + ' ' + unit('kg') : '—'], [t('Height'), tp.height_cm ? tp.height_cm + ' ' + unit('cm') : '—'], [t('Experience'), opt('experience', tp.experience)], [t('Main goal'), opt('goal', tp.goal)], [t('Anything specific?'), tp.goal_detail || '—'], [t('Injuries or limits'), tp.injuries || '—'], [t('Diet'), tp.diet || '—'], [t('Eating style'), opt('eating_style', tp.eating_style || '')], [t('Allergies or foods I avoid'), tp.allergies || '—'],
     [t('Days you can train'), (tp.days || []).length ? tp.days.map(d => dayName(d, true)).join(' · ') : '—'], [t('Time of day'), (tp.time_of_day || []).length ? tp.time_of_day.map(x => t({ morning: 'Morning', day: 'Daytime', evening: 'Evening' }[x] || x)).join(' · ') : '—'], [t('Where you train'), tp.place === 'home' ? t('Home') : t('Gym')], [t('With a coach'), opt('format', tp.format)], [t('District'), DISTRICTS[tp.district] ? t(DISTRICTS[tp.district]) : (tp.district || '—')], [t('Budget per month'), tp.budget_max ? (tp.budget_min ? tp.budget_min + '–' : '') + tp.budget_max + ' ₾' : '—'], [t('Coach gender'), tp.coach_gender === 'f' ? t('Woman') : tp.coach_gender === 'm' ? t('Man') : t('Any')]];
   return { title: t('My answers'), body: '<div class="card">' + rows.map(r => '<div class="lrow"><div class="grow"><div class="s">' + esc(r[0]) + '</div><div class="t">' + esc(r[1]) + '</div></div></div>').join('') + '</div>' +
-    '<button class="btn sec" onclick="A.go(\'editAnswers\')">' + I.edit + ' ' + t('Edit my answers') + '</button><div class="mute small">' + t('Your coach sees the changes. Your weigh-ins update the weight here.') + '</div>' };
+    '<button class="btn sec" onclick="A.go(\'editAnswers\')">' + I.edit + ' ' + t('Edit my answers') + '</button><div class="mute small">' + (coachPair() ? t('Your coach sees the changes. Your weigh-ins update the weight here.') : t('Your program follows the changes. Your weigh-ins update the weight here.')) + '</div>' };
 };
 
 // ---- edit my answers (same fields as the sign-up form)
@@ -195,7 +195,8 @@ A.saveAnswers = async () => {
     const ed = S.draft.ea || {}; const age = val('ea_age') ? parseInt(val('ea_age'), 10) : null;
     const patch = { weight_kg: w, height_cm: h, age, sex: ed.sex || '', experience: val('ea_exp'), goal: val('ea_goal'), goal_detail: val('ea_gd').slice(0, 300), injuries: val('ea_inj').slice(0, 300), diet: val('ea_diet').slice(0, 200), eating_style: val('ea_style'), allergies: val('ea_allergies').slice(0, 200), format: val('ea_fmt'),
       days: (ed.days || []).slice().sort((a, b) => a - b), time_of_day: ed.time_of_day || [], place: ed.place || 'gym', district: ed.district || '', budget_min: val('ea_bmin') ? parseInt(val('ea_bmin'), 10) : null, budget_max: val('ea_bmax') ? parseInt(val('ea_bmax'), 10) : null, coach_gender: ed.coach_gender || 'any' };
-    const r = await db.updateTraineeProfile(S.me.id, patch); S.traineeProfile = Object.assign({}, S.traineeProfile, patch, r || {}); S.draft.ea = null; S.match = null;
+    const prevTp = Object.assign({}, S.traineeProfile); const r = await db.updateTraineeProfile(S.me.id, patch); S.traineeProfile = Object.assign({}, S.traineeProfile, patch, r || {}); S.draft.ea = null; S.match = null;
+    if (await readaptAfterAnswers(prevTp)) { try { await loadTrainee(); } catch (e) {} toast(t('This week’s plan was updated to your answers')); }
     toast(t('Saved')); back();
   } catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }
 };

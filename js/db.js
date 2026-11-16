@@ -192,6 +192,8 @@ export async function askTune(payload) {
   if (error) { let msg = error.message || 'error'; try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {} throw new Error(msg); }
   return data || {};
 }
+// sign-up "Tell Tune instead": one paragraph → the sign-up fields (tune function, mode signup)
+export async function signupFill(text, lang) { const r = await askTune({ mode: 'signup', text, lang }); return r.fields || {}; }
 // ---- Launch 1 (migration 0016): public sign-up, coach plans, matching, Solo programs
 export async function signupTrainee(name, lang, profile, mode) { return q(sb.rpc('signup_trainee', { p_name: name, p_lang: lang, p_profile: profile || {}, p_mode: mode })); }
 export async function signupCoach(name, lang, profile) { return q(sb.rpc('signup_coach', { p_name: name, p_lang: lang, p_profile: profile || {} })); }
@@ -259,8 +261,9 @@ export async function signedUrls(paths) {   // → { path: url } (an hour), miss
 }
 export async function removeAttachment(path) { return q(sb.storage.from('attachments').remove([path])); }
 // voice note → text (Edge Function `transcribe`; audio never stored)
-export async function transcribe(dataUrl, lang) {
-  const { data, error } = await sb.functions.invoke('transcribe', { body: { audio: dataUrl, lang } });
+export async function transcribe(dataUrl, lang, opts) {
+  const o = opts || {};
+  const { data, error } = await sb.functions.invoke('transcribe', { body: { audio: dataUrl, lang, secs: o.secs || null, where: o.where || 'text' } });
   if (error) { let msg = error.message || 'transcribe failed'; try { const ctx = error.context; if (ctx && typeof ctx.json === 'function') { const j = await ctx.json(); if (j && j.error) msg = j.error; } } catch (e) {} const err = new Error(msg); err.status = error.context && error.context.status; throw err; }
   if (data && data.error) throw new Error(data.error);
   return data || {};

@@ -1,7 +1,7 @@
 // Tune Up beta — "How to start" guides for trainers and clients (More → How Tune Up works; a one-time card on Today).
 import { t, esc } from './i18n.js';
 import { SCREENS, A, I, rerender } from './ui.js';
-import { S } from './state.js';
+import { S, isSolo } from './state.js';
 
 const SEEN = 'tuneup-guide-seen';
 function seenKey() { return SEEN + ':' + ((S.me && S.me.id) || ''); }   // per person, so a second account on the same phone still gets the card
@@ -19,7 +19,7 @@ const COACH = [
 ];
 const TRAINEE = [
   ['Put it on your phone', isIOS ? 'In Safari tap Share, then “Add to Home Screen”. Open Tune Up from that icon, go to More and turn on notifications.' : 'In Chrome tap the three dots, then “Add to Home screen”. Open Tune Up from that icon, go to More and turn on notifications.'],
-  ['Every day: Today', 'Tick exercises as you do them. Add food (calories and protein, roughly is fine), tap + 250 for water, add your steps and weigh yourself in the morning.'],
+  ['Every day: Today', 'Tick exercises as you do them. Add food by typing it, saying it or taking a photo — Tune works out the numbers. Tap + 250 ml for water, add your steps and weigh yourself in the morning.'],
   ['Evening check-in', 'One tap for how the day went and a line for your coach — sore knee, slept badly, felt great. Your coach sees it the next morning.'],
   ['Plan and Sessions', 'Plan shows your week from your coach. Sessions shows what is coming up; for a video call just tap Join.'],
   ['Chat', 'Questions, how a session went, a link to a short clip of your form — it all goes to your coach here.'],
@@ -27,7 +27,17 @@ const TRAINEE = [
   ['Tell us what is wrong', 'More → Send feedback. We read every note and fix things within days. This is a beta: your feedback shapes the app.']
 ];
 
-export function guideSteps() { return S.me && S.me.role === 'coach' ? COACH : TRAINEE; }
+// 16 Nov QA: people who train with Tune Up only (no coach) got the coach-centred guide ("a line for your coach")
+const SOLO = [
+  TRAINEE[0],
+  ['Every day: Today', 'Tick exercises as you do them. Add food by typing it, saying it or taking a photo — Tune works out the numbers. Tap + 250 ml for water, add your steps and weigh yourself in the morning.'],
+  ['Your program', 'Plan shows this week of your program, fitted to your days, your place and your injuries. Every Monday Tune looks at your week and proposes the next step — you tap Apply or Keep.'],
+  ['Evening check-in', 'One tap for how the day went. Tune uses it when it plans your next week.'],
+  ['Ask Tune', 'Tune answers from your own data: “what is left to eat today?”, “what is my workout?”. It also does things for you: type or say “I ate two eggs and a toast” and it logs it.'],
+  ['Want a coach?', '“Find a coach” on Today ranks Tbilisi coaches for you. The first session is a free trial; your program keeps going until you choose a plan.'],
+  TRAINEE[TRAINEE.length - 1]
+];
+export function guideSteps() { return S.me && S.me.role === 'coach' ? COACH : isSolo() ? SOLO : TRAINEE; }
 
 SCREENS.guide = () => ({ title: t('How Tune Up works'), sub: S.me && S.me.role === 'coach' ? t('For trainers') : t('For clients'), tabs: false, body:
   '<div class="col" style="gap:10px">' + guideSteps().map((s, i) => '<div class="card"><div class="row" style="gap:12px;align-items:flex-start"><div class="avatar" style="background:var(--a-accent);flex:none">' + (i + 1) + '</div><div class="grow"><div class="h3">' + esc(t(s[0])) + '</div><div class="mute">' + esc(t(s[1])) + '</div></div></div></div>').join('') + '</div>' +
@@ -40,7 +50,7 @@ A.openGuide = () => { A.guideSeen(); A.go('guide'); };
 export function guideCard() {
   let seen = false; try { seen = !!localStorage.getItem(seenKey()); } catch (e) {}
   if (seen) return '';
-  return '<div class="card soft"><div class="h3">' + t('New here? Two minutes to get going') + '</div><div class="mute">' + (S.me && S.me.role === 'coach' ? t('Invite clients, build a plan, set targets, plan sessions — the short version.') : t('What to log every day and how to talk to your coach — the short version.')) + '</div><div class="btn-row"><button class="btn sm" onclick="A.openGuide()">' + t('Read the guide') + '</button><button class="btn sec sm" onclick="A.guideSeen()">' + t('Got it') + '</button></div></div>';
+  return '<div class="card soft"><div class="h3">' + t('New here? Two minutes to get going') + '</div><div class="mute">' + (S.me && S.me.role === 'coach' ? t('Invite clients, build a plan, set targets, plan sessions — the short version.') : (isSolo() ? t('What to log every day and how your program works — the short version.') : t('What to log every day and how to talk to your coach — the short version.'))) + '</div><div class="btn-row"><button class="btn sm" onclick="A.openGuide()">' + t('Read the guide') + '</button><button class="btn sec sm" onclick="A.guideSeen()">' + t('Got it') + '</button></div></div>';
 }
 export function guideRow() {
   return '<div class="lrow" style="cursor:pointer" onclick="A.go(\'guide\')"><div class="grow"><div class="t">' + t('How Tune Up works') + '</div><div class="s">' + t('The two-minute guide') + '</div></div>' + I.chev + '</div>';

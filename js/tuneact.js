@@ -2,7 +2,7 @@
 // real rows (from the refs map of tunectx.js — only data this person can already see), the input is checked, and a
 // card is written in the reader's language. INSTANT actions (logging, ticking, the coach's private note) then run at
 // once; everything else waits for the person's Yes. RUN writes through the same RLS-checked queries the screens use.
-import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, unit, firstName } from './i18n.js';
+import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, unit, firstName, repsTxt } from './i18n.js';
 import * as db from './db.js';
 import { S, coachPair } from './state.js';
 import { go, root } from './ui.js';
@@ -29,7 +29,7 @@ function when(date, time) {
   return at;
 }
 const whenText = at => fmtDay(isoDate(at)) + ' · ' + fmtTime(at);
-const itemText = (name, x) => name + ' ' + [x.sets + '×' + x.reps, x.load].filter(Boolean).join(' · ') + (x.note ? ' — ' + x.note : '');
+const itemText = (name, x) => name + ' ' + [x.sets + '×' + repsTxt(x.reps), x.load].filter(Boolean).join(' · ') + (x.note ? ' — ' + x.note : '');
 function findExercise(name) {
   const k = str(name, 80).toLowerCase(); if (!k) return null;
   return (S.exercises || []).find(x => x.name.toLowerCase() === k || (x.name_ka && x.name_ka.toLowerCase() === k)) || null;
@@ -49,9 +49,9 @@ export function prepare(a, refs) {
   return p;
 }
 // screens Tune may open for the person ("show me protein foods", "open my calendar"); the names come from the tool enum
-const SCREENS_T = { foods: ['go', 'foods', { macro: 'protein_g' }], carbs: ['go', 'foods', { macro: 'carbs_g' }], fats: ['go', 'foods', { macro: 'fat_g' }], light: ['go', 'foods', { macro: 'kcal' }], meal: ['go', 'meal'], today: ['tab', 'home'], week: ['go', 'week'], plan: ['tab', 'plan'], chat: ['tab', 'chat'], sessions: ['tab', 'sessions'], answers: ['go', 'myProfile'], more: ['tab', 'more'] };
+const SCREENS_T = { foods: ['go', 'foods', { macro: 'protein_g' }], carbs: ['go', 'foods', { macro: 'carbs_g' }], fats: ['go', 'foods', { macro: 'fat_g' }], light: ['go', 'foods', { macro: 'kcal' }], meal: ['go', 'meal'], today: ['tab', 'home'], week: ['go', 'week'], plan: ['tab', 'plan'], chat: ['tab', 'chat'], sessions: ['tab', 'sessions'], answers: ['go', 'myProfile'], more: ['tab', 'more'], program: ['go', 'program'], findcoach: ['go', 'findCoach'] };
 const SCREENS_C = { today: ['tab', 'ctoday'], clients: ['tab', 'clients'], chat: ['tab', 'chat'], calendar: ['tab', 'ccal'], more: ['tab', 'more'], client: ['client'] };
-const SCREEN_LABEL = { foods: 'Foods', carbs: 'Foods', fats: 'Foods', light: 'Foods', meal: 'Build a meal', today: 'Today', week: 'This week', plan: 'Plan', chat: 'Chat', sessions: 'Sessions', answers: 'My answers', more: 'More', clients: 'Clients', calendar: 'Calendar', client: 'Client' };
+const SCREEN_LABEL = { foods: 'Foods', carbs: 'Foods', fats: 'Foods', light: 'Foods', meal: 'Build a meal', today: 'Today', week: 'This week', plan: 'Plan', chat: 'Chat', sessions: 'Sessions', answers: 'My answers', more: 'More', program: 'Your program', findcoach: 'Find a coach', clients: 'Clients', calendar: 'Calendar', client: 'Client' };
 const PREP = {
   open_screen(p, x, R) {
     const key = str(x.screen, 20).toLowerCase(); const map = S.me.role === 'coach' ? SCREENS_C : SCREENS_T; const s = map[key]; if (!s) bad('Tune tried to open a screen that does not exist.');
@@ -80,7 +80,7 @@ const PREP = {
     for (const [k, g, label] of [['experience', 'experience', 'Experience'], ['goal', 'goal', 'Main goal'], ['format', 'format', 'How you want to train']]) if (x[k] != null) { if (!['beginner', 'some', 'regular', 'lose', 'gain', 'tone', 'health', 'sport', 'inperson', 'online', 'either'].includes(x[k])) bad('Tune gave an answer the form does not have.'); patch[k] = x[k]; lines.push(t(label) + ': ' + opt(g, x[k])); }
     for (const [k, n, label] of [['goal_detail', 300, 'Anything specific?'], ['injuries', 300, 'Injuries or limits'], ['diet', 200, 'Diet']]) if (x[k] != null) { patch[k] = str(x[k], n); lines.push(t(label) + ': ' + (patch[k] || '—')); }
     if (!lines.length) bad('Tune did not say what to change.');
-    p.data = { patch }; p.card = { icon: 'edit', title: t('Update my answers'), body: lines.join('\n'), who: t('Your coach sees the changes.') };
+    p.data = { patch }; p.card = { icon: 'edit', title: t('Update my answers'), body: lines.join('\n'), who: coachPair() ? t('Your coach sees the changes.') : t('Your program follows the changes.') };
   },
   send_feedback(p, x) { const text = String(x.text || '').trim().slice(0, 2000); if (!text) bad('Write a few words first.'); p.data = { text }; p.card = { icon: 'mail', title: t('Feedback to the Tune Up team'), body: text, who: '' }; },
   add_session(p, x, R) {
@@ -168,7 +168,7 @@ const RUN = {
     if (S.chat && S.chat.threads && S.chat.threads[d.pairId]) S.chat.threads[d.pairId].list.push(m);
     if (S.chat && S.chat.index && S.chat.index[d.pairId]) S.chat.index[d.pairId].last = m;
   },
-  async update_my_answers(d, uid) { const r = await db.updateTraineeProfile(uid, d.patch); S.traineeProfile = Object.assign({}, S.traineeProfile, d.patch, r || {}); },
+  async update_my_answers(d, uid) { const prevTp = Object.assign({}, S.traineeProfile); const r = await db.updateTraineeProfile(uid, d.patch); S.traineeProfile = Object.assign({}, S.traineeProfile, d.patch, r || {}); try { const { readaptAfterAnswers } = await import('./solo.js'); if (await readaptAfterAnswers(prevTp)) { const { loadTrainee } = await import('./trainee.js'); await loadTrainee(); } } catch (e) {} },
   async send_feedback(d, uid) { await db.sendFeedback(uid, S.me.role || '', 'tune', d.text); },
   async add_session(d) { await db.addSession(d.row); await loadSessions(); },
   async move_session(d) { if (d.weekly) await db.addSessionException({ session_id: d.id, on_date: d.onDate, moved_to: d.at, note: d.note }); else await db.updateSession(d.id, { starts_at: d.at, status: 'planned', cancel_note: d.note }); await loadSessions(); },

@@ -4,7 +4,7 @@ import { t, esc, unit, dayName, weekOf, isoDate, weekdayOf, fmtDay, mood, MOODS,
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, track } from './ui.js';
 import * as db from './db.js';
 import { S, isSolo } from './state.js';
-import { voiceAvailable, attachBlock, saveAttachments, attHtml, resolveUrls } from './attach.js';
+import { voiceAvailable, attachBlock, saveAttachments, attHtml, resolveUrls, loadDraft, clearDraft } from './attach.js';
 import { effectiveTargets } from './plan.js';
 import { loadMeals } from './food.js';
 import { heatmap } from './monitor.js';
@@ -96,7 +96,7 @@ function moodDots(sel, action) { return '<div class="moodgrid">' + Object.keys(M
 export function checkinCard() {
   const ci = oneOf(S.today.logs || [], 'checkin');
   return '<div class="card moodcard" data-ev="mood" data-v="' + (ci ? Number(ci.value) : 0) + '"><div class="row between"><div class="h3">' + t('How was today?') + '</div>' + (ci ? '<span class="link small" onclick="A.checkinSheet()">' + t('Edit') + '</span>' : '') + '</div>' + moodDots(ci ? Number(ci.value) : 0, 'quickMood') +
-    (ci ? (ci.note || (ci.attachments || []).length ? '<div class="mute">' + esc(ci.note) + attHtml(ci.attachments) + '</div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + t('Add a line for your coach') + '</span>') : '<div class="mute small">' + t('One tap saves it — your coach sees it.') + '</div>') + '</div>';
+    (ci ? (ci.note || (ci.attachments || []).length ? '<div class="mute">' + esc(ci.note) + attHtml(ci.attachments) + '</div>' : '<span class="link" style="align-self:flex-start" onclick="A.checkinSheet()">' + I.plus + ' ' + (isSolo() ? t('Add a note') : t('Add a line for your coach')) + '</span>') : '<div class="mute small">' + (isSolo() ? t('One tap saves it — Tune uses it for your next week.') : t('One tap saves it — your coach sees it.')) + '</div>') + '</div>';
 }
 export function logCards() { return foodCard() + dayTiles() + checkinCard(); }
 
@@ -107,9 +107,10 @@ const r1 = v => Math.round(Number(v) * 10) / 10;
 const r3 = v => Math.round(Number(v) * 1000) / 1000;   // per-gram values keep more precision
 function fmtQty(q) { return String(Math.round(q * 100) / 100); }
 function itemTotals(it) { const q = Number(it.qty) || 0; const m = {}; ['kcal', 'protein_g', 'carbs_g', 'fat_g'].forEach(k => { m[k] = r1((Number(it.per[k]) || 0) * q); }); return m; }
-function sourceChip(src) { return src === 'table' ? '<span class="chip sm grn">' + t('from table') + '</span>' : src === 'recent' ? '<span class="chip sm">' + t('logged before') + '</span>' : '<span class="chip sm" style="background:var(--c-tune);color:#fff">' + t('estimate') + '</span>'; }
-A.foodSheet = () => {
-  S.draft.food = { items: [], state: 'idle', text: '', recents: null };
+function sourceChip(src) { if (src === 'edited') return '<span class="chip sm">' + t('your numbers') + '</span>'; return src === 'table' ? '<span class="chip sm grn">' + t('from table') + '</span>' : src === 'recent' ? '<span class="chip sm">' + t('logged before') + '</span>' : '<span class="chip sm" style="background:var(--c-tune);color:#fff">' + t('estimate') + '</span>'; }
+A.foodSheet = (keep) => {
+  const back = keep === true && S.draft.food && S.draft.food.items && S.draft.food.items.length;   // back from "Edit numbers": the list stays
+  if (!back) S.draft.food = { items: [], state: 'idle', text: '', recents: null };
   sheet('<div class="h2">' + t('Add food') + '</div>' +
     '<div class="row" style="gap:8px;align-items:flex-end">' + field(t('What did you eat?'), 'fd_text', '', { ph: t('e.g. 5 khinkali, chicken with rice, coffee with milk'), attrs: ' autocomplete="off" enterkeyhint="done" oninput="A.foodTyped()" onkeydown="if(event.key===\'Enter\'){event.preventDefault();A.foodTyped(true)}"' }).replace('<div class="field">', '<div class="field grow">') +
     (voiceAvailable() ? '<button class="act camera mic" id="fd_text_mic" onclick="A.voice(\'fd_text\')" aria-label="' + esc(t('Say what you ate')) + '">' + I.mic + '</button>' : '') +
@@ -117,6 +118,7 @@ A.foodSheet = () => {
     '<div class="mute small">' + t('Type it, say it, or photograph the plate or the nutrition label — the numbers fill in by themselves.') + '</div>' +
     '<div id="fd_sug"></div><div id="fd_recent"></div>' +
     '<div class="row between" style="flex-wrap:wrap;gap:8px 16px"><span class="link" onclick="A.foodManual()">' + t('Enter the numbers myself') + '</span><span class="link" onclick="A.closeSheet();A.openFoods(\'protein_g\')">' + t('Browse foods') + ' ›</span></div>');
+  if (back) { const f = document.getElementById('fd_text'); if (f) f.value = S.draft.food.text || ''; renderSug(); }
   const el = document.getElementById('fd_text'); if (el && !matchMedia('(pointer:coarse)').matches) el.focus();   // phones: the keyboard opens when they tap the field, not while the panel slides in
   loadRecents();
 };
@@ -205,7 +207,20 @@ A.foodQty = (i, v) => { const it = FD().items[i]; if (!it) return; const q = par
 A.foodGrams = (i) => { const it = FD().items[i]; if (!it || !it.grams) return; it.fromCount = { unit: it.unit, grams: it.grams, per: it.per }; it.per = { kcal: r3(it.per.kcal / it.grams), protein_g: r3(it.per.protein_g / it.grams), carbs_g: it.per.carbs_g == null ? null : r3(it.per.carbs_g / it.grams), fat_g: it.per.fat_g == null ? null : r3(it.per.fat_g / it.grams) }; it.qty = Math.round(it.qty * it.grams); it.unit = unit('g'); it.unit_kind = 'g'; it.grams = 1; renderSug(); };
 A.foodCount = (i) => { const it = FD().items[i]; if (!it || !it.fromCount) return; const c = it.fromCount; it.qty = r1(it.qty / c.grams); it.per = c.per; it.unit = c.unit; it.unit_kind = 'count'; it.grams = c.grams; delete it.fromCount; renderSug(); };
 A.foodDrop = (i) => { const D = FD(); D.items.splice(i, 1); if (!D.items.length) D.state = 'idle'; renderSug(); renderRecents(); };
-A.foodEditItem = (i) => { const it = FD().items[i]; if (!it) return; const m = itemTotals(it); A.foodManual({ note: it.name + (it.qty !== 1 || it.unit_kind === 'g' ? ', ' + fmtQty(it.qty) + ' ' + it.unit : ''), kcal: n0(m.kcal), protein_g: it.per.protein_g == null ? '' : n0(m.protein_g), carbs_g: it.per.carbs_g == null ? '' : n0(m.carbs_g), fat_g: it.per.fat_g == null ? '' : n0(m.fat_g) }); };
+// 16 Nov QA: "Edit numbers" on one of several suggestions logged only that one and silently dropped the others. It now
+// edits the suggestion in place (the four numbers for the shown amount) and returns to the list.
+A.foodEditItem = (i) => { const it = FD().items[i]; if (!it) return; const m = itemTotals(it); A.foodManual({ edit: i, note: it.name, kcal: n0(m.kcal), protein_g: it.per.protein_g == null ? '' : n0(m.protein_g), carbs_g: it.per.carbs_g == null ? '' : n0(m.carbs_g), fat_g: it.per.fat_g == null ? '' : n0(m.fat_g) }); };
+A.foodEditSave = (i) => {
+  const it = FD().items[i]; if (!it) { A.foodSheet(true); return; }
+  const num = id => { const v = String(val(id) || '').trim().replace(',', '.'); return v === '' ? NaN : parseFloat(v); };
+  const kcal = num('fd_kcal'), prot = num('fd_prot'), carb = num('fd_carb'), fat = num('fd_fat');
+  if (isNaN(kcal) || kcal < 0 || kcal > 10000 || [prot, carb, fat].some(x => !isNaN(x) && (x < 0 || x > 2000))) { toast(t('Check the numbers: calories 0–10000, protein 0–1000 g.'), 'err'); return; }
+  const q = Number(it.qty) || 1; const name = (val('fd_note') || '').trim();
+  if (name) it.name = name.slice(0, 100);
+  it.per = { kcal: kcal / q, protein_g: isNaN(prot) ? null : prot / q, carbs_g: isNaN(carb) ? null : carb / q, fat_g: isNaN(fat) ? null : fat / q };
+  delete it.fromCount; it.source = 'edited';
+  A.foodSheet(true);
+};
 A.saveFoodItems = async () => {
   const D = FD(); if (!D.items.length) return;
   busy(true);
@@ -224,8 +239,10 @@ A.foodManual = (pre) => {
   sheet('<div class="h2">' + t('Add food') + '</div>' + field(t('What'), 'fd_note', pre.note || val('fd_text') || '', { ph: t('e.g. chicken, rice, salad') }) +
     '<div class="input-row">' + field(t('Calories'), 'fd_kcal', pre.kcal, { type: 'number', unit: unit('kcal'), ph: '450' }) + field(t('Protein'), 'fd_prot', pre.protein_g, { type: 'number', unit: unit('g'), ph: '30' }) + '</div>' +
     '<div class="input-row">' + field(t('Carbs'), 'fd_carb', pre.carbs_g, { type: 'number', unit: unit('g'), ph: '50' }) + field(t('Fats'), 'fd_fat', pre.fat_g, { type: 'number', unit: unit('g'), ph: '15' }) + '</div>' +
-    '<span class="link" style="align-self:flex-start" onclick="A.foodSheet()">' + t('Let the app work it out') + '</span>' +
-    '<button class="btn" onclick="A.saveFood()">' + t('Add') + '</button>');
+    (pre.edit != null ? '<span class="link" style="align-self:flex-start" onclick="A.foodSheet(true)">' + t('Back to the list') + '</span>' +
+      '<button class="btn" onclick="A.foodEditSave(' + Number(pre.edit) + ')">' + t('Save') + '</button>'
+      : '<span class="link" style="align-self:flex-start" onclick="A.foodSheet()">' + t('Let the app work it out') + '</span>' +
+      '<button class="btn" onclick="A.saveFood()">' + t('Add') + '</button>'));
 };
 A.saveFood = async () => {
   const kcal = parseInt(val('fd_kcal'), 10), prot = parseFloat(val('fd_prot')), carb = parseFloat(val('fd_carb')), fat = parseFloat(val('fd_fat'));
@@ -245,14 +262,18 @@ A.undoWater = async () => { const w = (S.today.logs || []).filter(l => l.kind ==
 A.numSheet = (kind) => {
   S.draft.wOk = null; const cur = oneOf(S.today.logs || [], kind); const isW = kind === 'weight';
   sheet('<div class="h2">' + (isW ? t('Weigh-in') : t('Steps today')) + '</div>' + (isW ? '<div class="mute">' + t('Best in the morning, before breakfast.') + '</div>' : '') +
-    field(isW ? t('Weight') : t('Steps'), 'num_v', cur ? Number(cur.value) : '', { type: 'number', unit: isW ? unit('kg') : '', ph: isW ? '70.5' : '8000', attrs: isW ? ' step="0.1"' : '' }) +
+    // weight: a text field with the decimal keypad, so "84,5" (Georgian keyboards type a comma) is read as 84.5, not 84
+    (isW ? field(t('Weight'), 'num_v', cur ? Number(cur.value) : '', { type: 'text', inputmode: 'decimal', unit: unit('kg'), ph: '70.5', attrs: ' autocomplete="off"' })
+      : field(t('Steps'), 'num_v', cur ? Number(cur.value) : '', { type: 'number', inputmode: 'numeric', ph: '8000' })) +
     '<div class="err" id="num_warn"></div><button class="btn" onclick="A.saveNum(\'' + kind + '\')">' + t('Save') + '</button>' + (cur ? '<button class="btn sec" onclick="A.saveNum(\'' + kind + '\',true)">' + t('Clear') + '</button>' : ''));
+  const el = document.getElementById('num_v'); if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); A.saveNum(kind); } });   // Enter / "Go" on the keypad saves
 };
+function numWarn(msg) { const el = document.getElementById('num_warn'); if (el) el.textContent = msg; else toast(msg, 'err'); }
 A.saveNum = async (kind, clear) => {
-  const v = clear ? null : parseFloat(val('num_v'));
-  if (!clear && (isNaN(v) || v < 0)) { toast(t('Enter a number.'), 'err'); return; }
-  if (!clear && kind === 'weight' && (v < 20 || v > 400)) { toast(t('Check the number: weight in kg, 20–400.'), 'err'); return; }
-  if (!clear && kind === 'steps' && v > 100000) { toast(t('Check the number: at most 100000 steps.'), 'err'); return; }
+  const raw = String(val('num_v') || '').trim().replace(',', '.'); const v = clear ? null : (/^\d+(\.\d+)?$/.test(raw) ? parseFloat(raw) : NaN);
+  if (!clear && (isNaN(v) || v < 0)) { numWarn(t('Enter a number.')); return; }
+  if (!clear && kind === 'weight' && (v < 20 || v > 400)) { numWarn(t('Check the number: weight in kg, 20–400.')); return; }
+  if (!clear && kind === 'steps' && (v > 100000 || v !== Math.round(v))) { numWarn(t('Check the number: at most 100000 steps.')); return; }
   if (!clear && kind === 'weight' && S.draft.wOk !== v) {
     let prev = null; try { prev = await lastWeight(); } catch (e) {}
     if (prev && Math.abs(v - prev.v) >= 3) {
@@ -273,9 +294,11 @@ A.saveNum = async (kind, clear) => {
 A.checkinSheet = () => {
   const cur = oneOf(S.today.logs || [], 'checkin'); S.draft.mood = cur ? Number(cur.value) : 0;
   sheet('<div class="h2">' + t('Evening check-in') + '</div><div class="field"><label>' + t('How was your day?') + '</label><div id="moods">' + moodDots(S.draft.mood, 'pickMood') + '</div></div>' +
-    field(t('A line for your coach (optional)'), 'ci_note', cur ? cur.note : '', { textarea: true, ph: t('e.g. slept badly, knee felt fine') }) +
+    field(isSolo() ? t('A note (optional)') : t('A line for your coach (optional)'), 'ci_note', cur ? cur.note : '', { textarea: true, ph: t('e.g. slept badly, knee felt fine') }) +
     attachBlock('ci_att', cur ? cur.attachments : []) +
     '<button class="btn" onclick="A.saveCheckin()">' + t('Save') + '</button>');
+  // a half-written note survives closing the sheet or the app (16 Nov QA)
+  const el = document.getElementById('ci_note'); if (el) { if (!el.value) el.value = loadDraft('ci_note'); el.addEventListener('input', () => A.draftIn('ci_note', el)); }
 };
 A.quickMood = async (k) => {
   const cur = oneOf(S.today.logs || [], 'checkin'); const first = !cur; moodNow(k);
@@ -286,7 +309,7 @@ A.pickMood = (k) => { S.draft.mood = k; const el = document.getElementById('mood
 A.saveCheckin = async () => {
   if (!S.draft.mood) { toast(t('Pick how your day was.'), 'err'); return; }
   busy(true);
-  try { const atts = await saveAttachments('ci_att', S.pair && S.pair.id ? S.pair.id + '/checkin' : 'tune/' + S.me.id + '/checkin'); await db.setDayLog(S.me.id, S.today.day, 'checkin', S.draft.mood, val('ci_note'), atts); track('log', { kind: 'checkin', photos: atts.length }); closeSheet(); toast(t('Saved — see you tomorrow')); await reloadToday(); }
+  try { const atts = await saveAttachments('ci_att', S.pair && S.pair.id ? S.pair.id + '/checkin' : 'tune/' + S.me.id + '/checkin'); await db.setDayLog(S.me.id, S.today.day, 'checkin', S.draft.mood, val('ci_note'), atts); clearDraft('ci_note'); track('log', { kind: 'checkin', photos: atts.length }); closeSheet(); toast(t('Saved — see you tomorrow')); await reloadToday(); }
   catch (e) { busy(false); fail(e); }
 };
 

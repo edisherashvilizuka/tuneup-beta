@@ -1,5 +1,5 @@
 // Tune Up beta — coach side: weekly plan builder, exercise library, targets, goals (per client).
-import { t, esc, dayName, exName, unit } from './i18n.js';
+import { t, esc, dayName, exName, unit, repsTxt } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
 import { S, isSolo } from './state.js';
@@ -15,7 +15,7 @@ export async function loadPlan(pairId) {
 }
 function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day === day); }
 export function nEx(n) { return n === 1 ? t('1 exercise') : t('{n} exercises', { n }); }
-function itemLine(i) { return [i.sets + ' × ' + i.reps, i.load].filter(Boolean).join(' · '); }
+function itemLine(i) { return [i.sets + ' × ' + repsTxt(i.reps), i.load].filter(Boolean).join(' · '); }
 function videoBtn(x) { return x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''; }
 
 // ---- plan overview card (used inside the client screen)

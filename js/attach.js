@@ -98,32 +98,52 @@ export function attHtml(atts) {
   }).join('') + '</div>';
 }
 
+// ---- drafts: what is typed (or dictated) in a composer survives leaving the screen, a reload or closing the app,
+// per person + conversation; sending clears it. 16 Nov QA: half-written messages were lost.
+function draftKey(id) { return 'tuneup-draft:' + ((S.me && S.me.id) || '') + ':' + id + ':' + (SCOPE[id] || ''); }
+export function loadDraft(id) { try { return localStorage.getItem(draftKey(id)) || ''; } catch (e) { return ''; } }
+export function clearDraft(id) { try { localStorage.removeItem(draftKey(id)); } catch (e) {} }
+function keepDraftText(id, v) { try { if (v && v.trim()) localStorage.setItem(draftKey(id), v.slice(0, 4000)); else localStorage.removeItem(draftKey(id)); } catch (e) {} }
+A.draftIn = (id, el) => keepDraftText(id, el.value);
 // ---- the composer: [📎] [🎤] [ input ] [send]
 export function composerHtml(id, opts) {
   const o = opts || {};
   return '<div class="pend-row" id="' + id + '_pend" style="display:none"></div>' +
     '<div class="composer"><button type="button" class="side" onclick="document.getElementById(\'' + id + '_file\').click()" aria-label="' + esc(t('Attach a photo or file')) + '">' + I.clip + '</button>' +
     '<button type="button" class="side" id="' + id + '_mic" onclick="A.voice(\'' + id + '\')" aria-label="' + esc(t('Voice note')) + '">' + I.mic + '</button>' +
-    '<input id="' + id + '" placeholder="' + esc(o.placeholder || '') + '" autocomplete="off" maxlength="' + (o.maxlength || 2000) + '">' +
+    '<input id="' + id + '" placeholder="' + esc(o.placeholder || '') + '" autocomplete="off" maxlength="' + (o.maxlength || 2000) + '" value="' + esc(loadDraft(id)) + '" oninput="A.draftIn(\'' + id + '\',this)" enterkeyhint="send">' +
     '<button type="button" onclick="' + o.send + '" aria-label="' + esc(t('Send')) + '">' + I.send + '</button></div>' + pickHtml(id, o);
 }
 
-// ---- voice notes: record on the phone → words into the field
+// ---- voice notes: speech → words into the field. ONE path for every field (chat, Tune, Add food, notes, forms).
+// Georgian (16 Nov QA): OpenAI's transcription returned almost nothing for longer Georgian notes, so when the app is in
+// Georgian and the browser has the phone's own speech recognition (Chrome on Android / computers — Google's Georgian
+// model, words appear while you speak) that is used first; iPhones and the store apps record and send the clip to the
+// `transcribe` function (stronger model + a second model when the first returns too little). English always records.
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 const MR = window.MediaRecorder || null;
-let rec = null, recId = null, recT = null, chunks = [], stream = null, sr = null;
+let rec = null, recId = null, recT = null, chunks = [], stream = null, sr = null, recStart = 0;
 export const voiceAvailable = () => !!((MR && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || SR);
 const MAX_MS = 60000;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+export const liveSpeech = () => !!(SR && LANG.cur === 'ka' && !isIOS() && !isNativeApp());
+let srFailed = false;                              // the phone's recognition failed once (no network to Google, language missing) → record instead
 function mime() { for (const m of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg']) if (MR && MR.isTypeSupported && MR.isTypeSupported(m)) return m; return ''; }
 function micBtn(id) { return document.getElementById(id + '_mic'); }
 function setLive(id, on, label) { const b = micBtn(id); if (!b) return; b.classList.toggle('live', !!on); b.innerHTML = on ? I.stop : I.mic; b.title = label || ''; }
 function putText(id, text) {
-  const el = document.getElementById(id); if (!el || !text) return;
+  const el = document.getElementById(id); if (!text) return;
+  if (!el) { keepDraftText(id, ((loadDraft(id) || '').replace(/\s+$/, '') + ' ' + text).trim()); return; }   // the person left the screen while it was transcribing: keep the words for when they come back
   el.value = (el.value ? el.value.replace(/\s+$/, '') + ' ' : '') + text; el.dispatchEvent(new Event('input', { bubbles: true })); try { el.focus(); } catch (e) {}
   A.voiceDone && A.voiceDone(id, text);
 }
 A.voice = async (id) => {
-  if (rec || sr) { stopVoice(); return; }
+  if (rec || sr) { const same = recId === id; stopVoice(); if (same) return; }   // a second mic tapped while one listens: stop the first, start this one
+  if (liveSpeech() && !srFailed) { listenSR(id, true); return; }
+  recordClip(id);
+};
+async function recordClip(id) {
   if (MR && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch (e) { toast(t('Microphone not allowed — check the phone settings'), 'err'); return; }
@@ -138,33 +158,67 @@ A.voice = async (id) => {
       const b = micBtn(id); if (b) { b.classList.add('busy'); b.innerHTML = I.dots; }
       try {
         const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error('read')); r.readAsDataURL(blob); });
-        const r = await db.transcribe(dataUrl, LANG.cur);
-        if (r.text) { putText(id, r.text.trim()); track('voice', { where: id, len: r.text.length }); } else toast(t('Could not hear that — try again or type it.'), 'err');
+        const secs = Math.round((Date.now() - recStart) / 100) / 10;
+        const r = await db.transcribe(dataUrl, LANG.cur, { secs, where: id === 'fd_text' ? 'food' : 'text' });
+        if (r.text) { putText(id, r.text.trim()); track('voice', { where: id, len: r.text.length, secs, engine: 'server' }); } else toast(t('Could not hear that — try again or type it.'), 'err');
       } catch (e) {
         if (e.status === 503 && SR) { toast(t('Voice notes are not switched on yet — using the phone’s own speech instead.')); listenSR(id); }
         else toast(e.status === 429 ? t('Too many voice notes — try again in a few minutes.') : t('Could not transcribe — try again or type it.'), 'err');   // the server's words are English; say it in the app's language
       } finally { const b2 = micBtn(id); if (b2) { b2.classList.remove('busy'); if (!sr) b2.innerHTML = I.mic; } }
       void kind;
     };
-    rec.start(250); setLive(id, true, t('Tap to stop'));
+    rec.start(250); recStart = Date.now(); setLive(id, true, t('Tap to stop'));
     recT = setTimeout(() => stopVoice(), MAX_MS);
     return;
   }
   if (SR) { listenSR(id); return; }
   toast(t('This browser has no microphone support — type instead.'), 'err');
 }
-function listenSR(id) {
-  sr = new SR(); sr.lang = LANG.cur === 'ka' ? 'ka-GE' : 'en-US'; sr.interimResults = false; sr.maxAlternatives = 1; recId = id;
-  sr.onresult = e => { const txt = Array.from(e.results).map(r => r[0].transcript).join(' ').trim(); if (txt) putText(id, txt); };
-  sr.onerror = e => { if (e.error !== 'aborted' && e.error !== 'no-speech') toast(t('Could not hear that — try again or type it.'), 'err'); };
-  sr.onend = () => { sr = null; setLive(id, false); };
-  try { sr.start(); setLive(id, true, t('Tap to stop')); } catch (e) { sr = null; setLive(id, false); }
+// the phone's own recognition. live=true: keeps listening until tapped (or 60 s), the words appear in the field while
+// you speak; the field's earlier text stays in front. Errors that mean "this phone can't do it" fall back to recording.
+function listenSR(id, live) {
+  const el = document.getElementById(id); const base = el && el.value ? el.value.replace(/\s+$/, '') + ' ' : '';
+  let finalTxt = '', heard = false, fellBack = false;
+  sr = new SR(); sr.lang = LANG.cur === 'ka' ? 'ka-GE' : 'en-US'; sr.interimResults = !!live; sr.continuous = !!live; sr.maxAlternatives = 1; recId = id;
+  sr.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) finalTxt += (finalTxt ? ' ' : '') + r[0].transcript.trim(); else interim += r[0].transcript; }
+    heard = true;
+    if (!live) return;
+    const f = document.getElementById(id); if (f) { f.value = base + (finalTxt + (interim ? ' ' + interim.trim() : '')).trim(); try { f.scrollLeft = f.scrollWidth; f.scrollTop = f.scrollHeight; } catch (x) {} }
+  };
+  sr.onerror = e => {
+    if (e.error === 'aborted' || e.error === 'no-speech') return;
+    if (e.error === 'not-allowed') { toast(t('Microphone not allowed — check the phone settings'), 'err'); return; }
+    if (live && !heard && (e.error === 'network' || e.error === 'language-not-supported' || e.error === 'service-not-allowed' || e.error === 'audio-capture')) { srFailed = true; fellBack = true; return; }
+    toast(t('Could not hear that — try again or type it.'), 'err');
+  };
+  sr.onend = () => {
+    sr = null; clearTimeout(recT); setLive(id, false);
+    if (discardLive) { discardLive = false; return; }   // sent while listening: what was in the field went with the message
+    if (fellBack) { recordClip(id); return; }
+    const txt = finalTxt.trim();
+    if (live) {
+      const f = document.getElementById(id);
+      if (f) { f.value = base.replace(/\s+$/, '') + (txt ? (base ? ' ' : '') + txt : ''); f.dispatchEvent(new Event('input', { bubbles: true })); try { f.focus(); } catch (x) {} }
+      else if (txt) keepDraftText(id, base + txt);
+      if (txt) { A.voiceDone && A.voiceDone(id, txt); track('voice', { where: id, len: txt.length, engine: 'phone' }); }
+      else if (!heard) toast(t('Could not hear that — try again or type it.'), 'err');
+      return;
+    }
+    if (txt) putText(id, txt);
+  };
+  try { sr.start(); setLive(id, true, t('Tap to stop')); if (live) recT = setTimeout(() => stopVoice(), MAX_MS); }
+  catch (e) { sr = null; setLive(id, false); if (live) { srFailed = true; recordClip(id); } }
 }
-export function stopVoice() {
+let discardLive = false;
+// sending=true (chat / Tune send while the phone is still listening): stop without writing the words back into the
+// field — they are already in it and went out with the message
+export function stopVoice(sending) {
   if (rec) { try { rec.stop(); } catch (e) {} }
-  if (sr) { try { sr.stop(); } catch (e) {} }
+  if (sr) { if (sending === true) discardLive = true; try { sr.stop(); } catch (e) {} }
 }
-A.stopVoice = stopVoice;
+A.stopVoice = () => stopVoice();
 
 // ---- a photo block inside a form (check-in, private notes, feedback): the saved pictures, the pending ones, "Add photo"
 const KEEP = {}, KEEPKEY = {};                     // form id → saved attachments still kept (the rest were removed)

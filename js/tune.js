@@ -6,11 +6,11 @@ import { thinking } from './motion.js';
 import { t, esc, LANG, firstName, isoDate } from './i18n.js';
 import { SCREENS, A, I, rerender, toast, cur } from './ui.js';
 import * as db from './db.js';
-import { S } from './state.js';
+import { S, coachPair } from './state.js';
 import { track } from './chat.js';
 import { loadTuneData, traineeContext, coachContext } from './tunectx.js';
 import { prepare, run } from './tuneact.js';
-import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, dataUrlOf, stopVoice, scopePending } from './attach.js';
+import { composerHtml, pending, clearPending, uploadPending, resolveUrls, attHtml, renderPending, dataUrlOf, stopVoice, scopePending, clearDraft } from './attach.js';
 
 const STALE_MS = 2 * 3600 * 1000;           // a proposal older than this (or followed by a newer question) can no longer be confirmed
 function tuneState() { S.tune = S.tune || { msgs: [], busy: false, loaded: false }; return S.tune; }
@@ -46,6 +46,7 @@ function plain(text) {
 // ---- the screen
 let EXAMPLES = [];
 function examples(name) {
+  if (S.me.role !== 'coach' && !coachPair()) return [t('What is left to eat today?'), t('I ate two eggs and a toast'), t('What is my workout today?'), t('Remove the last meal I logged')];   // Solo: no coach to write to
   if (S.me.role !== 'coach') return [t('What is left to eat today?'), t('I ate two eggs and a toast'), t('Tell my coach I will be 10 minutes late'), t('Remove the last meal I logged')];
   if (name) return [t('How is {name}’s week going?', { name: firstName(name) }), t('Build {name} a 3-day plan', { name: firstName(name) }), t('Move {name}’s next session one hour later', { name: firstName(name) })];
   return [t('Who needs attention today?'), t('Who missed a workout this week?'), t('Send everyone a reminder to log their water')];
@@ -70,7 +71,7 @@ function bubble(st, m) {
 }
 SCREENS.tune = (params) => {
   const st = tuneState(); const client = params && params.client; const name = client ? clientName(client) : ''; scopePending('tq', client || 'self');   // a picture picked while asking about one client never moves to another
-  const intro = S.me.role === 'coach' ? t('Ask how your clients are doing — or tell me what to do: message a client, plan or move sessions, build a plan, set targets and goals. I ask you before anything reaches a client.') : t('Ask about your plan and your day — or tell me what to do: log food, tick exercises, write to your coach, update your answers. Send a photo of a plate or a label and I log it. I ask you before anything is sent.');
+  const intro = S.me.role === 'coach' ? t('Ask how your clients are doing — or tell me what to do: message a client, plan or move sessions, build a plan, set targets and goals. I ask you before anything reaches a client.') : !coachPair() ? t('Ask about your program and your day — or tell me what to do: log food, water or steps, tick exercises, update your answers. Send a photo of a plate or a label and I log it.') : t('Ask about your plan and your day — or tell me what to do: log food, tick exercises, write to your coach, update your answers. Send a photo of a plate or a label and I log it. I ask you before anything is sent.');
   const ex = st.msgs.length ? [] : examples(name); EXAMPLES = ex;
   const exHtml = ex.length ? '<div class="chips tune-ex">' + ex.map((q, i) => '<button class="chip" onclick="A.tuneExample(' + i + (client ? ",'" + client + "'" : '') + ')">' + esc(q) + '</button>').join('') + '</div>' : '';
   const saved = '<div class="tune-saved mute small">' + I.shield + '<span class="grow">' + t('Saved in your account — only you see this conversation.') + '</span>' + (st.msgs.length ? '<span class="link" onclick="A.tuneClear(this)">' + t('Clear') + '</span>' : '') + '</div>';
@@ -92,7 +93,7 @@ async function saveMsg(role, content, actions, attachments) { try { return await
 A.askTune = async (client) => {
   const st = tuneState(); const inp = document.getElementById('tq'); const q = (inp ? inp.value : '').trim(); const files = pending('tq').slice();
   if ((!q && !files.length) || st.busy || !st.loaded) return;
-  stopVoice(); inp.value = ''; st.busy = true; st.focusInput = true;
+  stopVoice(true); inp.value = ''; clearDraft('tq'); st.busy = true; st.focusInput = true;
   // what the model gets: the shrunk picture / the PDF itself; what history keeps: the uploaded file
   let sent = [];
   try { sent = await Promise.all(files.map(async f => ({ kind: f.type === 'application/pdf' ? 'pdf' : 'image', media_type: f.type, name: f.name, data: (await dataUrlOf(f)).split(',')[1] }))); }

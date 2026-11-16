@@ -4,7 +4,7 @@ import { root, go, back, NAV, setTabs, toast, A, rerender, refreshBadges } from 
 import * as db from './db.js';
 import { S, readInviteFromUrl, clearInvite, forgetInvite, readSignup, clearSignup } from './state.js';
 import { onSignedIn } from './auth.js';
-import { onOnboarded, prefillTrainee } from './onboard.js';
+import { onOnboarded, prefillTrainee, restoredDraft, dropDraft } from './onboard.js';
 import { traineeTabs, loadTrainee } from './trainee.js';
 import { COACH_TABS, loadCoach } from './coach.js';
 import { ADMIN_TABS, loadAdmin } from './admin.js';
@@ -39,7 +39,7 @@ async function afterSignIn() {
   if (!S.me.consent_at) { root('consent'); return; }
   // pending invite?
   if (S.invite) {
-    if (S.invite.kind === 'coach' && !S.me.role && S.invite.info && S.invite.info.valid) { S.draft = { name: S.me.name || '' }; root('coachSetup'); return; }
+    if (S.invite.kind === 'coach' && !S.me.role && S.invite.info && S.invite.info.valid) { S.draft = restoredDraft({ name: S.me.name || '' }); root('coachSetup'); return; }
     if (S.invite.kind === 'client' && (!S.me.role || S.me.role === 'trainee') && S.invite.info && S.invite.info.valid) {
       let paired = false;
       if (S.me.role === 'trainee') { try { const p = await db.myCoachPair(uid); paired = !!(p && p.status === 'active'); } catch (e) {} }
@@ -50,11 +50,11 @@ async function afterSignIn() {
   }
   if (!S.me.role) {
     // public sign-up: the role chosen on the welcome screen leads straight into its steps; otherwise pick one
-    if (S.signup && S.signup.role === 'coach') { S.draft = { name: S.me.name || '' }; root('coachSetup'); return; }
-    if (S.signup && S.signup.role === 'trainee') { S.draft = { name: S.me.name || '' }; root('q1'); return; }
+    if (S.signup && S.signup.role === 'coach') { S.draft = restoredDraft({ name: S.me.name || '' }); root('coachSetup'); return; }
+    if (S.signup && S.signup.role === 'trainee') { S.draft = restoredDraft({ name: S.me.name || '' }); root('q1'); return; }
     root('pickRole'); return;
   }
-  clearSignup();
+  clearSignup(); dropDraft();
   if (S.me.role === 'coach') S.me.isAdmin = await db.myIsAdmin();   // the partner: a coach who is also on the admin list
   await home();
 }

@@ -610,3 +610,9 @@ html[lang="ka"] .tabbar button { letter-spacing: -0.02em; }
 
 /* QA 10 Nov: heat-map labels readable on small phones */
 .heat .lab,.heat .d{font-size:11px}
+/* 16 Nov QA: an absolutely-centred toast could only use half the width (left:50%), so longer messages wrapped into
+   four narrow lines over the field; it now sizes to its text up to 86 % of the screen */
+.toast{width:max-content;max-width:min(86%,380px);border-radius:18px;line-height:1.35}
+/* 16 Nov QA: in Georgian ("გრამებში" + "ცალი") the Add food stepper ran 17 px past the card's edge; the row now wraps */
+.fcard .row.between{flex-wrap:wrap;row-gap:8px}
+.fcard .stepper{flex-shrink:0;margin-left:auto}

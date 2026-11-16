@@ -13,11 +13,20 @@ let afterOnboard = () => {};
 export function onOnboarded(fn) { afterOnboard = fn; }
 function d() { return S.draft; }
 function stepsBar(n, m) { return '<div class="steps" style="margin-bottom:6px">' + Array.from({ length: m }, (_, i) => '<i class="' + (i < n ? 'on' : '') + '"></i>').join('') + '</div>'; }
-function keepFields(ids) { ids.forEach(id => { const el = document.getElementById(id); if (el) d()[id] = el.value; }); }
+function keepFields(ids) { ids.forEach(id => { const el = document.getElementById(id); if (el) d()[id] = id === 'weight_kg' ? el.value.trim().replace(',', '.') : el.value; }); }   // "84,5" from a Georgian keypad = 84.5
 function segc(id, opts, cur, action) { return '<div class="segc">' + Object.keys(opts).map(k => '<button type="button" class="' + (cur === k ? 'on' : '') + '" onclick="A.' + action + '(\'' + id + '\',\'' + k + '\')">' + esc(t(opts[k])) + '</button>').join('') + '</div>'; }
 A.pickOne = (k, v) => { keepAll(); d()[k] = v; rerender(); };
 A.togMany = (k, v) => { keepAll(); const a = d()[k] = d()[k] || []; const i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v); rerender(); };
-function keepAll() { keepFields(['name', 'age', 'weight_kg', 'height_cm', 'goal_detail', 'injuries', 'allergies', 'budget_min', 'budget_max', 'pitch', 'gym', 'district', 'years', 'links']); }
+function keepAll() { keepFields(['name', 'age', 'weight_kg', 'height_cm', 'goal_detail', 'injuries', 'allergies', 'budget_min', 'budget_max', 'pitch', 'gym', 'district', 'years', 'links']); persistDraft(); }
+// 16 Nov QA: closing the app halfway through sign-up lost every answer. The answers are kept on the phone (per account)
+// until the sign-up is finished; app.js restores them when the person comes back.
+const DRAFT_KEYS = ['name', 'sex', 'age', 'weight_kg', 'height_cm', 'experience', 'goal', 'goal_detail', 'injuries', 'eating_style', 'allergies', 'days', 'time_of_day', 'place', 'format', 'budget_min', 'budget_max', 'district', 'coach_gender', 'mode', 'pitch', 'gym', 'years', 'links', 'specialties', 'online'];
+const draftKey = () => 'tuneup-signup-draft:' + ((S.me && S.me.id) || '');
+export function persistDraft() { try { const x = d() || {}; const o = {}; DRAFT_KEYS.forEach(k => { if (x[k] != null && x[k] !== '') o[k] = x[k]; }); localStorage.setItem(draftKey(), JSON.stringify(o)); } catch (e) {} }
+export function restoredDraft(base) { try { const o = JSON.parse(localStorage.getItem(draftKey()) || 'null'); return o ? Object.assign({}, base || {}, o) : (base || {}); } catch (e) { return base || {}; } }
+export function dropDraft() { try { localStorage.removeItem(draftKey()); } catch (e) {} }
+// every keystroke in a sign-up field is kept at once (only while the account has no role yet, i.e. during sign-up)
+document.addEventListener('input', (e) => { const id = e.target && e.target.id; if (id && DRAFT_KEYS.includes(id) && S.me && !S.me.role && S.draft) { S.draft[id] = e.target.value; persistDraft(); } }, true);
 function chipsMany(k, opts, keys) { const sel = d()[k] || []; return '<div class="chips">' + (keys || Object.keys(opts)).map(o => '<button type="button" class="chip ' + (sel.includes(o) ? 'on' : '') + '" onclick="A.togMany(\'' + k + '\',\'' + o + '\')">' + esc(t(opts[o])) + '</button>').join('') + '</div>'; }
 function chipsOne(k, opts, keys) { const sel = d()[k]; return '<div class="chips">' + (keys || Object.keys(opts)).map(o => '<button type="button" class="chip ' + (sel === o ? 'on' : '') + '" onclick="A.pickOne(\'' + k + '\',\'' + o + '\')">' + esc(t(opts[o])) + '</button>').join('') + '</div>'; }
 const SEX = { f: 'Female', m: 'Male' }; const TOD = { morning: 'Morning', day: 'Daytime', evening: 'Evening' }; const PLACE = { gym: 'Gym', home: 'Home' };
@@ -32,7 +41,7 @@ SCREENS.q1 = () => { const x = d(); const m = inviteCoach() ? 3 : 4;
     (inviteCoach() ? '<p class="lead">' + t('A few answers so {name} can plan for you. Only you and your coach see them.', { name: inviteCoach() }) + '</p>' : '') +
     field(t('Your name'), 'name', x.name, { ph: t('e.g. Nino Beridze'), attrs: ' autocomplete="name"' }) +
     '<div class="field"><label>' + t('Sex') + '</label>' + segc('sex', SEX, x.sex, 'pickOne') + '</div>' +
-    '<div class="input-row">' + field(t('Age'), 'age', x.age, { type: 'number', ph: '29' }) + field(t('Weight'), 'weight_kg', x.weight_kg, { type: 'number', unit: 'kg', ph: '70' }) + field(t('Height'), 'height_cm', x.height_cm, { type: 'number', unit: 'cm', ph: '170' }) + '</div>' +
+    '<div class="input-row">' + field(t('Age'), 'age', x.age, { type: 'number', ph: '29' }) + field(t('Weight'), 'weight_kg', x.weight_kg, { type: 'text', inputmode: 'decimal', unit: 'kg', ph: '70' }) + field(t('Height'), 'height_cm', x.height_cm, { type: 'number', unit: 'cm', ph: '170' }) + '</div>' +
     '<div class="field"><label>' + t('Experience') + '</label>' + chipsOne('experience', OPTS.experience) + '</div>' +
     '<div class="link" onclick="A.tellTune()">' + I.spark + ' ' + t('Tell Tune instead — it fills the answers') + '</div>' + ERR +
     '<button class="btn" onclick="A.qNext(1)">' + t('Next') + '</button>' }; };
@@ -72,19 +81,42 @@ A.qNext = (n) => {
   }
   if (n === 2) { if (!x.goal) { err.textContent = t('Pick your main goal.'); return; } go('q3'); return; }
   if (n === 3) { if (!(x.days || []).length) { err.textContent = t('Pick at least one day.'); return; } if (!x.format) x.format = 'inperson'; if (inviteCoach()) { A.finishTrainee(); return; } go('q4'); return; }
-  if (n === 4) { go('howTrain'); }
+  if (n === 4) {
+    const lo = x.budget_min !== '' && x.budget_min != null ? Number(x.budget_min) : null, hi = x.budget_max !== '' && x.budget_max != null ? Number(x.budget_max) : null;
+    if ((lo !== null && (isNaN(lo) || lo < 0)) || (hi !== null && (isNaN(hi) || hi < 0))) { err.textContent = t('Check the budget numbers.'); return; }
+    if (lo !== null && hi !== null && lo > hi) { err.textContent = t('“From” is more than “To” — check the budget.'); return; }
+    go('howTrain');
+  }
 };
 A.tellTune = () => sheet('<div class="h2">' + t('Tell Tune about yourself') + '</div><div class="s">' + t('One paragraph is enough: age, weight, how often you train, what you want, anything that hurts. Tune fills the steps; you check them.') + '</div>' +
   field('', 'tt_text', '', { textarea: true, ph: t('e.g. I\'m 29, 68 kg, 167 cm, beginner, want to lose about 8 kg, left knee hurts on lunges, free Mon Wed Fri evenings…') }) +
   '<button class="btn" onclick="A.tellTuneGo()">' + t('Fill my answers') + '</button>');
-// a small offline parser (numbers + keywords in EN/KA); the real Tune can refine it later from the chat
-A.tellTuneGo = () => {
-  const s = (val('tt_text') || '').toLowerCase(); const x = d(); const num = re => { const m = s.match(re); return m ? m[1] : null; };
+// 16 Nov QA: the "Tune" here was only a keyword parser — it missed the name, "2 times a week", "-5 kg" in Georgian…
+// Now the real Tune reads the paragraph (tune function, mode signup); the parser stays as the fallback when Tune
+// can't be reached. Fields Tune fills replace the parser's; nothing the person already typed is cleared.
+A.tellTuneGo = async () => {
+  const raw = (val('tt_text') || '').trim(); if (!raw) { toast(t('Write a few words about yourself first.'), 'err'); return; }
+  keepAll(); const x = d(); const btn = document.querySelector('.sheet .btn'); if (btn) { btn.disabled = true; btn.textContent = t('Tune is reading…'); }
+  try {
+    const f = await db.signupFill(raw, LANG.cur);
+    const num = k => { if (f[k] != null && f[k] !== '') x[k] = String(f[k]); };
+    if (f.name && !(x.name || '').trim()) x.name = String(f.name).slice(0, 80);
+    ['age', 'weight_kg', 'height_cm', 'budget_min', 'budget_max'].forEach(num);
+    ['sex', 'experience', 'goal', 'eating_style', 'place', 'format', 'district', 'coach_gender'].forEach(k => { if (f[k]) x[k] = f[k]; });
+    ['goal_detail', 'injuries', 'allergies'].forEach(k => { if (f[k]) x[k] = String(f[k]).slice(0, 300); });
+    if (Array.isArray(f.days) && f.days.length) x.days = [...new Set(f.days.map(String))];
+    if (Array.isArray(f.time_of_day) && f.time_of_day.length) x.time_of_day = f.time_of_day;
+    persistDraft(); closeSheet(); rerender(); toast(t('Filled — check each step')); return;
+  } catch (e) { if (btn) { btn.disabled = false; btn.textContent = t('Fill my answers'); } }
+  parseLocally(raw); persistDraft(); closeSheet(); rerender(); toast(t('Filled — check each step'));
+};
+function parseLocally(raw) {
+  const s = raw.toLowerCase(); const x = d(); const num = re => { const m = s.match(re); return m ? m[1] : null; };
   const age = num(/(\d{2})\s*(?:years|yo|y\.o|წლის|year)/) || num(/i(?:'m| am)\s*(\d{2})/); if (age) x.age = age;
   const w = num(/(\d{2,3}(?:[.,]\d)?)\s*(?:kg|კგ|კილო)/); if (w) x.weight_kg = w.replace(',', '.');
   const h = num(/(1\d{2}|2[0-4]\d)\s*(?:cm|სმ)/); if (h) x.height_cm = h;
   if (/beginner|never|first time|დამწყებ|არასდროს/.test(s)) x.experience = 'beginner'; else if (/regular|years|წლებია|რეგულარ/.test(s)) x.experience = 'regular'; else if (/some|a bit|sometimes|ცოტა|ზოგჯერ/.test(s)) x.experience = 'some';
-  if (/lose|fat|slim|weight|დავიკლო|წონ|გახდომ/.test(s)) x.goal = 'lose'; else if (/muscle|gain|bulk|კუნთ|მოვიმატო/.test(s)) x.goal = 'gain'; else if (/strength|strong|ძალ|ძლიერ/.test(s)) x.goal = 'sport'; else if (/tone|fit|shape|ფორმ|ტონუს/.test(s)) x.goal = 'tone'; else if (/health|energy|ჯანმრთ|ენერგ/.test(s)) x.goal = 'health';
+  if (/lose|fat|slim|weight|დავიკლო|დაკლ|წონ|გახდომ|ცხიმ/.test(s)) x.goal = 'lose'; else if (/muscle|gain|bulk|კუნთ|მოვიმატო/.test(s)) x.goal = 'gain'; else if (/strength|strong|ძალ|ძლიერ/.test(s)) x.goal = 'sport'; else if (/tone|fit|shape|ფორმ|ტონუს/.test(s)) x.goal = 'tone'; else if (/health|energy|ჯანმრთ|ენერგ/.test(s)) x.goal = 'health';
   const inj = []; if (/knee|მუხლ/.test(s)) inj.push(t('knee')); if (/back|წელ|ზურგ/.test(s)) inj.push(t('lower back')); if (/shoulder|მხარ/.test(s)) inj.push(t('shoulder')); if (/wrist|მაჯ/.test(s)) inj.push(t('wrist')); if (/ankle|კოჭ/.test(s)) inj.push(t('ankle')); if (inj.length) x.injuries = inj.join(', ');
   if (/vegan|ვეგან/.test(s)) x.eating_style = 'vegan'; else if (/vegetarian|ვეგეტარ/.test(s)) x.eating_style = 'vegetarian'; else if (/no pork|ღორის გარეშე|without pork/.test(s)) x.eating_style = 'nopork'; else if (/fast|მარხვ/.test(s)) x.eating_style = 'fasting';
   const D = { 1: /\bmon|ორშ/, 2: /\btue|სამშ/, 3: /\bwed|ოთხშ/, 4: /\bthu|ხუთშ/, 5: /\bfri|პარას/, 6: /\bsat|შაბ/, 7: /\bsun|კვირა\b/ }; const days = Object.keys(D).filter(k => D[k].test(s)); if (days.length) x.days = days;
@@ -93,8 +125,7 @@ A.tellTuneGo = () => {
   if (/home|სახლ/.test(s)) x.place = 'home'; if (/gym|დარბაზ/.test(s)) x.place = 'gym';
   if (/online|ონლაინ/.test(s)) x.format = /in person|gym|პირად|დარბაზ/.test(s) ? 'either' : 'online';
   const b = s.match(/(\d{2,4})\s*(?:-|–|to)\s*(\d{2,4})\s*(?:gel|₾|ლარ)/); if (b) { x.budget_min = b[1]; x.budget_max = b[2]; } else { const b1 = num(/(\d{2,4})\s*(?:gel|₾|ლარ)/); if (b1) x.budget_max = b1; }
-  closeSheet(); rerender(); toast(t('Filled — check each step'));
-};
+}
 
 // how do you want to train?
 SCREENS.howTrain = () => { const x = d(); const m = x.mode || 'solo';
@@ -115,6 +146,9 @@ A.finishTrainee = async () => {
     if (inviteCoach()) { await db.redeemClient(S.invite.code, x.name.trim(), LANG.cur, profile); try { await db.updateTraineeProfile(S.me.id, { sex: profile.sex, age: profile.age || null, days: profile.days, time_of_day: profile.time_of_day, place: profile.place, eating_style: profile.eating_style, allergies: profile.allergies }); } catch (e) {} clearInvite(); S.draft = {}; toast(t('You are paired')); await afterOnboard(); return; }
     const mode = x.mode || 'solo';
     await db.signupTrainee(x.name.trim(), LANG.cur, profile, mode);
+    // 16 Nov QA: signup_trainee() does not store `allergies` (it was only copied into the old `diet` field), so Foods,
+    // Fill the gap and the reminders never knew about them and Tune read "diet: nuts" as a liking. Saved here directly.
+    if (profile.allergies) { try { await db.updateTraineeProfile(S.me.id, { allergies: profile.allergies }); } catch (e) {} }
     clearSignup(); S.draft = {}; S.afterSignup = mode; toast(mode === 'coach' ? t('Welcome!') : t('Welcome — your program is ready'));
     await afterOnboard();
   } catch (e) { busy(false); if (err) err.textContent = friendly(e); else toast(friendly(e), 'err'); }

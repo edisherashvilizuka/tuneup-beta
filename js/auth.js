@@ -63,7 +63,7 @@ SCREENS.code = () => ({ title: t('Check your e-mail'), sub: S.draft.email, tabs:
   '<div class="err" id="err"></div>' +
   '<button class="btn" onclick="A.verify()">' + t('Sign in') + '</button>' +
   '<div class="mute small" style="text-align:center">' + t('No e-mail? Check spam, or') + ' <span class="link" onclick="A.resend()">' + t('send it again') + '</span></div>',
-  after: () => { const el = document.getElementById('code'); if (el) { el.focus(); el.addEventListener('input', () => { el.value = el.value.replace(/\D/g, '').slice(0, 10); }); el.addEventListener('keydown', e => { if (e.key === 'Enter') A.verify(); }); } } });
+  after: () => { const el = document.getElementById('code'); if (el) { el.focus(); el.addEventListener('input', () => { el.value = el.value.replace(/\D/g, '').slice(0, 10); const er = document.getElementById('err'); if (er) er.textContent = ''; if (el.value.length === 8) A.verify(); /* all 8 digits typed or pasted → sign in at once */ }); el.addEventListener('keydown', e => { if (e.key === 'Enter') A.verify(); }); } } });
 
 let verifying = false;
 A.verify = async () => {
@@ -127,7 +127,7 @@ A.inviteCodeUse = async () => {
   busy(true);
   try {
     const info = await db.inviteInfo(code); busy(false);
-    if (!info || !info.valid) { if (err) err.textContent = t('This invite link is no longer valid'); return; }
+    if (!info || !info.valid) { if (err) err.textContent = t('This code doesn’t work — check it, or ask your coach for a new one.'); return; }
     setInvite({ kind: info.kind === 'coach' ? 'coach' : 'client', code, info }); closeSheet(); rerender();
   } catch (e) { busy(false); if (err) err.textContent = t('Could not check the code — try again.'); }
 };
