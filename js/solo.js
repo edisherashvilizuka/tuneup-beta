@@ -13,7 +13,9 @@ import { splitFor } from './plan.js';
 export async function loadSolo() {
   if (!S.solo) S.solo = {};
   const [progs, rules, exs] = await Promise.all([S.solo.programs ? Promise.resolve(S.solo.programs) : db.programs(false), S.solo.rules ? Promise.resolve(S.solo.rules) : db.rules(), S.exercises ? Promise.resolve(S.exercises) : db.listExercises()]);
-  S.solo.programs = progs || []; S.solo.rules = {}; (rules || []).forEach(r => { S.solo.rules[r.key] = r; }); S.exercises = exs;
+  // 16 Nov QA: on the second load the rules were already keyed (an object, not a list) → forEach threw and the rules were
+  // left empty, so "Your program" and next week's plan lost the injury swaps
+  S.solo.programs = progs || []; if (Array.isArray(rules)) { S.solo.rules = {}; rules.forEach(r => { S.solo.rules[r.key] = r; }); } else S.solo.rules = rules || {}; S.exercises = exs;
   if (S.pair && S.pair.kind === 'solo') { try { S.solo.proposals = await db.proposals(S.pair.id); } catch (e) { S.solo.proposals = []; } }
 }
 const GOAL_MAP = { lose: 'lose', gain: 'gain', tone: 'tone', health: 'tone', sport: 'strength', strength: 'strength' };

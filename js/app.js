@@ -71,7 +71,16 @@ async function home() {
 }
 onSignedIn(afterSignIn);
 setInterval(async () => { if (!S.me || !S.me.role || S.me.role === 'admin') return; const before = S.unread; await loadUnread(); if (S.unread !== before) refreshBadges(); }, 60000);   // badges only — a full redraw here used to wipe what was being typed
-onOnboarded(async () => { S.me = await db.loadProfile(S.session.user.id); await home(); const m = S.afterSignup; S.afterSignup = null; if (m === 'coach' && S.me.role === 'trainee') A.go('findCoach'); else if (m && S.me.role === 'trainee' && S.pair && S.pair.kind === 'solo' && !S.pair.program_id) A.go('program'); });
+// D1 (Zuka, 16 Nov): someone who signs up to find a coach gets the Tune program straight away (free start: logging, Tune,
+// targets, a plan made for them); the coach's content replaces it once they choose a plan
+async function autoStartProgram() {
+  try {
+    if (!S.pair || S.pair.kind !== 'solo' || S.pair.program_id) return;
+    const solo = await import('./solo.js'); await solo.loadSolo(); const pg = solo.pickProgram(S.traineeProfile); if (!pg) return;
+    await solo.startProgram(pg); await loadTrainee();
+  } catch (e) { console.warn('autostart', e); }
+}
+onOnboarded(async () => { S.me = await db.loadProfile(S.session.user.id); await home(); const m = S.afterSignup; S.afterSignup = null; if (m === 'coach' && S.me.role === 'trainee') { await autoStartProgram(); A.go('findCoach'); } else if (m && S.me.role === 'trainee' && S.pair && S.pair.kind === 'solo' && !S.pair.program_id) A.go('program'); });
 
 async function boot() {
   document.documentElement.setAttribute('lang', LANG.cur);

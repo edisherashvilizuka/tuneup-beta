@@ -132,7 +132,7 @@ SCREENS.howTrain = () => { const x = d(); const m = x.mode || 'solo';
   const opt = (k, title, sub, pill) => '<div class="card tap ' + (m === k ? 'sel' : '') + '" onclick="A.pickOne(\'mode\',\'' + k + '\')" role="radio" aria-checked="' + (m === k) + '"><div class="row between"><div class="h3">' + esc(t(title)) + '</div>' + (pill ? '<span class="pill ok">' + esc(t(pill)) + '</span>' : I.chev) + '</div><div class="s">' + esc(t(sub)) + '</div></div>';
   return { title: t('How do you want to train?'), tabs: false, body:
     opt('solo', 'Tune Up only', 'Free. A program made for you — Tune adjusts it every week.', 'Free') +
-    opt('coach', 'Find a coach', 'Ranked matches, a free trial session, you pay the coach directly.') +
+    opt('coach', 'Find a coach', 'Ranked matches and a free trial session. Your Tune program starts right away and runs until you choose a coach.') +
     opt('later', 'Start with Tune Up, add a coach later', 'The same free program; "Find a coach" stays on your Today.') + ERR +
     '<button class="btn" onclick="A.finishTrainee()">' + t('Next') + '</button>' }; };
 
@@ -149,7 +149,7 @@ A.finishTrainee = async () => {
     // 16 Nov QA: signup_trainee() does not store `allergies` (it was only copied into the old `diet` field), so Foods,
     // Fill the gap and the reminders never knew about them and Tune read "diet: nuts" as a liking. Saved here directly.
     if (profile.allergies) { try { await db.updateTraineeProfile(S.me.id, { allergies: profile.allergies }); } catch (e) {} }
-    clearSignup(); S.draft = {}; S.afterSignup = mode; toast(mode === 'coach' ? t('Welcome!') : t('Welcome — your program is ready'));
+    clearSignup(); S.draft = {}; S.afterSignup = mode; toast(t('Welcome — your program is ready'));
     await afterOnboard();
   } catch (e) { busy(false); if (err) err.textContent = friendly(e); else toast(friendly(e), 'err'); }
 };

@@ -31,5 +31,6 @@ export const KA16 = {
   'You pay {name} directly — the coach tells you how. Cancel any month.': 'გადაიხდი პირდაპირ {name}-თან — როგორ, მწვრთნელი გეტყვის. გაუქმება ნებისმიერ თვეს შეიძლება.',
   'This code doesn’t work — check it, or ask your coach for a new one.': 'ეს კოდი არ მუშაობს — შეამოწმე ან მწვრთნელს ახალი სთხოვე.',
   'These are estimates — add your weight, height and age in My answers for exact targets.': 'ეს სავარაუდო რიცხვებია — ზუსტი მიზნებისთვის „ჩემს პასუხებში“ დაამატე წონა, სიმაღლე და ასაკი.',
-  'Add them': 'დამატება'
+  'Add them': 'დამატება',
+  'Ranked matches and a free trial session. Your Tune program starts right away and runs until you choose a coach.': 'შერჩეული მწვრთნელები და უფასო საცდელი სესია. შენი Tune-ის პროგრამა მაშინვე იწყება და გრძელდება, სანამ მწვრთნელს აირჩევ.'
 };
