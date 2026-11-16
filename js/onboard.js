@@ -20,9 +20,10 @@ A.togMany = (k, v) => { keepAll(); const a = d()[k] = d()[k] || []; const i = a.
 function keepAll() { keepFields(['name', 'age', 'weight_kg', 'height_cm', 'goal_detail', 'injuries', 'allergies', 'budget_min', 'budget_max', 'pitch', 'gym', 'district', 'years', 'links']); persistDraft(); }
 // 16 Nov QA: closing the app halfway through sign-up lost every answer. The answers are kept on the phone (per account)
 // until the sign-up is finished; app.js restores them when the person comes back.
-const DRAFT_KEYS = ['name', 'sex', 'age', 'weight_kg', 'height_cm', 'experience', 'goal', 'goal_detail', 'injuries', 'eating_style', 'allergies', 'days', 'time_of_day', 'place', 'format', 'budget_min', 'budget_max', 'district', 'coach_gender', 'mode', 'pitch', 'gym', 'years', 'links', 'specialties', 'online'];
+const DRAFT_KEYS = ['name', 'sex', 'age', 'weight_kg', 'height_cm', 'experience', 'goal', 'goal_detail', 'injuries', 'eating_style', 'allergies', 'days', 'time_of_day', 'place', 'format', 'budget_min', 'budget_max', 'district', 'coach_gender', 'mode', 'pitch', 'gym', 'years', 'links', 'specialties', 'online', 'cp', 'plans'];   // cp + plans: the coach sign-up (16 Nov QA C1)
 const draftKey = () => 'tuneup-signup-draft:' + ((S.me && S.me.id) || '');
-export function persistDraft() { try { const x = d() || {}; const o = {}; DRAFT_KEYS.forEach(k => { if (x[k] != null && x[k] !== '') o[k] = x[k]; }); localStorage.setItem(draftKey(), JSON.stringify(o)); } catch (e) {} }
+// C2: only while the account has no role yet, so a finished sign-up never leaves answers behind on a shared phone
+export function persistDraft() { if (!S.me || S.me.role) return; try { const x = d() || {}; const o = {}; DRAFT_KEYS.forEach(k => { if (x[k] != null && x[k] !== '') o[k] = x[k]; }); localStorage.setItem(draftKey(), JSON.stringify(o)); } catch (e) {} }
 export function restoredDraft(base) { try { const o = JSON.parse(localStorage.getItem(draftKey()) || 'null'); return o ? Object.assign({}, base || {}, o) : (base || {}); } catch (e) { return base || {}; } }
 export function dropDraft() { try { localStorage.removeItem(draftKey()); } catch (e) {} }
 // every keystroke in a sign-up field is kept at once (only while the account has no role yet, i.e. during sign-up)
@@ -31,6 +32,8 @@ function chipsMany(k, opts, keys) { const sel = d()[k] || []; return '<div class
 function chipsOne(k, opts, keys) { const sel = d()[k]; return '<div class="chips">' + (keys || Object.keys(opts)).map(o => '<button type="button" class="chip ' + (sel === o ? 'on' : '') + '" onclick="A.pickOne(\'' + k + '\',\'' + o + '\')">' + esc(t(opts[o])) + '</button>').join('') + '</div>'; }
 const SEX = { f: 'Female', m: 'Male' }; const TOD = { morning: 'Morning', day: 'Daytime', evening: 'Evening' }; const PLACE = { gym: 'Gym', home: 'Home' };
 export const DISTRICTS = { vake: 'Vake', saburtalo: 'Saburtalo', vera: 'Vera', didube: 'Didube', isani: 'Isani', gldani: 'Gldani', samgori: 'Samgori', nadzaladevi: 'Nadzaladevi', chugureti: 'Chugureti', mtatsminda: 'Mtatsminda', krtsanisi: 'Krtsanisi', didi_dighomi: 'Didi Dighomi', other: 'Other' };
+// 16 Nov QA A3: older profiles store the district as a name ("Vake") rather than a key — shown raw in English
+export function districtLabel(d) { const k = String(d || '').toLowerCase().trim(); const key = Object.keys(DISTRICTS).find(x => x === k || DISTRICTS[x].toLowerCase() === k); return key ? t(DISTRICTS[key]) : (d || ''); }
 const CG = { any: 'Any', f: 'Woman', m: 'Man' };
 const inviteCoach = () => (S.invite && S.invite.kind === 'client' && S.invite.info && S.invite.info.coach) || '';
 const ERR = '<div class="err" id="err"></div>';
@@ -172,11 +175,11 @@ SCREENS.coachSetup = () => { const x = d(); const c = cp();
     field(t('Gym'), 'gym', c.gym, { ph: t('e.g. Fitness One, Saburtalo') }) +
     '<div class="field"><label>' + t('District') + '</label><div class="chips">' + Object.keys(DISTRICTS).map(o => '<button type="button" class="chip ' + (c.district === o ? 'on' : '') + '" onclick="A.csPick(\'cs_district\',\'' + o + '\')">' + esc(t(DISTRICTS[o])) + '</button>').join('') + '</div></div>' + ERR +
     '<button class="btn" onclick="A.csNext(1)">' + t('Next') + '</button>' }; };
-A.csPick = (k, v) => { csKeep(); const c = cp(); if (k === 'cs_sex') c.sex = v; else if (k === 'cs_district') c.district = v; rerender(); };
+A.csPick = (k, v) => { csKeep(); const c = cp(); if (k === 'cs_sex') c.sex = v; else if (k === 'cs_district') c.district = v; persistDraft(); rerender(); };
 function csKeep() { keepAll(); const c = cp(); const x = d(); ['pitch', 'gym', 'links'].forEach(k => { if (x[k] != null) c[k] = x[k]; }); if (x.years != null) c.years = x.years; }
 A.csPhoto = async (input) => {
   const f = input.files && input.files[0]; input.value = ''; if (!f) return;
-  try { busy(true); const r = await shrink(f, 600, 0.85); cp().photo_url = await db.uploadAvatar(S.me.id, r.blob, 'image/jpeg'); busy(false); rerender(); }
+  try { busy(true); const r = await shrink(f, 600, 0.85); cp().photo_url = await db.uploadAvatar(S.me.id, r.blob, 'image/jpeg'); persistDraft(); busy(false); rerender(); }
   catch (e) { busy(false); toast(t('Could not upload the photo'), 'err'); }
 };
 SCREENS.cs2 = () => { const c = cp();
@@ -187,9 +190,9 @@ SCREENS.cs2 = () => { const c = cp();
     '<div class="card" style="padding:12px 16px"><div class="row"><div class="grow"><div class="t">' + t('I also coach online') + '</div><div class="s">' + t('Needed for plans with video calls') + '</div></div><button type="button" class="toggle ' + (c.online ? 'on' : '') + '" onclick="A.csOnline()" aria-label="' + esc(t('I also coach online')) + '"></button></div></div>' +
     '<div class="card" style="padding:12px 16px"><div class="row"><div class="grow"><div class="t">' + t('I coach in person') + '</div><div class="s">' + t('At your gym — needed for plans with gym sessions') + '</div></div><button type="button" class="toggle ' + (c.inperson ? 'on' : '') + '" onclick="A.csInperson()" aria-label="' + esc(t('I coach in person')) + '"></button></div></div>' + ERR +
     '<button class="btn" onclick="A.csNext(2)">' + t('Next') + '</button>' }; };
-A.csSpec = (k) => { csKeep(); const a = cp().specialties; const i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); rerender(); };
-A.csOnline = () => { csKeep(); cp().online = !cp().online; rerender(); };
-A.csInperson = () => { csKeep(); cp().inperson = !cp().inperson; rerender(); };
+A.csSpec = (k) => { csKeep(); const a = cp().specialties; const i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); persistDraft(); rerender(); };
+A.csOnline = () => { csKeep(); cp().online = !cp().online; persistDraft(); rerender(); };
+A.csInperson = () => { csKeep(); cp().inperson = !cp().inperson; persistDraft(); rerender(); };
 SCREENS.cs3 = () => { const c = cp(); const byKind = k => c.docs.filter(x => x.kind === k);
   return { title: t('CV & proof'), sub: t('Step {n} of {m}', { n: 3, m: 5 }), tabs: false, body: stepsBar(3, 5) +
     '<div class="s">' + t('Seen only by the Tune Up team. Needed once, before you appear in matching.') + '</div>' +
@@ -222,7 +225,7 @@ export function availSummary(av) {
   const hs = [].concat(...[1, 2, 3, 4, 5, 6, 7].map(dd => av[dd] || [])); const lo = Math.min(...hs), hi = Math.max(...hs) + 1;
   return t('{n} days a week · {a}:00–{b}:00', { n, a: lo, b: hi });
 }
-A.csHour = (dd, h) => { csKeep(); toggleHour(cp().availability, dd, h); rerender(); };
+A.csHour = (dd, h) => { csKeep(); toggleHour(cp().availability, dd, h); persistDraft(); rerender(); };
 A.csNext = async (n) => {
   csKeep(); const x = d(); const c = cp(); const err = document.getElementById('err');
   if (n === 1) { if (!x.name || x.name.trim().length < 2) { err.textContent = t('Please enter your name.'); return; } if (!c.district) { err.textContent = t('Pick your district.'); return; } go('cs2'); return; }
@@ -232,6 +235,7 @@ A.csNext = async (n) => {
     try { const idDocs = await saveAttachments('cd_id', 'tune/' + S.me.id + '/docs'); const certDocs = await saveAttachments('cd_cert', 'tune/' + S.me.id + '/docs'); c.docs = idDocs.map(a => Object.assign(a, { kind: 'id' })).concat(certDocs.map(a => Object.assign(a, { kind: 'cert' }))); }
     catch (e) { busy(false); err.textContent = t('Could not upload a file — try again.'); return; }
     busy(false);
+    persistDraft();
     if (!(S.invite && S.invite.kind === 'coach') && !c.docs.find(a => a.kind === 'id')) { err.textContent = t('Add a photo of your ID — the team needs it for the review.'); return; }
     go('cs4'); return;
   }

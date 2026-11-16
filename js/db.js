@@ -237,7 +237,7 @@ export async function adminCoaches() { return (await q(sb.rpc('admin_coaches')))
 export async function adminReviewCoach(id, status, note) { return q(sb.rpc('admin_review_coach', { p_coach: id, p_status: status, p_note: note || '' })); }
 export async function adminFunnel(days) { return (await q(sb.rpc('admin_funnel', { p_days: days || 30 }))) || {}; }
 export async function adminPairsFull() {
-  return q(sb.from('pairs').select('id,kind,status,format,started_at,ended_at,plan_name,plan_price,plan_since,trial_session_id,program_id,coach:profiles!pairs_coach_id_fkey(id,name),trainee:profiles!pairs_trainee_id_fkey(id,name)').order('started_at', { ascending: false }));
+  return q(sb.from('pairs').select('id,kind,status,format,started_at,ended_at,plan_id,plan_name,plan_price,plan_since,trial_session_id,program_id,coach:profiles!pairs_coach_id_fkey(id,name),trainee:profiles!pairs_trainee_id_fkey(id,name)').order('started_at', { ascending: false }));
 }
 // coach profile photo (public bucket `avatars`, path <uid>/photo.jpg)
 export async function uploadAvatar(uid, blob, type) {

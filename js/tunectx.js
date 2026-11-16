@@ -123,7 +123,13 @@ export function coachContext(D) {
   const text = [
     'Coach: ' + S.me.name + '. Today: ' + todayLine() + '. Active clients: ' + active.length + '.' + (D.focus ? '' : ' No client is open; if a request could mean more than one client, ask which.'),
     "Coach's gym (default place for gym sessions): " + (cp.gym || 'not set') + '. Online coaching: ' + (cp.online ? 'yes' : 'no') + '.',
+    // 16 Nov QA C4: asked "why am I not in Find a coach yet?" Tune did not know the review state or the listing rules
+    'PROFILE REVIEW: ' + ({ pending: 'waiting for the Tune Up team (usually 1–2 days; the coach is told when it is done)', more: 'the team asked for more' + (cp.review_note ? ': ' + q(cp.review_note) : '') + ' — the coach adds it in More → Coach profile and sends it back', approved: 'approved', rejected: 'not approved' }[cp.review_status || 'approved'] || cp.review_status) +
+      '. Trainees see a coach in Find a coach only when the profile is approved AND the coach has at least one active plan AND free hours set. Now: plans ' + (S.coachPlans || []).filter(x => x.status === 'active').length + ', free hours ' + (Object.values(cp.availability || {}).some(h => Array.isArray(h) && h.length) ? 'set' : 'not set') + '. Invite links work at any time.',
     'CLIENTS:\n' + (blocks.join('\n') || 'no active clients yet'),
+    // 16 Nov QA C6: "what do you know about Giorgi?" during the free trial got "no such client"
+    'IN FREE TRIAL (accepted requests; not clients yet — no plan, targets or goals until both confirm after the trial and the trainee chooses a plan; the trainee books the free trial in the coach\'s free hours; chat is open):\n' +
+      ((S.clients || []).filter(c => c.status === 'trial').map(c => '- ' + c.trainee.name + ' (app language ' + (c.trainee.lang === 'ka' ? 'Georgian' : 'English') + '): ' + answers(tpOf(c)) + '. Food preferences: ' + prefLine(tpOf(c)) + (c.trial_coach_ok ? '. The coach already said continue' : '') + (c.trial_trainee_ok ? '. The trainee already said continue' : '')).join('\n') || 'none'),
     'SESSIONS next 3 weeks:\n' + (sess.join('\n') || 'none planned'),
     'CANCELLED (this week only, already told the client): ' + (occurrences(today, addDays(today, 21)).filter(o => o.cancelled).map(o => { const c = active.find(x => x.id === o.s.pair_id); return isoDate(o.at) + ' ' + dayName(weekdayOf(o.at), true) + ' ' + fmtTime(o.at) + ', ' + (c ? c.trainee.name : '?') + (o.note ? ' ' + q(o.note) : ''); }).join('; ') || 'none'),
     'LIBRARY (exercises for plans):\n' + lib.join('\n')

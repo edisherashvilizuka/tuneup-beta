@@ -1,12 +1,12 @@
 // Tune Up beta — admin screens (week 1: coach invites, users, pairs).
 import { rollNum } from './motion.js';
-import { t, esc, fmtDate, firstName, fmtTime, isoDate, dayName, LANG, repsTxt } from './i18n.js';
+import { t, esc, fmtDate, firstName, fmtTime, isoDate, dayName, LANG, repsTxt, loadTxt } from './i18n.js';
 import { SCREENS, A, I, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
 import { attHtml, resolveUrls, urlOf } from './attach.js';
 import { componentLines } from './plans.js';
-import { DISTRICTS } from './onboard.js';
+import { DISTRICTS, districtLabel } from './onboard.js';
 import { expandWeek, progTitle, progSummary } from './solo.js';
 
 export const ADMIN_TABS = [{ id: 'aover', label: 'Overview', ico: 'home' }, { id: 'acoaches', label: 'Coaches', ico: 'shield', badge: () => ((S.admin && S.admin.coaches) || []).filter(c => c.review_status === 'pending').length || 0 }, { id: 'aprograms', label: 'Programs', ico: 'plan', badge: () => ((S.admin && S.admin.programs) || []).filter(p => p.status === 'submitted' || p.status === 'draft').length || 0 }, { id: 'ausers', label: 'Users', ico: 'users' }];
@@ -46,7 +46,7 @@ SCREENS.acoaches = () => {
   const all = a.coaches || []; const waiting = all.filter(c => c.review_status === 'pending' || c.review_status === 'more'), approved = all.filter(c => c.review_status === 'approved'), rejected = all.filter(c => c.review_status === 'rejected');
   const tab = S.draft.acTab || (waiting.length ? 'waiting' : 'approved'); const list = tab === 'waiting' ? waiting : tab === 'approved' ? approved : rejected;
   const row = c => { const ready = (c.plans || []).some(p => p.status === 'active') && (c.docs || []).some(d => d.kind === 'id');
-    const sub = [c.inperson ? (DISTRICTS[c.district] ? t(DISTRICTS[c.district]) : c.district) : t('Online only'), t('{n} plans', { n: (c.plans || []).length }), (c.docs || []).length ? t('{n} documents', { n: c.docs.length }) : t('no documents'), fmtDate(c.created_at, 'dm')].filter(Boolean).join(' · ');
+    const sub = [c.inperson ? districtLabel(c.district) : t('Online only'), t('{n} plans', { n: (c.plans || []).length }), (c.docs || []).length ? t('{n} documents', { n: c.docs.length }) : t('no documents'), fmtDate(c.created_at, 'dm')].filter(Boolean).join(' · ');
     const tag = c.review_status === 'approved' ? '<span class="tag ok">' + t('Live') + '</span>' : c.review_status === 'rejected' ? '<span class="tag bad">' + t(RS.rejected) + '</span>' : c.review_status === 'more' ? '<span class="tag">' + t('Waiting on coach') + '</span>' : ready ? '<span class="tag ok">' + t('Ready') + '</span>' : '<span class="tag warn">' + t('Incomplete') + '</span>';
     return '<div class="srow" style="cursor:pointer" onclick="A.go(\'acoach\',{id:\'' + c.id + '\'})">' + (c.photo_url ? '<img src="' + esc(c.photo_url) + '" alt="" class="avatar" style="object-fit:cover">' : avatar(c.name || c.email, c.id)) + '<div class="grow" style="min-width:0"><div class="t">' + esc(c.name || c.email) + (c.deactivated_at ? ' <span class="tag bad">' + t('paused') + '</span>' : '') + '</div><div class="s wrap">' + esc(sub) + '</div></div>' + tag + I.chev + '</div>'; };
   return { title: t('Coaches'), actions: '<button class="act" onclick="A.newCoachInvite()" aria-label="New">' + I.plus + '</button>', body:
@@ -60,10 +60,10 @@ SCREENS.acoaches = () => {
 SCREENS.acoach = ({ id }) => {
   const c = ((S.admin || {}).coaches || []).find(x => x.id === id); if (!c) return { title: '', body: empty('users', t('Not found')) };
   const b = (k, v) => '<div class="card"><div class="eyebrow">' + esc(k) + '</div><div class="t" style="font-weight:600;white-space:pre-wrap">' + v + '</div></div>';
-  const av = c.availability || {}; const free = [1, 2, 3, 4, 5, 6, 7].filter(d => (av[d] || []).length).map(d => dayName(d, true) + ' ' + Math.min(...av[d]) + '–' + (Math.max(...av[d]) + 1)).join(' · ');
+  const av = c.availability || {}; const free = [1, 2, 3, 4, 5, 6, 7].filter(d => (av[d] || []).length).map(d => dayName(d, true) + ' ' + ranges(av[d])).join(' · ');   // 16 Nov QA: 9–12 + 17–21 used to read as one block 9–21
   const docs = (c.docs || []).length ? c.docs.map(d => '<div class="cert"><div class="ic">' + (d.type === 'application/pdf' ? I.file : I.camera) + '</div><div class="grow"><div class="t">' + esc(t(d.kind === 'id' ? 'ID' : d.kind === 'cert' ? 'Certificate' : 'Document')) + '</div><div class="s">' + esc(d.name || '') + '</div></div>' + (urlOf(d.path) ? '<a class="btn xs sec" href="' + esc(urlOf(d.path)) + '" target="_blank" rel="noopener">' + t('Open') + '</a>' : '') + '</div>').join('') : '<div class="s">' + t('No documents uploaded.') + '</div>';
   return { title: esc(c.name || c.email), sub: t(RS[c.review_status] || 'Waiting') + (c.reviewed_at ? ' · ' + fmtDate(c.reviewed_at, 'dm') : ''), actions: c.photo_url ? '<img src="' + esc(c.photo_url) + '" alt="" class="avatar" style="object-fit:cover">' : avatar(c.name || c.email, c.id), body:
-    b(t('Profile'), esc([c.inperson && c.online ? t('In person or online') : c.online ? t('Online only') : t('In person'), (c.specialties || []).map(x => t({ strength: 'Strength', fatloss: 'Fat loss', hypertrophy: 'Muscle', mobility: 'Mobility', running: 'Running', rehab: 'After injury', women: 'Women’s fitness', seniors: '50+' }[x] || x)).join(', '), c.years ? t('{n} years', { n: c.years }) : '', [c.gym, DISTRICTS[c.district] ? t(DISTRICTS[c.district]) : c.district].filter(Boolean).join(', '), c.email].filter(Boolean).join(' · ')) + (c.pitch ? '\n“' + esc(c.pitch) + '”' : '') + (c.links ? '\n' + esc(c.links) : '')) +
+    b(t('Profile'), esc([c.inperson && c.online ? t('In person or online') : c.online ? t('Online only') : t('In person'), (c.specialties || []).map(x => t({ strength: 'Strength', fatloss: 'Fat loss', hypertrophy: 'Muscle', mobility: 'Mobility', running: 'Running', rehab: 'After injury', women: 'Women’s fitness', seniors: '50+' }[x] || x)).join(', '), c.years ? t('{n} years', { n: c.years }) : '', [c.gym, districtLabel(c.district)].filter(Boolean).join(', '), c.email].filter(Boolean).join(' · ')) + (c.pitch ? '\n“' + esc(c.pitch) + '”' : '') + (c.links ? '\n' + esc(c.links) : '')) +
     b(t('Plans'), (c.plans || []).length ? c.plans.map(p => esc(p.name + ' · ' + p.price_gel + ' ₾' + (p.status === 'paused' ? ' (' + t('Paused') + ')' : '')) + '<div class="s">' + esc(componentLines(p.components).join(' · ')) + '</div>').join('<div style="height:6px"></div>') : '<span style="color:var(--a-red)">' + t('No plans yet — approval needs at least one.') + '</span>') +
     '<div class="card"><div class="eyebrow">' + t('Documents') + '</div>' + docs + '</div>' +
     b(t('Free hours'), esc(free || t('Not set yet'))) +
@@ -73,6 +73,7 @@ SCREENS.acoach = ({ id }) => {
     (c.review_status === 'approved' ? '<button class="btn sec" onclick="A.reviewNote(\'' + c.id + '\',\'rejected\')">' + t('Remove from matching') + '</button>' : '') +
     '<div class="card flat mute small">' + t('Approving shows the coach in Find a coach and sends them a notification. "Ask for more" sends your note; the coach sees it on Today.') + '</div>' };
 };
+function ranges(hs) { hs = (hs || []).slice().sort((a, b) => a - b); const r = []; let a = null, p = null; hs.forEach(h => { if (a == null) a = p = h; else if (h === p + 1) p = h; else { r.push(a + '–' + (p + 1)); a = p = h; } }); if (a != null) r.push(a + '–' + (p + 1)); return r.join(', '); }
 A.reviewNote = (id, status) => sheet('<div class="h2">' + t(status === 'more' ? 'What is missing?' : 'Why not?') + '</div>' + field(t('Note to the coach'), 'rv_note', '', { textarea: true, ph: t(status === 'more' ? 'e.g. The certificate photo is unreadable — upload it again.' : 'e.g. We cannot verify the certificate.') }) + '<button class="btn ' + (status === 'rejected' ? 'danger' : '') + '" onclick="A.reviewCoach(\'' + id + '\',\'' + status + '\',val(\'rv_note\'))">' + t(status === 'more' ? 'Send' : 'Reject') + '</button>');
 A.reviewCoach = async (id, status, note) => {
   busy(true);
@@ -105,7 +106,7 @@ SCREENS.aprogram = ({ id }) => {
   return { title: progTitle(p), sub: t(PS[p.status] || p.status) + (p.confirmed_at ? ' · ' + t('confirmed {date}', { date: fmtDate(p.confirmed_at, 'dm') }) : ''), body:
     '<div class="s">' + esc(t('{w} weeks · {d} days a week', { w: p.weeks, d: p.days_per_week }) + ' · ' + who) + '</div>' + (progSummary(p) ? '<div class="card"><div class="lead">' + esc(progSummary(p)) + '</div></div>' : '') +
     '<div class="chips hs">' + Array.from({ length: p.weeks }, (_, i) => '<button class="chip ' + (w === i + 1 ? 'on' : '') + '" onclick="A.apWeek(\'' + id + '\',' + (i + 1) + ')">' + esc(t('Week {n}', { n: i + 1 })) + '</button>').join('') + '</div>' +
-    days.map(d => '<div class="card" style="gap:6px"><div class="t">' + esc(LANG.cur === 'ka' && d.name_ka ? d.name_ka : d.name) + '</div>' + d.items.map(it => '<div class="s" style="color:var(--a-ink2)">' + esc(exName(it.ex) + ' ' + it.sets + '×' + repsTxt(it.reps) + (it.load ? ' · ' + it.load : '')) + '</div>').join('') + '</div>').join('') +
+    days.map(d => '<div class="card" style="gap:6px"><div class="t">' + esc(LANG.cur === 'ka' && d.name_ka ? d.name_ka : d.name) + '</div>' + d.items.map(it => '<div class="s" style="color:var(--a-ink2)">' + esc(exName(it.ex) + ' ' + it.sets + '×' + repsTxt(it.reps) + (it.load ? ' · ' + loadTxt(it.load) : '')) + '</div>').join('') + '</div>').join('') +
     (p.status !== 'published' ? '<button class="btn" style="background:var(--a-green);color:#16130F" onclick="A.programStatus(\'' + id + '\',\'published\')">' + t('Confirm and publish') + '</button>' : '<button class="btn sec" onclick="A.programStatus(\'' + id + '\',\'unpublished\')">' + t('Unpublish') + '</button>') +
     (p.status === 'submitted' ? '<button class="btn sec" onclick="A.programStatus(\'' + id + '\',\'unpublished\')">' + t('Not now') + '</button>' : '') +
     '<div class="card flat mute small">' + t('Something to change — an exercise, sets or reps? Send it through Feedback with the program name and it will be updated. This screen is for reading and confirming.') + '</div>' };

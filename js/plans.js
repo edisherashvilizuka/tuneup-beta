@@ -48,6 +48,8 @@ export function planCardHtml(p, opts) {
     '<ul>' + lines.map(l => '<li><i>' + I.check + '</i>' + esc(l) + '</li>').join('') + '</ul>' + btn + '</div>';
 }
 
+// 16 Nov QA C1: plans added during the coach sign-up are kept on the phone with the other answers
+function keepPlansDraft() { import('./onboard.js').then(m => m.persistDraft()).catch(() => {}); }
 // ---- My plans (coach: More → My plans, and step 4 of the sign-up). S.draft.plans holds unsaved plans during sign-up.
 function list() { return S.draft.plansDraft ? (S.draft.plans || []) : (S.coachPlans || []); }
 export function plansListHtml(opts) {
@@ -98,7 +100,7 @@ A.peSave = async () => {
   const c = p.components; if (!(c.plan || c.nutrition || c.gym > 0 || c.video > 0 || c.form > 0 || c.content || c.checkin || c.review)) { toast(t('Tick at least one component.'), 'err'); return; }
   if (!c.custom) delete c.custom;
   const row = { name: p.name.trim().slice(0, 60), price_gel: price, components: c, status: p.status || 'active' };
-  if (S.draft.plansDraft) { S.draft.plans = S.draft.plans || []; if (i >= 0) S.draft.plans[i] = row; else S.draft.plans.push(row); closeSheet(); rerender(); return; }
+  if (S.draft.plansDraft) { S.draft.plans = S.draft.plans || []; if (i >= 0) S.draft.plans[i] = row; else S.draft.plans.push(row); keepPlansDraft(); closeSheet(); rerender(); return; }
   busy(true);
   try {
     const saved = await db.savePlan(Object.assign(row, { coach_id: S.me.id, position: i >= 0 ? (S.coachPlans[i].position || i) : (S.coachPlans || []).length }, i >= 0 ? { id: S.coachPlans[i].id } : {}));
@@ -107,7 +109,7 @@ A.peSave = async () => {
 };
 A.peDelete = async () => {
   const { i } = S.draft.pe; if (i < 0) return;
-  if (S.draft.plansDraft) { S.draft.plans.splice(i, 1); closeSheet(); rerender(); return; }
+  if (S.draft.plansDraft) { S.draft.plans.splice(i, 1); keepPlansDraft(); closeSheet(); rerender(); return; }
   try { await db.deletePlan(S.coachPlans[i].id); S.coachPlans = await db.myPlans(S.me.id); closeSheet(); toast(t('Removed')); rerender(); }
   catch (e) { toast(t('Could not remove — a client may be on this plan'), 'err'); }
 };
@@ -129,7 +131,7 @@ A.planSuggest = async () => {
   const sug = suggestPlans(cp); const cur = list();
   const fresh = sug.filter(s => !cur.find(p => p.name === s.name)).slice(0, Math.max(0, 4 - cur.length));
   if (!fresh.length) { toast(t('You already have these — edit a plan instead'), 'err'); return; }
-  if (S.draft.plansDraft) { S.draft.plans = cur.concat(fresh); rerender(); toast(t('{n} plans drafted — tap one to edit', { n: fresh.length })); return; }
+  if (S.draft.plansDraft) { S.draft.plans = cur.concat(fresh); keepPlansDraft(); rerender(); toast(t('{n} plans drafted — tap one to edit', { n: fresh.length })); return; }
   busy(true);
   try { for (const [k, p] of fresh.entries()) await db.savePlan(Object.assign({ coach_id: S.me.id, position: cur.length + k }, p)); S.coachPlans = await db.myPlans(S.me.id); rerender(); toast(t('{n} plans drafted — tap one to edit', { n: fresh.length })); }
   catch (e) { busy(false); toast(t('Could not save — try again'), 'err'); }

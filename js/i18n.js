@@ -71,7 +71,13 @@ export function exMuscle(x) { if (!x) return ''; return (LANG.cur === 'ka' && x.
 export function macroShort(k) { const M = { en: { kcal: 'kcal', protein_g: 'protein', carbs_g: 'carbs', fat_g: 'fats', Calories: 'Calories', Protein: 'Protein', Carbs: 'Carbs', Fats: 'Fats', Light: 'Light' }, ka: { kcal: 'კკალ', protein_g: 'ცილა', carbs_g: 'ნახშირწ.', fat_g: 'ცხიმი', Calories: 'კალორია', Protein: 'ცილა', Carbs: 'ნახშირწ.', Fats: 'ცხიმი', Light: 'მსუბუქი' } }; return (M[LANG.cur] || M.en)[k] || k; }
 export function unit(u) { return LANG.cur === 'ka' ? ({ kg: 'კგ', cm: 'სმ', kcal: 'კკალ', g: 'გ', ml: 'მლ', min: 'წთ', L: 'ლ', s: 'წმ', sec: 'წმ' }[u] || u) : u; }
 // reps as stored ("10", "40 s", "12 min", "8-10", "30 sec") → in the reader's language
-export function repsTxt(r) { return String(r == null ? '' : r).replace(/(\d)\s*(s|sec|min)\b/g, (m, d, u) => d + ' ' + unit(u === 'sec' ? 's' : u)); }
+// 16 Nov QA: "ყოველ პარასკევი" → "ყოველ პარასკევს" (Georgian needs the day in the dative after ყოველ)
+export function everyDay(name) { return t('every {day}', { day: LANG.cur === 'ka' ? String(name).replace(/ი$/, '') + 'ს' : name }); }
+// 16 Nov QA A5: the Tune Up programs carry short cues in the load field ("each leg", "knees if needed") — shown in
+// English inside the Georgian app. Translated here (partner review); anything else a coach typed stays as typed.
+const LOAD_KA = { 'each leg': 'თითო ფეხზე', 'each side': 'თითო მხარეს', 'easy': 'მსუბუქად', 'table edge': 'მაგიდის კიდეზე', 'knees if needed': 'საჭიროებისას მუხლებზე', 'slow, pause': 'ნელა, პაუზით', 'slow': 'ნელა', 'one heavy set': 'ერთი მძიმე სეტი', '30 s rest': '30 წმ დასვენება', 'door bar if you have one': 'კარის ტურნიკზე, თუ გაქვს', 'each leg, slow down': 'თითო ფეხზე, ნელა დაშვება', 'hard / 60 s easy': 'ძლიერად / 60 წმ მსუბუქად', 'bodyweight': 'საკუთარი წონა' };
+export function loadTxt(l) { if (!l) return ''; return LANG.cur === 'ka' ? (LOAD_KA[String(l).trim().toLowerCase()] || l) : l; }
+export function repsTxt(r) { return String(r == null ? '' : r).replace(/(\d)\s*(წმ|წთ)/g, (m, d, u) => d + ' ' + (u === 'წმ' ? 's' : 'min')).replace(/(\d)\s*(s|sec|min)\b/g, (m, d, u) => d + ' ' + unit(u === 'sec' ? 's' : u)); }   // 16 Nov QA C9: Georgian units typed by a coach or Tune read right in English too
 
 // option labels shared by forms (stored as English keys)
 export const OPTS = {

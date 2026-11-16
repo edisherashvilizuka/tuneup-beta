@@ -15,6 +15,8 @@ export function groupName(g) {
     cardio: t('Cardio'), full: t('Full body'), mobility: t('Stretch & mobility') })[g] || '';
 }
 // short = the chip inside the group's own page; long = anywhere else (a row, a plan day)
+// 16 Nov QA C11: a coach's own exercise stored its muscle in the coach's language → an English client read Georgian
+export function subNamesBoth(g, s) { const cur = LANG.cur; try { LANG.cur = 'en'; const en = subName(g, s, true); LANG.cur = 'ka'; const ka = subName(g, s, true); return { en, ka }; } finally { LANG.cur = cur; } }
 export function subName(g, s, long) {
   const L = {
     'chest.upper': [t('Upper'), t('Upper chest')], 'chest.mid': [t('Middle'), t('Middle chest')], 'chest.lower': [t('Lower'), t('Lower chest')],

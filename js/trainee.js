@@ -1,5 +1,5 @@
 // Tune Up beta — trainee screens: Today (workout + log), Plan, Coach, More. Logging itself lives in log.js.
-import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle, weekOf, LANG, repsTxt } from './i18n.js';
+import { t, esc, opt, OPTS, fmtDate, firstName, unit, dayName, weekdayOf, isoDate, exName, exMuscle, weekOf, LANG, repsTxt, loadTxt } from './i18n.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, avatar, empty, langToggle, setTabs, bell, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S, coachPair, isSolo } from './state.js';
@@ -42,13 +42,13 @@ export async function loadTrainee() {
 }
 function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day === day); }
 function doneSet() { return new Set((S.today.logs || []).filter(l => l.kind === 'exercise').map(l => l.ref)); }
-function itemLine(i) { return [i.sets + ' × ' + repsTxt(i.reps), i.load].filter(Boolean).join(' · '); }
+function itemLine(i) { return [i.sets + ' × ' + repsTxt(i.reps), loadTxt(i.load)].filter(Boolean).join(' · '); }
 function videoBtn(x) { return x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''; }
 function videoDot(x) { const u = howUrl(x); return u ? '<a class="vdot" href="' + esc(u) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="' + esc(x.video_url ? t('Video') : t('How to do it')) + '">' + I.play + '</a>' : ''; }
 function trkRow(i, done, tickable) {
   return '<div class="trow' + (done ? ' done' : '') + '"' + (tickable ? ' data-id="' + esc(i.id) + '"' : '') + (tickable ? ' role="button" tabindex="0" onclick="A.tick(\'' + i.id + '\')" onkeydown="if(event.key===\'Enter\')this.click()"' : '') + '>' +
     (tickable ? '<span class="check ' + (done ? 'on' : '') + '">' + (done ? I.check : '') + '</span>' : '') +
-    '<div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div>' + (i.note || i.load ? '<div class="s">' + esc([i.load, planNote(i.note)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div><span class="reps">' + esc(i.sets + ' × ' + repsTxt(i.reps)) + '</span>' + videoDot(i.exercise) + '</div>';
+    '<div class="grow"><div class="t">' + esc(exName(i.exercise)) + '</div>' + (i.note || i.load ? '<div class="s">' + esc([loadTxt(i.load), planNote(i.note)].filter(Boolean).join(' · ')) + '</div>' : '') + '</div><span class="reps">' + esc(i.sets + ' × ' + repsTxt(i.reps)) + '</span>' + videoDot(i.exercise) + '</div>';
 }
 function workoutCard() {
   const items = itemsFor(weekdayOf()); const done = doneSet();

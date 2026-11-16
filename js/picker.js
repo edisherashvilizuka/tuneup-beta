@@ -6,7 +6,7 @@ import { t, esc, dayName, exName } from './i18n.js';
 import { SCREENS, A, I, NAV, render, cur, rerender, toast, sheet, closeSheet, field, val, busy } from './ui.js';
 import * as db from './db.js';
 import { S } from './state.js';
-import { GROUP_KEYS, SUBS, groupName, subName, EQUIP_KEYS, equipName, EQ_ICON, defaultsFor, inGroup, exLine, howUrl, searchEx, byOrder,
+import { GROUP_KEYS, SUBS, groupName, subName, subNamesBoth, EQUIP_KEYS, equipName, EQ_ICON, defaultsFor, inGroup, exLine, howUrl, searchEx, byOrder,
   groupFigure, hotFor, viewsOf, groupsLine } from './exlib.js';
 
 const nEx = n => n === 1 ? t('1 exercise') : t('{n} exercises', { n });
@@ -219,7 +219,8 @@ A.saveExercise = async (day, id) => {
   if (video && !/^https?:\/\//i.test(video)) { toast(t('The video link must start with https://'), 'err'); return; }
   const d = nxDraft(); const sub = d.grp ? (d.sub || (SUBS[d.grp].length === 1 ? SUBS[d.grp][0] : SUBS[d.grp][0])) : '';
   const kind = d.grp === 'cardio' ? 't' : d.grp === 'mobility' ? 's' : '';
-  const row = { name, muscle: d.grp ? subName(d.grp, sub, true) : '', video_url: video, note: val('x_note'), grp: d.grp, sub: d.grp ? sub : '', equip: d.equip, kind };
+  const mb = d.grp ? subNamesBoth(d.grp, sub) : { en: '', ka: '' };
+  const row = { name, muscle: mb.en, muscle_ka: mb.ka, video_url: video, note: val('x_note'), grp: d.grp, sub: d.grp ? sub : '', equip: d.equip, kind };
   busy(true);
   try {
     if (id) { await db.updateExercise(id, row); Object.assign(byId(id), row); closeSheet(); toast(t('Saved')); rerender(); return; }

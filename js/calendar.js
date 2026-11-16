@@ -2,7 +2,7 @@
 // Weekly sessions are one row + exceptions (a moved or cancelled occurrence); occurrences are expanded here.
 function gigDate(dayNum, mon, cls) { return '<div class="gig' + (cls ? ' ' + cls : '') + '"><b>' + dayNum + '</b><span>' + esc(mon) + '</span></div>'; }
 import { loader } from './motion.js';
-import { t, esc, fmtDate, fmtTime, firstName, isoDate, addDays, dayName, weekdayOf, fmtDay } from './i18n.js';
+import { t, esc, fmtDate, fmtTime, firstName, isoDate, addDays, dayName, weekdayOf, fmtDay, everyDay } from './i18n.js';
 import { SCREENS, A, I, go, rerender, toast, sheet, closeSheet, field, val, busy, empty } from './ui.js';
 import * as db from './db.js';
 import { S, coachPair, isSolo } from './state.js';
@@ -39,7 +39,7 @@ function joinBtn(o) { return o.s.where_kind === 'video' && /^https?:\/\//.test(o
 function occRow(o, withName, tap, gig) {
   const d = o.at; const mon = fmtDate(d, 'dm').split(' ').slice(1).join(' ');
   const tile = gig ? gigDate(d.getDate(), mon, o.cancelled ? 'off' : '') : '';
-  return '<div class="sess" ' + (tap ? 'style="cursor:pointer" onclick="' + tap + '"' : '') + '>' + tile + '<div class="time">' + fmtTime(o.at) + '<span class="mute small">' + o.s.minutes + ' ' + t('min') + '</span></div><div class="grow"><div class="t"' + (o.cancelled ? ' style="text-decoration:line-through"' : '') + '>' + (withName ? esc(pairName(o.s.pair_id)) + ' · ' : '') + esc(whereLine(o.s)) + '</div><div class="s mute small">' + (o.cancelled ? '<span class="tag bad">' + t('Cancelled') + '</span> ' : o.moved ? '<span class="tag warn">' + t('Moved') + '</span> ' : '') + [o.s.repeat === 'weekly' ? t('every {day}', { day: dayName(weekdayOf(new Date(o.s.starts_at))) }) : '', esc(o.note || o.s.note || '')].filter(Boolean).join(' · ') + '</div></div>' + joinBtn(o) + (withName || o.cancelled || o.at.getTime() < Date.now() ? '' : calBtn(o)) + '</div>';
+  return '<div class="sess" ' + (tap ? 'style="cursor:pointer" onclick="' + tap + '"' : '') + '>' + tile + '<div class="time">' + fmtTime(o.at) + '<span class="mute small">' + o.s.minutes + ' ' + t('min') + '</span></div><div class="grow"><div class="t"' + (o.cancelled ? ' style="text-decoration:line-through"' : '') + '>' + (withName ? esc(pairName(o.s.pair_id)) + ' · ' : '') + esc(whereLine(o.s)) + '</div><div class="s mute small">' + (o.cancelled ? '<span class="tag bad">' + t('Cancelled') + '</span> ' : o.moved ? '<span class="tag warn">' + t('Moved') + '</span> ' : '') + [o.s.repeat === 'weekly' ? everyDay(dayName(weekdayOf(new Date(o.s.starts_at)))) : '', esc(o.note || o.s.note || '')].filter(Boolean).join(' · ') + '</div></div>' + joinBtn(o) + (withName || o.cancelled || o.at.getTime() < Date.now() ? '' : calBtn(o)) + '</div>';
 }
 // ---- add one session to the phone's calendar (Apple: .ics file, Google: their "new event" page)
 const CALS = {};
@@ -58,7 +58,7 @@ A.calIcs = (k) => { const o = CALS[k]; if (!o) return; const c = calText(o); con
 function srow(o) {
   const up = o.at.getTime() + o.s.minutes * 60000 > Date.now();
   const pill = o.cancelled ? '<span class="pill bad">' + t('Cancelled') + '</span>' : o.moved ? '<span class="pill warn">' + t('Moved') + '</span>' : '';
-  const sub = [o.s.repeat === 'weekly' && !o.cancelled ? t('every {day}', { day: dayName(weekdayOf(new Date(o.s.starts_at))) }) : '', o.note || o.s.note || ''].filter(Boolean).join(' · ');
+  const sub = [o.s.repeat === 'weekly' && !o.cancelled ? everyDay(dayName(weekdayOf(new Date(o.s.starts_at)))) : '', o.note || o.s.note || ''].filter(Boolean).join(' · ');
   return '<div class="srow' + (o.cancelled ? ' off' : '') + '"><div class="sdate"><b>' + esc(dayName(weekdayOf(o.at), true)) + '</b><span>' + o.at.getDate() + '</span></div><div class="grow" style="min-width:0"><div class="t"' + (o.cancelled ? ' style="text-decoration:line-through"' : '') + '>' + fmtTime(o.at) + ' · ' + esc(whereLine(o.s)) + '</div>' + (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div>' + pill + (up && !o.cancelled ? joinBtn(o) || calBtn(o) : '') + '</div>';
 }
 function heroCard(o, today) {
@@ -136,7 +136,9 @@ A.saveSession = async () => {
   const d = S.draft.ses; const date = val('s_date'), time = val('s_time'); const pairSel = document.getElementById('s_pair');
   if (!date || !time) { toast(t('Pick a date and time.'), 'err'); return; }
   if (inPast(date, time)) { toast(t('That time has already passed — pick a later one.'), 'err'); return; }
-  const place = val('s_place'); if (d.where === 'video' && !/^https?:\/\//.test(place)) { toast(t('Paste the video link (starts with https://).'), 'err'); return; }
+  // 16 Nov QA C10: "meet.google.com/abc" pasted without https:// was refused — fixed up instead, like exercise video links
+  let place = val('s_place').trim(); if (d.where === 'video' && /^(www\.)?[\w-]+(\.[\w-]+)+\/\S*$/i.test(place)) place = 'https://' + place;
+  if (d.where === 'video' && !/^https?:\/\//.test(place)) { toast(t('Paste the video link (starts with https://).'), 'err'); return; }
   busy(true);
   try {
     await db.addSession({ pair_id: pairSel ? pairSel.value : d.pair, starts_at: new Date(date + 'T' + time).toISOString(), minutes: d.minutes || 60, where_kind: d.where, place, note: val('s_note'), repeat: d.repeat, created_by: S.me.id });
@@ -147,7 +149,7 @@ A.saveSession = async () => {
 // ---- move / cancel one session (or one occurrence of a weekly one)
 A.sessionSheet = (id, date) => {
   const s = S.cal.sessions.find(x => x.id === id); if (!s) return; const o = occurrences(date, addDays(date, 7)).find(x => x.s.id === id) || { s, at: new Date(s.starts_at) };
-  sheet('<div class="h2">' + esc(pairName(s.pair_id)) + '</div><div class="lead">' + esc(fmtDay(o.date || date)) + ' · ' + fmtTime(o.at) + ' · ' + s.minutes + ' ' + t('min') + '</div><div class="mute">' + esc(whereLine(s)) + (s.repeat === 'weekly' ? ' · ' + t('every {day}', { day: dayName(weekdayOf(new Date(s.starts_at))) }) : '') + '</div>' +
+  sheet('<div class="h2">' + esc(pairName(s.pair_id)) + '</div><div class="lead">' + esc(fmtDay(o.date || date)) + ' · ' + fmtTime(o.at) + ' · ' + s.minutes + ' ' + t('min') + '</div><div class="mute">' + esc(whereLine(s)) + (s.repeat === 'weekly' ? ' · ' + everyDay(dayName(weekdayOf(new Date(s.starts_at)))) : '') + '</div>' +
     (o.cancelled ? '<div class="tag bad" style="align-self:flex-start">' + t('Cancelled') + '</div>' : '') +
     '<div class="input-row">' + field(t('Move to'), 'm_date', o.date || date, { type: 'date' }) + field(t('Time'), 'm_time', fmtTime(o.at), { type: 'time' }) + '</div>' +
     field(t('Note to the client (optional)'), 'm_note', '', { ph: t('e.g. gym closed that day') }) +

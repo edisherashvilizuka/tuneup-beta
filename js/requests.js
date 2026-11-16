@@ -6,7 +6,7 @@ import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, fiel
 import * as db from './db.js';
 import { S } from './state.js';
 import { componentLines, CADENCE } from './plans.js';
-import { DISTRICTS } from './onboard.js';
+import { DISTRICTS, districtLabel } from './onboard.js';
 import { planPayLine } from './billing.js';
 
 export async function loadRequests() { try { S.requests = await db.coachRequests(); } catch (e) { S.requests = S.requests || []; } }
@@ -19,7 +19,7 @@ export function requestsBlock() {
   const trials = (S.clients || []).filter(c => c.status === 'trial' && !c.gone);
   if (!pend.length && !trials.length) return '';
   const ans = r => r.answers || {};
-  const card = r => { const a = ans(r); const line = [opt('goal', a.goal), opt('experience', a.experience), DISTRICTS[a.district] ? t(DISTRICTS[a.district]) : a.district, opt('format', r.format), a.budget_max ? (a.budget_min ? a.budget_min + '–' : '') + a.budget_max + ' ₾' : ''].filter(Boolean).join(' · ');
+  const card = r => { const a = ans(r); const line = [opt('goal', a.goal), opt('experience', a.experience), districtLabel(a.district), opt('format', r.format), a.budget_max ? (a.budget_min ? a.budget_min + '–' : '') + a.budget_max + ' ₾' : ''].filter(Boolean).join(' · ');
     return '<div class="card" style="box-shadow:inset 0 0 0 2px var(--a-amber)"><div class="row">' + avatar(r.name, r.trainee_id) + '<div class="grow" style="min-width:0"><div class="t">' + esc(r.name) + (a.age ? ', ' + a.age : '') + '</div><div class="s wrap">' + esc(line) + '</div></div></div>' +
       (r.note ? '<div class="lead" style="font-size:14px;font-style:italic">“' + esc(r.note) + '”</div>' : '') +
       (a.injuries ? '<div class="s">' + esc(t('Injuries') + ': ' + a.injuries) + '</div>' : '') + (a.days && a.days.length ? '<div class="s">' + esc(t('Days') + ': ' + a.days.map(d => dayName(d, true)).join(' · ') + (a.time_of_day && a.time_of_day.length ? ' · ' + a.time_of_day.map(x => t({ morning: 'mornings', day: 'daytime', evening: 'evenings' }[x] || x)).join(' / ') : '')) + '</div>' : '') +

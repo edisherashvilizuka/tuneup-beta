@@ -2,7 +2,7 @@
 // real rows (from the refs map of tunectx.js — only data this person can already see), the input is checked, and a
 // card is written in the reader's language. INSTANT actions (logging, ticking, the coach's private note) then run at
 // once; everything else waits for the person's Yes. RUN writes through the same RLS-checked queries the screens use.
-import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, unit, firstName, repsTxt } from './i18n.js';
+import { t, isoDate, addDays, dayName, weekdayOf, fmtDay, fmtTime, mood, exName, opt, unit, firstName, repsTxt, everyDay, loadTxt } from './i18n.js';
 import * as db from './db.js';
 import { S, coachPair } from './state.js';
 import { go, root } from './ui.js';
@@ -29,7 +29,7 @@ function when(date, time) {
   return at;
 }
 const whenText = at => fmtDay(isoDate(at)) + ' · ' + fmtTime(at);
-const itemText = (name, x) => name + ' ' + [x.sets + '×' + repsTxt(x.reps), x.load].filter(Boolean).join(' · ') + (x.note ? ' — ' + x.note : '');
+const itemText = (name, x) => name + ' ' + [x.sets + '×' + repsTxt(x.reps), loadTxt(x.load)].filter(Boolean).join(' · ') + (x.note ? ' — ' + x.note : '');
 function findExercise(name) {
   const k = str(name, 80).toLowerCase(); if (!k) return null;
   return (S.exercises || []).find(x => x.name.toLowerCase() === k || (x.name_ka && x.name_ka.toLowerCase() === k)) || null;
@@ -90,7 +90,7 @@ const PREP = {
     if (where === 'gym' && !place) place = (S.coachProfile && S.coachProfile.gym) || '';
     const repeat = x.repeat === 'weekly' ? 'weekly' : 'none'; const note = str(x.note, 300);
     p.data = { row: { pair_id: c.id, starts_at: at.toISOString(), minutes, where_kind: where, place, note, repeat, created_by: S.me.id } };
-    p.card = { icon: 'cal', title: t('New session with {name}', { name: c.trainee.name }), body: whenText(at) + ' · ' + minutes + ' ' + t('min') + '\n' + (where === 'video' ? t('Video call') : (place || t('In person'))) + (repeat === 'weekly' ? '\n' + t('every {day}', { day: dayName(weekdayOf(at)) }) : '') + (note ? '\n' + note : ''), who: t('{name} is notified.', { name: firstName(c.trainee.name) }) };
+    p.card = { icon: 'cal', title: t('New session with {name}', { name: c.trainee.name }), body: whenText(at) + ' · ' + minutes + ' ' + t('min') + '\n' + (where === 'video' ? t('Video call') : (place || t('In person'))) + (repeat === 'weekly' ? '\n' + everyDay(dayName(weekdayOf(at))) : '') + (note ? '\n' + note : ''), who: t('{name} is notified.', { name: firstName(c.trainee.name) }) };
   },
   move_session(p, x, R) {
     const r = ref(R, x.session, 'session'); if (!r) bad('Tune pointed to a session that is not in your calendar.'); const o = r.o; const at = when(x.date, x.time); const note = str(x.note, 300); const nm = r.c ? r.c.trainee.name : '';
