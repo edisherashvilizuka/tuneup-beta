@@ -38,7 +38,9 @@ export async function acceptConsent(lang) { return q(sb.rpc('accept_consent', { 
 // the service also removes the stored bytes), then the account itself (migration 0014)
 export async function myAttachmentPaths() { return (await q(sb.rpc('my_attachment_paths'))) || []; }
 async function removePaths(paths) { for (let i = 0; i < paths.length; i += 100) await q(sb.storage.from('attachments').remove(paths.slice(i, i + 100))); }
-export async function deleteAccount() { await removePaths(await myAttachmentPaths()); return q(sb.rpc('delete_my_account')); }
+// 16 Nov QA: the profile photo (a public link) stayed after "Delete account" — removed too now
+async function removeMyAvatars(uid) { try { const { data } = await sb.storage.from('avatars').list(uid, { limit: 100 }); const ps = (data || []).map(f => uid + '/' + f.name); if (ps.length) await sb.storage.from('avatars').remove(ps); } catch (e) {} }
+export async function deleteAccount() { await removePaths(await myAttachmentPaths()); try { const { data } = await sb.auth.getUser(); if (data && data.user) await removeMyAvatars(data.user.id); } catch (e) {} return q(sb.rpc('delete_my_account')); }
 // Tune "Clear": the conversation's own pictures and files (tune/<uid>/<file>; notes and feedback folders stay)
 export async function removeTuneFiles(uid) { const re = new RegExp('^tune/' + uid + '/[^/]+$'); await removePaths((await myAttachmentPaths()).filter(p => re.test(p))); }
 
