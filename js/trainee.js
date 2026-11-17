@@ -17,7 +17,7 @@ import { loadUnread, loadChatIndex } from './chat.js';
 import { tuneButton } from './tune.js';
 import { loadHistory, streakChip, recapCard, nudgeRow } from './habits.js';
 import { tickNow } from './motion.js';
-import { loadBilling, billingCard, billingRow } from './billing.js';
+import { loadBilling, billingCard, billingRow, plusLocked, plusLockCard } from './billing.js';
 
 const ALL_TABS = [{ id: 'home', label: 'Today', ico: 'home' }, { id: 'plan', label: 'Plan', ico: 'plan' }, { id: 'chat', label: 'Chat', ico: 'chat' }, { id: 'sessions', label: 'Sessions', ico: 'cal' }, { id: 'more', label: 'More', ico: 'gear' }];
 // Solo without a coach in sight: no Chat tab (Tune is the chat); Sessions stays and explains itself
@@ -81,7 +81,8 @@ SCREENS.home = () => {
   const head = '<div class="tophead"><div class="grow"><div class="eyebrow">' + fmtDate(Date.now(), 'full') + '</div><div class="h1">' + t(greeting(), { name: firstName(S.me.name) }) + '</div></div>' + (active ? tuneButton() : '') + bell() + '</div>';
   const noPlan = solo ? programCard() : coachCard() + '<div class="card soft"><div class="h3">' + t('You are paired with {name}', { name: firstName((p && p.coach || {}).name) }) + '</div><div class="mute">' + t('Your weekly plan will appear here as soon as your coach sets it up. You can already log your day below.') + '</div></div>';
   const body = head + requestCard() + billingCard() + (active ? (guideCard() || pushCard()) : '') +
-    (active ? (solo ? weeklyCard() : '') + foodCard(streakChip()) + dayTiles() + (S.plan && S.plan.items.length ? workoutCard() : noPlan) + checkinCard() + goalsCard() + (solo ? findCoachCard() : '')
+    // Tune Up Plus (hidden unless payments are on for this account): after the free trial the program pauses — the card on top says why
+    (active ? (solo && !plusLocked() ? weeklyCard() : '') + foodCard(streakChip()) + dayTiles() + (solo && plusLocked() ? '' : S.plan && S.plan.items.length ? workoutCard() : noPlan) + checkinCard() + goalsCard() + (solo ? findCoachCard() : '')
       : '<div class="card amber"><div class="h3">' + (p ? (p.coach && p.coach.name ? t('Your coaching with {name} has ended', { name: firstName(p.coach.name) }) : t('Your coaching has ended')) : t('No coach yet')) + '</div>' + (p && p.end_note ? '<div style="margin:6px 0">' + t('Note from your coach') + ': ' + esc(p.end_note) + '</div>' : '') + '<div class="mute">' + t('Start a free program with Tune, or find a new coach.') + '</div><div class="btn-row"><button class="btn sm" onclick="A.restartSolo()">' + t('Start with Tune') + '</button><button class="btn sm sec" onclick="A.go(\'findCoach\')">' + t('Find a coach') + '</button></div></div>');
   return { title: '', header: false, body };
 };
@@ -93,6 +94,7 @@ A.tickAll = async () => {
   catch (e) { toast(t('Could not save — try again'), 'err'); }
 };
 SCREENS.plan = () => {
+  if (isSolo() && plusLocked()) return { title: t('Plan'), body: plusLockCard('program') };   // Tune Up Plus, after the free trial (hidden unless payments are on)
   if (!S.plan) return { title: t('Plan'), body: empty('plan', t('No plan yet')) };
   if (!(S.plan.items || []).length) {
     if (isSolo()) return { title: t('Weekly plan'), sub: t('Your program fills this in'), body: (programCard() || empty('plan', t('No programs are published yet — check back soon, or find a coach.'))) + goalsCard() };   // Solo without a started program

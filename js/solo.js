@@ -4,6 +4,7 @@
 // coach. Targets come from the confirmed nutrition rules. Every week Tune proposes the next step on a card the person
 // taps (Apply / Keep). A coach can be added at any time; ending coaching brings the person back here.
 import { t, esc, LANG, isoDate, addDays, weekdayOf, dayName, exName, unit, fmtDay, firstName, opt, repsTxt } from './i18n.js';
+import { plusLocked, plusLockCard } from './billing.js';
 import { SCREENS, A, I, go, back, root, rerender, toast, sheet, closeSheet, busy, empty, val } from './ui.js';
 import * as db from './db.js';
 import { S, isSolo } from './state.js';
@@ -139,6 +140,7 @@ export function programLine() { const pg = myProgram(); if (!pg) return ''; retu
 
 // ---- "Your program" screen: first time = preview + Start; later = status, adaptations, targets, change / find a coach
 SCREENS.program = () => {
+  if (plusLocked()) return { title: t('Your program'), body: plusLockCard('program') };   // Tune Up Plus, after the free trial (hidden unless payments are on)
   if (!isSolo()) return { title: t('Your program'), body: empty('plan', t('You train with a coach — your plan lives in the Plan tab.')) };
   if (!S.solo || !S.solo.programs) return { title: t('Your program'), body: '<div class="card flat mute">' + t('Loading…') + '</div>', after: async () => { try { await loadSolo(); } catch (e) {} rerender(); } };
   const tp = S.traineeProfile || {}; const cur = myProgram(); const pg = cur || S.draft.pickedProgram || pickProgram(tp);

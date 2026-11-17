@@ -3,6 +3,7 @@
 // returned action is prepared (tuneact.js); INSTANT ones run at once, the rest wait on a card with Yes / No → the
 // reply and the action states are saved. The conversation is kept in `tune_messages` (only its owner can read it).
 import { thinking } from './motion.js';
+import { plusLocked, plusLockCard } from './billing.js';
 import { t, esc, LANG, firstName, isoDate } from './i18n.js';
 import { SCREENS, A, I, rerender, toast, cur } from './ui.js';
 import * as db from './db.js';
@@ -70,6 +71,7 @@ function bubble(st, m) {
     (pend > 1 ? '<button class="btn sm tc-all" onclick="A.tuneYesAll(\'' + m.id + '\',this)">' + t('Yes to all ({n})', { n: pend }) + '</button>' : '');
 }
 SCREENS.tune = (params) => {
+  if (S.me.role === 'trainee' && plusLocked()) return { title: 'Tune', sub: t('Your assistant'), tabs: false, body: plusLockCard('tune') };   // Tune Up Plus, after the free trial (hidden unless payments are on)
   const st = tuneState(); const client = params && params.client; const name = client ? clientName(client) : ''; scopePending('tq', client || 'self');   // a picture picked while asking about one client never moves to another
   const intro = S.me.role === 'coach' ? t('Ask how your clients are doing — or tell me what to do: message a client, plan or move sessions, build a plan, set targets and goals. I ask you before anything reaches a client.') : !coachPair() ? t('Ask about your program and your day — or tell me what to do: log food, water or steps, tick exercises, update your answers. Send a photo of a plate or a label and I log it.') : t('Ask about your plan and your day — or tell me what to do: log food, tick exercises, write to your coach, update your answers. Send a photo of a plate or a label and I log it. I ask you before anything is sent.');
   const ex = st.msgs.length ? [] : examples(name); EXAMPLES = ex;

@@ -4,6 +4,7 @@
 //   PushNotifications — Apple / Google notifications (the web push of the home-screen app does not exist in the shell)
 //   Browser           — the bank's page and outside links in an in-app browser sheet
 //   App               — coming back to the foreground (after paying), Android back button
+//   NativePurchases   — Tune Up Plus through Apple / Google (@capgo/native-purchases), only when config storePlus is on
 const C = window.Capacitor;
 export const isNative = !!(C && typeof C.isNativePlatform === 'function' && C.isNativePlatform());
 export const platform = isNative && C.getPlatform ? C.getPlatform() : 'web';   // 'ios' | 'android' | 'web'
@@ -50,3 +51,18 @@ export function onBrowserClosed(fn) { const B = P('Browser'); if (B) B.addListen
 // Android back button: go back a screen, or leave the app from a top screen
 export function onBackButton(fn) { const A = P('App'); if (A) A.addListener('backButton', fn); }
 export function exitApp() { const A = P('App'); if (A && A.exitApp) A.exitApp(); }
+
+// ---- Tune Up Plus in the store apps (17 Nov). Apple / Google require their own purchase for an app-only subscription;
+// coach plans stay on the card page. Off until config storePlus = true (the store accounts, products and keys exist).
+const NP = () => P('NativePurchases');
+const PLUS_ID = () => CFG.plusProductId || 'tuneup.plus.monthly';
+export function storeAvailable() { return !!(CFG.storePlus && NP() && (platform === 'ios' || platform === 'android')); }
+export async function storeBuyPlus(uid) {
+  const tx = await NP().purchaseProduct({ productIdentifier: PLUS_ID(), planIdentifier: CFG.plusPlanId || 'monthly', productType: 'subs', quantity: 1, appAccountToken: uid });
+  return { platform, transactionId: tx.transactionId, purchaseToken: tx.purchaseToken || '' };
+}
+export async function storePurchases(uid) {
+  const r = await NP().getPurchases({ productType: 'subs', appAccountToken: uid });
+  return ((r && r.purchases) || []).filter(x => !x.productIdentifier || x.productIdentifier === PLUS_ID()).map(x => ({ platform, transactionId: x.transactionId, purchaseToken: x.purchaseToken || '' }));
+}
+export function storeManageUrl() { return platform === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions?package=' + (CFG.androidPackage || 'ge.tuneup.app') + '&sku=' + PLUS_ID(); }

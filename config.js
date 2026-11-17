@@ -12,5 +12,10 @@ window.TUNE_CFG = {
   posthogHost: 'https://eu.i.posthog.com',
   vapidPublic: 'BKHuN3pdKyj1ty8o5tTKPW0v3TykTc53PZY6XwCu6WJ8htyFZDspy7kEq8y-QYPPEsZJgsL9puoVT7snN8p3OTg',
   beta: true,
-  legalLinks: false   // true once legal.html has the operator's details (name, ID, address, e-mail)
+  legalLinks: false,  // true once legal.html has the operator's details (name, ID, address, e-mail)
+  // Tune Up Plus in the store apps (Apple / Google purchase). true once the store accounts, the product and the server keys exist.
+  storePlus: false,
+  plusProductId: 'tuneup.plus.monthly',   // the same id in App Store Connect and Play Console
+  plusPlanId: 'monthly',                  // Google Play base plan id
+  androidPackage: 'ge.tuneup.app'
 };
