@@ -56,5 +56,6 @@ export const KA17 = {
   'Restore a purchase': 'შეძენის აღდგენა',
   'Tune Up Plus restored': 'Tune Up Plus აღდგა',
   'No Tune Up Plus purchase found on this account': 'ამ ანგარიშზე Tune Up Plus-ის შეძენა ვერ მოიძებნა',
-  'Could not reach the store — try again': 'მაღაზიას ვერ დავუკავშირდით — სცადე თავიდან'
+  'Could not reach the store — try again': 'მაღაზიას ვერ დავუკავშირდით — სცადე თავიდან',
+  'Manage or cancel': 'მართვა ან გაუქმება'
 };
