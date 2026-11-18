@@ -133,10 +133,15 @@ function parseLocally(raw) {
 // how do you want to train?
 SCREENS.howTrain = () => { const x = d(); const m = x.mode || 'solo';
   const opt = (k, title, sub, pill) => '<div class="card tap ' + (m === k ? 'sel' : '') + '" onclick="A.pickOne(\'mode\',\'' + k + '\')" role="radio" aria-checked="' + (m === k) + '"><div class="row between"><div class="h3">' + esc(t(title)) + '</div>' + (pill ? '<span class="pill ok">' + esc(t(pill)) + '</span>' : I.chev) + '</div><div class="s">' + esc(t(sub)) + '</div></div>';
-  return { title: t('How do you want to train?'), tabs: false, body:
-    opt('solo', 'Tune Up only', 'Free. A program made for you — Tune adjusts it every week.', 'Free') +
+  // 18 Nov decision: once payments are on, the Tune program is free for the trial (14 days), then Tune Up Plus (19 GEL)
+  const pl = S.payOn && S.plus && S.plus.trial_days ? S.plus : null; const v = pl ? { days: pl.trial_days, price: (pl.price_gel || 19) + ' ₾' } : null;
+  const optT = (k, title, sub, pill) => '<div class="card tap ' + (m === k ? 'sel' : '') + '" onclick="A.pickOne(\'mode\',\'' + k + '\')" role="radio" aria-checked="' + (m === k) + '"><div class="row between"><div class="h3">' + esc(t(title)) + '</div>' + (pill ? '<span class="pill ok">' + esc(pill) + '</span>' : I.chev) + '</div><div class="s">' + esc(sub) + '</div></div>';
+  return { title: t('How do you want to train?'), tabs: false, after: S.payOn === undefined ? async () => { try { S.payOn = await db.paymentsOn(); if (S.payOn) S.plus = await db.plusState(); } catch (e) { S.payOn = false; } if (S.payOn) rerender(); } : null, body:
+    (v ? optT('solo', 'Tune Up only', t('Free for {days} days, then {price} a month. A program made for you — Tune adjusts it every week.', v), t('{days} days free', v))
+       : opt('solo', 'Tune Up only', 'Free. A program made for you — Tune adjusts it every week.', 'Free')) +
     opt('coach', 'Find a coach', 'Ranked matches and a free trial session. Your Tune program starts right away and runs until you choose a coach.') +
-    opt('later', 'Start with Tune Up, add a coach later', 'The same free program; "Find a coach" stays on your Today.') + ERR +
+    (v ? optT('later', 'Start with Tune Up, add a coach later', t('The same program, free for {days} days; "Find a coach" stays on your Today.', v))
+       : opt('later', 'Start with Tune Up, add a coach later', 'The same free program; "Find a coach" stays on your Today.')) + ERR +
     '<button class="btn" onclick="A.finishTrainee()">' + t('Next') + '</button>' }; };
 
 A.finishTrainee = async () => {

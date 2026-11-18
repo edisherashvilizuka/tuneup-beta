@@ -96,7 +96,9 @@ A.pePause = () => { peKeep(); const p = S.draft.pe.p; p.status = p.status === 'p
 A.peSave = async () => {
   peKeep(); const { i, p } = S.draft.pe; const price = parseInt(p.price_gel, 10);
   if (!p.name.trim()) { toast(t('Give the plan a name.'), 'err'); return; }
-  if (isNaN(price) || price < 0 || price > 5000) { toast(t('Enter a monthly price in GEL.'), 'err'); return; }
+  if (isNaN(price) || price > 5000) { toast(t('Enter a monthly price in GEL.'), 'err'); return; }
+  if (S.payOn === undefined) { try { S.payOn = await db.paymentsOn(); } catch (e) { S.payOn = false; } }   // coach sign-up: not loaded yet
+  if (S.payOn && price < 30) { toast(t('The lowest monthly price is 30 ₾ — the free trial session stays free.'), 'err'); return; }   // 18 Nov decision: plans from 30 GEL
   const c = p.components; if (!(c.plan || c.nutrition || c.gym > 0 || c.video > 0 || c.form > 0 || c.content || c.checkin || c.review)) { toast(t('Tick at least one component.'), 'err'); return; }
   if (!c.custom) delete c.custom;
   const row = { name: p.name.trim().slice(0, 60), price_gel: price, components: c, status: p.status || 'active' };

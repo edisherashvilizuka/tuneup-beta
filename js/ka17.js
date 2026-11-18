@@ -57,5 +57,16 @@ export const KA17 = {
   'Tune Up Plus restored': 'Tune Up Plus აღდგა',
   'No Tune Up Plus purchase found on this account': 'ამ ანგარიშზე Tune Up Plus-ის შეძენა ვერ მოიძებნა',
   'Could not reach the store — try again': 'მაღაზიას ვერ დავუკავშირდით — სცადე თავიდან',
-  'Manage or cancel': 'მართვა ან გაუქმება'
+  'Manage or cancel': 'მართვა ან გაუქმება',
+  // 18 Nov launch decisions
+  'The lowest monthly price is 30 ₾ — the free trial session stays free.': 'მინიმალური თვიური ფასია 30 ₾ — საცდელი ვარჯიში უფასო რჩება.',
+  'The monthly payment for {plan} did not go through. Pay by {date} to keep your coaching — after that it ends and your Tune program comes back.': 'გეგმის „{plan}“ თვიური გადახდა ვერ შესრულდა. გადაიხადე {date}-მდე, რომ მწვრთნელთან ვარჯიში გააგრძელო — ამის შემდეგ ის სრულდება და შენი Tune პროგრამა დაგიბრუნდება.',
+  'Coaching ends in 7 days': 'მწვრთნელთან ვარჯიში 7 დღეში სრულდება',
+  'Client coaching ends in 7 days': 'კლიენტთან ვარჯიში 7 დღეში სრულდება',
+  'Coaching ended': 'მწვრთნელთან ვარჯიში დასრულდა',
+  'Client coaching ended': 'კლიენტთან ვარჯიში დასრულდა',
+  'Your share refunded to a client': 'შენი წილი კლიენტს დაუბრუნდა',
+  'Free for {days} days, then {price} a month. A program made for you — Tune adjusts it every week.': '{days} დღე უფასოდ, შემდეგ {price} თვეში. პროგრამა შენთვის — Tune მას ყოველ კვირა არგებს.',
+  '{days} days free': '{days} დღე უფასოდ',
+  'The same program, free for {days} days; "Find a coach" stays on your Today.': 'იგივე პროგრამა, {days} დღე უფასოდ; „მწვრთნელის პოვნა“ შენს „დღეს“ ეკრანზე რჩება.'
 };
