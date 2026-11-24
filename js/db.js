@@ -40,7 +40,8 @@ export async function myAttachmentPaths() { return (await q(sb.rpc('my_attachmen
 async function removePaths(paths) { for (let i = 0; i < paths.length; i += 100) await q(sb.storage.from('attachments').remove(paths.slice(i, i + 100))); }
 // 16 Nov QA: the profile photo (a public link) stayed after "Delete account" — removed too now
 async function removeMyAvatars(uid) { try { const { data } = await sb.storage.from('avatars').list(uid, { limit: 100 }); const ps = (data || []).map(f => uid + '/' + f.name); if (ps.length) await sb.storage.from('avatars').remove(ps); } catch (e) {} }
-export async function deleteAccount() { await removePaths(await myAttachmentPaths()); try { const { data } = await sb.auth.getUser(); if (data && data.user) await removeMyAvatars(data.user.id); } catch (e) {} return q(sb.rpc('delete_my_account')); }
+async function removeMyVideos() { try { const ps = (await q(sb.rpc('my_video_paths'))) || []; for (let i = 0; i < ps.length; i += 100) await sb.storage.from('exercise-videos').remove(ps.slice(i, i + 100)); } catch (e) {} }
+export async function deleteAccount() { await removePaths(await myAttachmentPaths()); await removeMyVideos(); try { const { data } = await sb.auth.getUser(); if (data && data.user) await removeMyAvatars(data.user.id); } catch (e) {} return q(sb.rpc('delete_my_account')); }
 // Tune "Clear": the conversation's own pictures and files (tune/<uid>/<file>; notes and feedback folders stay)
 export async function removeTuneFiles(uid) { const re = new RegExp('^tune/' + uid + '/[^/]+$'); await removePaths((await myAttachmentPaths()).filter(p => re.test(p))); }
 
@@ -92,6 +93,32 @@ export async function listExercises() { return q(sb.from('exercises').select(EX_
 export async function addExercise(uid, x) { return q(sb.from('exercises').insert({ owner_id: uid, name: x.name, muscle: x.muscle || '', video_url: x.video_url || '', note: x.note || '', grp: x.grp || '', sub: x.sub || '', equip: x.equip || '', kind: x.kind || '' }).select(EX_COLS).single()); }
 export async function updateExercise(id, patch) { return q(sb.from('exercises').update(patch).eq('id', id)); }
 export async function deleteExercise(id) { return q(sb.from('exercises').delete().eq('id', id)); }
+
+// ---- exercise videos (migration 0032): Tune Up defaults (owner null) + a coach's own; private bucket exercise-videos
+const VID_COLS = 'id,exercise_id,owner_id,path,poster_path,seconds,source_name,updated_at';
+export async function videosOn() { return !!(await q(sb.rpc('my_videos_on'))); }
+export async function exerciseVideos() { return q(sb.from('exercise_videos').select(VID_COLS)); }
+export async function videoUrls(paths) {
+  const ps = [...new Set((paths || []).filter(Boolean))]; if (!ps.length) return {};
+  const rows = await q(sb.storage.from('exercise-videos').createSignedUrls(ps, 3600)); const out = {};
+  (rows || []).forEach(r => { if (r.signedUrl) out[r.path] = r.signedUrl; }); return out;
+}
+export async function uploadVideoFile(path, blob, type) { return q(sb.storage.from('exercise-videos').upload(path, blob, { contentType: type, upsert: false, cacheControl: '604800' })); }
+export async function saveExerciseVideo(row) {   // one video per exercise and owner: replaces the earlier one
+  const old = await q(sb.from('exercise_videos').select('id,path,poster_path').eq('exercise_id', row.exercise_id)[row.owner_id ? 'eq' : 'is']('owner_id', row.owner_id || null));
+  let saved;
+  if (old && old.length) saved = await q(sb.from('exercise_videos').update(row).eq('id', old[0].id).select(VID_COLS).single());
+  else saved = await q(sb.from('exercise_videos').insert(row).select(VID_COLS).single());
+  const stale = (old || []).flatMap(o => [o.path, o.poster_path]).filter(x => x && x !== row.path && x !== row.poster_path);
+  if (stale.length) { try { await sb.storage.from('exercise-videos').remove(stale); } catch (e) {} }
+  return saved;
+}
+export async function removeExerciseVideo(v) {
+  await q(sb.from('exercise_videos').delete().eq('id', v.id));
+  try { await sb.storage.from('exercise-videos').remove([v.path, v.poster_path].filter(Boolean)); } catch (e) {}
+}
+export async function adminVideoStats() { return q(sb.rpc('admin_video_stats')); }
+export async function matchVideo(payload) { return askTune(Object.assign({ mode: 'video_match' }, payload)); }
 
 // ---- weekly plan, targets, goals (per pair)
 const ITEM_COLS = 'id,pair_id,day,sets,reps,load,note,position,created_at,exercise:exercises(' + EX_COLS + ')';

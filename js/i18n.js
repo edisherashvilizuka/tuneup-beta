@@ -16,7 +16,8 @@ import { KA14 } from './ka14.js';
 import { KA15 } from './ka15.js';
 import { KA16 } from './ka16.js';
 import { KA17 } from './ka17.js';
-const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10, KA11, KA12, KA13, KA14, KA15, KA16, KA17);
+import { KA18 } from './ka18.js';
+const KA = Object.assign({}, KA1, KA2, KA3, KA4, KA5, KA6, KA7, KA8, KA9, KA10, KA11, KA12, KA13, KA14, KA15, KA16, KA17, KA18);
 
 export const LANG = { cur: 'en' };
 try { const l = localStorage.getItem('tuneup-lang'); if (l === 'ka' || l === 'en') LANG.cur = l; } catch (e) {}

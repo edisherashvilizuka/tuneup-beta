@@ -5,6 +5,7 @@
 import { t, esc, dayName, exName } from './i18n.js';
 import { SCREENS, A, I, NAV, render, cur, rerender, toast, sheet, closeSheet, field, val, busy } from './ui.js';
 import * as db from './db.js';
+import { howBtn } from './videos.js';
 import { S } from './state.js';
 import { GROUP_KEYS, SUBS, groupName, subName, subNamesBoth, EQUIP_KEYS, equipName, EQ_ICON, defaultsFor, inGroup, exLine, howUrl, searchEx, byOrder,
   groupFigure, hotFor, viewsOf, groupsLine } from './exlib.js';
@@ -31,7 +32,7 @@ function exRow(x, day) {
   return '<div class="xrow' + (on ? ' on' : '') + '" role="button" tabindex="0" aria-pressed="' + on + '" onclick="A.pickToggle(\'' + x.id + '\')" onkeydown="if(event.key===\'Enter\')this.click()">' +
     '<span class="xeq">' + (EQ_ICON[x.equip] || EQ_ICON.other) + '</span>' +
     '<div class="grow" style="min-width:0"><div class="t">' + esc(exName(x)) + '</div><div class="s">' + esc(exLine(x) || t('My exercise')) + '</div>' + (badges ? '<div class="xbadges">' + badges + '</div>' : '') + '</div>' +
-    (how ? '<a class="vdot" href="' + esc(how) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="' + esc(t('How to do it')) + '">' + I.play + '</a>' : '') +
+    howBtn(x) +
     '<span class="xsel" aria-hidden="true">' + (on ? I.check : I.plus) + '</span></div>';
 }
 function tray(day) {

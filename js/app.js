@@ -1,4 +1,5 @@
 // Tune Up beta — boot: decide which screen the person lands on.
+import { loadVideos } from './videos.js';
 import { setLang, LANG, t } from './i18n.js';
 import { root, go, back, NAV, setTabs, toast, A, rerender, refreshBadges } from './ui.js';
 import * as db from './db.js';
@@ -61,9 +62,9 @@ async function afterSignIn() {
 
 async function home() {
   try {
-    if (S.me.role === 'trainee') { await loadTrainee(); setTabs(traineeTabs()); root('home'); }
-    else if (S.me.role === 'coach') { await loadCoach(); setTabs(COACH_TABS); root('ctoday'); }
-    else if (S.me.role === 'admin') { await loadAdmin(); setTabs(ADMIN_TABS); root('aover'); }
+    if (S.me.role === 'trainee') { await loadTrainee(); await loadVideos(); setTabs(traineeTabs()); root('home'); }
+    else if (S.me.role === 'coach') { await loadCoach(); await loadVideos(); setTabs(COACH_TABS); root('ctoday'); }
+    else if (S.me.role === 'admin') { await loadAdmin(); await loadVideos(); setTabs(ADMIN_TABS); root('aover'); }
     track('open');
     await initPush(); rerender(); routePending();
     if (S.payReturn && S.me.role === 'trainee') go('payReturn', { payment: S.payReturn });   // the push card/row depend on what the phone says

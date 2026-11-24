@@ -9,6 +9,7 @@ import { planBlock } from './requests.js';
 import { DISTRICTS } from './onboard.js';
 const distLabel = d => { const k = String(d || '').toLowerCase().trim(); const key = Object.keys(DISTRICTS).find(x => x === k || DISTRICTS[x].toLowerCase() === k); return key ? t(DISTRICTS[key]) : (d || ''); };   // stored as a key ("vake"); shown as the name
 import { howUrl } from './exlib.js';
+import { howBtn } from './videos.js';
 import { resolveUrls } from './attach.js';
 import { foodCard, dayTiles, checkinCard } from './log.js';
 import { pushCard, pushRow } from './push.js';
@@ -44,7 +45,7 @@ function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day =
 function doneSet() { return new Set((S.today.logs || []).filter(l => l.kind === 'exercise').map(l => l.ref)); }
 function itemLine(i) { return [i.sets + ' × ' + repsTxt(i.reps), loadTxt(i.load)].filter(Boolean).join(' · '); }
 function videoBtn(x) { return x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''; }
-function videoDot(x) { const u = howUrl(x); return u ? '<a class="vdot" href="' + esc(u) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" aria-label="' + esc(x.video_url ? t('Video') : t('How to do it')) + '">' + I.play + '</a>' : ''; }
+function videoDot(x) { return howBtn(x); }   // 24 Nov: the in-app video when there is one (videos.js), else the How-to link
 function trkRow(i, done, tickable) {
   return '<div class="trow' + (done ? ' done' : '') + '"' + (tickable ? ' data-id="' + esc(i.id) + '"' : '') + (tickable ? ' role="button" tabindex="0" onclick="A.tick(\'' + i.id + '\')" onkeydown="if(event.key===\'Enter\')this.click()"' : '') + '>' +
     (tickable ? '<span class="check ' + (done ? 'on' : '') + '">' + (done ? I.check : '') + '</span>' : '') +

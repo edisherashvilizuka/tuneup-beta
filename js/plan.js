@@ -5,6 +5,7 @@ import * as db from './db.js';
 import { S, isSolo } from './state.js';
 import { itemFields, readItemFields } from './picker.js';
 import { EQ_ICON, exLine, howUrl, dayFigure, groupsLine } from './exlib.js';
+import { howBtn, vidOf, canAddVideos, vidOwn } from './videos.js';
 
 // S.plan = { pairId, items, targets, goals }; S.exercises = library (loaded once per session)
 export async function loadPlan(pairId) {
@@ -16,7 +17,7 @@ export async function loadPlan(pairId) {
 function itemsFor(day) { return (S.plan ? S.plan.items : []).filter(i => i.day === day); }
 export function nEx(n) { return n === 1 ? t('1 exercise') : t('{n} exercises', { n }); }
 function itemLine(i) { return [i.sets + ' × ' + repsTxt(i.reps), loadTxt(i.load)].filter(Boolean).join(' · '); }
-function videoBtn(x) { return x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''; }
+function videoBtn(x) { return x && vidOf(x) ? howBtn(x) : (x && x.video_url ? '<a class="btn xs sec" href="' + esc(x.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + I.video + ' ' + t('Video') + '</a>' : ''); }
 
 // ---- plan overview card (used inside the client screen)
 export function planCard(pairId) {
@@ -43,7 +44,7 @@ SCREENS.planDay = ({ day }) => {
 
 A.editItem = (id) => {
   const i = S.plan.items.find(x => x.id === id); if (!i) return; const how = howUrl(i.exercise);
-  sheet('<div class="h2">' + esc(exName(i.exercise)) + '</div><div class="row" style="gap:10px"><span class="mute small grow">' + esc(exLine(i.exercise || {})) + '</span>' + (how ? '<a class="link small" href="' + esc(how) + '" target="_blank" rel="noopener">' + I.play + ' ' + t('How to do it') + '</a>' : '') + '</div>' + itemFields(i) +
+  sheet('<div class="h2">' + esc(exName(i.exercise)) + '</div><div class="row" style="gap:10px"><span class="mute small grow">' + esc(exLine(i.exercise || {})) + '</span>' + howBtn(i.exercise, 'link') + '</div>' + (canAddVideos() && i.exercise && !vidOwn(i.exercise) ? '<button type="button" class="link small" style="align-self:flex-start" onclick="A.vidAdd(\'' + i.exercise.id + '\')">' + I.camera + ' ' + t('Add my video') + '</button>' : '') + itemFields(i) +
     '<button class="btn" onclick="A.saveItem(\'' + id + '\')">' + t('Save') + '</button><button class="btn sec" onclick="A.removeItem(\'' + id + '\')">' + t('Remove from this day') + '</button>');
 };
 A.saveItem = async (id) => {

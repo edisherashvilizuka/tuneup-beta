@@ -14,7 +14,7 @@ export const COMPONENTS = [
   { k: 'gym', n: true, unit: 'per month', label: 'Gym sessions', sub: 'At your gym' },
   { k: 'video', n: true, unit: 'per month', label: 'Video-call sessions', sub: 'Needs "I also coach online"' },
   { k: 'form', n: true, unit: 'per week', label: 'Form checks', sub: 'The client sends a clip in chat, you reply on it' },
-  { k: 'content', b: true, label: 'Your video content', sub: 'Your follow-along video links' },
+  { k: 'content', b: true, label: 'Your video content', sub: 'Your follow-along video links', labelV: 'Your exercise videos', subV: 'Your own how-to video for each exercise — your clients see it instead of the Tune Up one' },   // V: once videos are on (24 Nov)
   { k: 'checkin', c: true, label: 'Check-in replies', sub: 'How often you answer the evening check-in' },
   { k: 'review', b: true, label: 'Monthly progress review', sub: 'A call plus a written summary' }
 ];
@@ -28,7 +28,7 @@ export function componentLines(c) {
   if (c.gym > 0) out.push(t('{n} gym sessions / month', { n: c.gym }));
   if (c.video > 0) out.push(t('{n} video calls / month', { n: c.video }));
   if (c.form > 0) out.push(t('Form checks {n} / week', { n: c.form }));
-  if (c.content) out.push(t('Coach\'s video content'));
+  if (c.content) out.push(S.vidOn ? t('Coach\'s exercise videos') : t('Coach\'s video content'));
   if (c.checkin && CADENCE[c.checkin]) out.push(t('Check-in replies {c}', { c: t(CADENCE[c.checkin]) }));
   if (c.review) out.push(t('Monthly progress review'));
   if (c.custom) out.push(c.custom);
@@ -75,7 +75,8 @@ function planSheet() {
     const on = comp.b ? !!c[comp.k] : comp.n ? (c[comp.k] || 0) > 0 : !!c[comp.k];
     const ctl = comp.n ? '<div class="stepper"><button type="button" onclick="A.peNum(\'' + comp.k + '\',-1)" aria-label="−">−</button><b>' + (c[comp.k] || 0) + '</b><button type="button" onclick="A.peNum(\'' + comp.k + '\',1)" aria-label="+">+</button></div>'
       : comp.c ? '<button type="button" class="chip sm amb" onclick="A.peCad()">' + esc(c.checkin ? t(CADENCE[c.checkin] || 'weekly') : t('off')) + '</button>' : '';
-    return '<div class="comp"><button type="button" class="check ' + (on ? 'on' : '') + '" onclick="A.peTog(\'' + comp.k + '\')" aria-label="' + esc(t(comp.label)) + '">' + (on ? I.check : '') + '</button><div class="grow"><div class="t">' + esc(t(comp.label)) + (comp.n && on ? ' <span class="mute small">' + esc(t(comp.unit)) + '</span>' : '') + '</div><div class="s">' + esc(t(comp.sub)) + '</div></div>' + ctl + '</div>';
+    const lab = S.vidOn && comp.labelV ? comp.labelV : comp.label, sub = S.vidOn && comp.subV ? comp.subV : comp.sub;
+    return '<div class="comp"><button type="button" class="check ' + (on ? 'on' : '') + '" onclick="A.peTog(\'' + comp.k + '\')" aria-label="' + esc(t(lab)) + '">' + (on ? I.check : '') + '</button><div class="grow"><div class="t">' + esc(t(lab)) + (comp.n && on ? ' <span class="mute small">' + esc(t(comp.unit)) + '</span>' : '') + '</div><div class="s">' + esc(t(sub)) + '</div></div>' + ctl + '</div>';
   };
   const fmt = planFormat(c); const fmtLabel = fmt === 'either' ? t('In person or online') : fmt === 'online' ? t('Online') : t('In person');
   sheet('<div class="h2">' + (i >= 0 ? t('Edit plan') : t('New plan')) + '</div>' +
